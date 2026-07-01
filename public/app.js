@@ -4,6 +4,10 @@ const state = {
   settings: null,
   library: [],
   searchResults: [],
+  releaseWatches: [],
+  releaseWatchesOpen: false,
+  lastSearchQuery: '',
+  downloads: {},
   libraryFilter: 'all',
   librarySort: 'new',
   activeShow: null,
@@ -25,6 +29,12 @@ const els = {
   settingsForm: $('#settingsForm'),
   commandForm: $('#commandForm'),
   commandInput: $('#commandInput'),
+  downloadsBtn: $('#downloadsBtn'),
+  downloadsList: $('#downloadsList'),
+  releaseWatchesCount: $('#releaseWatchesCount'),
+  releaseWatchesCheckBtn: $('#releaseWatchesCheckBtn'),
+  releaseWatchesToggleBtn: $('#releaseWatchesToggleBtn'),
+  releaseWatchesList: $('#releaseWatchesList'),
   jobsBtn: $('#jobsBtn'),
   clearJobsBtn: $('#clearJobsBtn'),
   jobsList: $('#jobsList'),
@@ -32,6 +42,8 @@ const els = {
   dialogTitle: $('#dialogTitle'),
   dialogMeta: $('#dialogMeta'),
   episodeGrid: $('#episodeGrid'),
+  downloadAllBtn: $('#downloadAllBtn'),
+  deleteAllDownloadsBtn: $('#deleteAllDownloadsBtn'),
   closeDialogBtn: $('#closeDialogBtn'),
   detailsDialog: $('#detailsDialog'),
   detailsTitle: $('#detailsTitle'),
@@ -101,8 +113,17 @@ function stripDescription(value) {
   return textarea.value.replace(/\n{3,}/g, '\n\n').trim();
 }
 
+function noSearchResultsHtml(query) {
+  return `
+    <div class="empty empty-action">
+      <span>No results.</span>
+      <button class="small-button secondary" data-action="watch-release" data-query="${escapeHtml(query)}" type="button">Watch release</button>
+    </div>
+  `;
+}
+
 function intentUrl(url, player, title) {
-  const parsed = new URL(url);
+  const parsed = new URL(url, window.location.origin);
   const extras = [
     'action=android.intent.action.VIEW',
     'type=video/mp4',
@@ -141,6 +162,20 @@ async function resolveMpvPlayback(show, episode) {
     url: data.playback.url,
     title: `${show.name || show.title || 'Video'} ep ${episode}`,
   };
+}
+
+async function resolveLocalPlayback(show, episode) {
+  try {
+    const data = await api(`/api/downloads/${encodeURIComponent(show.id)}/${encodeURIComponent(episode)}/playback`);
+    if (!data.playback?.url) return null;
+    return {
+      url: new URL(data.playback.url, window.location.origin).href,
+      title: data.playback.title || `${show.name || show.title || 'Video'} ep ${episode}`,
+      local: true,
+    };
+  } catch {
+    return null;
+  }
 }
 
 function openMpvPlayback(show, episode, playback) {
@@ -229,6 +264,67 @@ function highestWatchedEpisode(show) {
     .at(-1);
 }
 
+function downloadKey(showId, episode) {
+  return `${showId}:${String(episode || '').trim()}`;
+}
+
+function downloadFor(show, episode) {
+  return state.downloads[downloadKey(show.id, episode)] || null;
+}
+
+function downloadStatus(show, episode) {
+  return downloadFor(show, episode)?.status || '';
+}
+
+function isDownloadBusy(status) {
+  return status === 'running' || status === 'queued';
+}
+
+function isDownloadLocked(status) {
+  return isDownloadBusy(status) || status === 'done';
+}
+
+function hasDownloadProgress(item) {
+  return item?.progress !== null && item?.progress !== undefined && Number.isFinite(Number(item.progress));
+}
+
+function downloadButtonText(status) {
+  if (status === 'queued') return 'Queued';
+  if (isDownloadBusy(status)) return 'Downloading';
+  if (status === 'done') return 'Downloaded';
+  if (status === 'failed') return 'Retry download';
+  if (status === 'unknown') return 'Check download';
+  return 'Download';
+}
+
+function downloadProgressText(item) {
+  if (!item) return 'Download';
+  if (item.status === 'queued') return 'Queued';
+  if (item.status === 'running') return 'Downloading';
+  if (item.status === 'done') return item.file?.size ? `${Math.round(item.file.size / 1024 / 1024)} MB` : 'Downloaded';
+  if (item.status === 'failed') return 'Failed';
+  if (item.status === 'unknown') return 'Check';
+  return 'Download';
+}
+
+function episodeStatusText(show, episode, watched, next) {
+  if (watched.has(episode)) return 'Watched';
+  if (episode === String(next)) return 'Up next';
+  if (downloadStatus(show, episode) === 'done') return 'Downloaded';
+  return '';
+}
+
+function episodeTitle(show, episode) {
+  return show.episodeTitles?.[episode] || show.episodeTitles?.[String(episode)] || 'Episode';
+}
+
+function downloadClass(status) {
+  if (isDownloadBusy(status)) return 'downloading';
+  if (status === 'done') return 'downloaded';
+  if (status === 'failed' || status === 'unknown') return 'failed';
+  return '';
+}
+
 function nextSeasonPill(show) {
   if (!show.hasNextSeason) return '';
   const next = show.nextSeason || {};
@@ -248,6 +344,8 @@ function showCard(show, source) {
   const hasNews = Number(show.newCount) > 0;
   const thumb = thumbnailUrl(show);
   const playLabel = playActionLabel(show, source);
+  const download = downloadStatus(show, next);
+  const downloadBusy = isDownloadLocked(download);
   const isTracked = source !== 'library' && state.library.some((item) => item.id === show.id);
   const extraActions = source === 'library'
     ? '<button class="danger" data-action="remove">Remove</button>'
@@ -272,7 +370,7 @@ function showCard(show, source) {
       </div>
       <div class="card-actions four">
         <button class="primary" data-action="play" data-ep="${escapeHtml(next)}">${escapeHtml(playLabel)}</button>
-        <button class="secondary" data-action="download" data-ep="${escapeHtml(next)}">Download</button>
+        <button class="secondary download-action ${downloadClass(download)}" data-action="download" data-ep="${escapeHtml(next)}" ${downloadBusy ? 'disabled' : ''}>${escapeHtml(downloadButtonText(download))}</button>
         <button class="secondary" data-action="episodes">Episodes</button>
         <button class="secondary" data-action="details">About</button>
         ${extraActions}
@@ -411,6 +509,7 @@ async function loadLibrary(refresh = false) {
 async function search(q) {
   document.querySelectorAll('.browse-button').forEach((button) => button.classList.remove('active'));
   state.discoverLoaded = true;
+  state.lastSearchQuery = q;
   els.searchResults.innerHTML = '<div class="empty">Searching...</div>';
   const mode = state.settings?.mode || 'sub';
   const data = await api(`/api/search?q=${encodeURIComponent(q)}&mode=${encodeURIComponent(mode)}`);
@@ -418,7 +517,7 @@ async function search(q) {
   state.searchResults = results;
   els.searchResults.innerHTML = results.length
     ? results.map((show) => showCard(show, 'search')).join('')
-    : '<div class="empty">No results.</div>';
+    : noSearchResultsHtml(q);
 }
 
 async function browsePopular(range, label) {
@@ -471,6 +570,16 @@ function findShow(card) {
 
 async function playShow(show, episode) {
   try {
+    const localDownload = downloadFor(show, episode);
+    if (localDownload?.status === 'done') {
+      toast(`Opening downloaded ep ${episode}...`);
+      const localPlayback = await resolveLocalPlayback(show, episode);
+      if (localPlayback) {
+        openMpvPlayback(show, episode, localPlayback);
+        await loadLibrary(false);
+        return;
+      }
+    }
     toast(`Fetching MPV link for ep ${episode}...`);
     const playback = await resolveMpvPlayback(show, episode);
     toast('Opening MPV...');
@@ -493,7 +602,37 @@ async function downloadEpisode(show, episode) {
     }),
   });
   toast('Download started. Check Settings > Logs.');
+  await loadDownloads();
   setTimeout(() => loadJobs().catch(() => {}), 1200);
+}
+
+async function downloadAllEpisodes(show) {
+  toast('Queueing season downloads...');
+  const data = await api('/api/download-season', {
+    method: 'POST',
+    body: JSON.stringify({
+      ...show,
+      mode: show.mode || state.settings.mode,
+      quality: state.settings.quality,
+    }),
+  });
+  toast(`${data.queued?.length || 0} episodes queued`);
+  await loadDownloads();
+  setTimeout(() => loadJobs().catch(() => {}), 1200);
+}
+
+async function deleteEpisodeDownload(show, episode) {
+  await api(`/api/downloads/${encodeURIComponent(show.id)}/${encodeURIComponent(episode)}`, { method: 'DELETE' });
+  toast(`Episode ${episode} deleted`);
+  await loadDownloads();
+}
+
+async function deleteAllEpisodeDownloads(show) {
+  const ok = window.confirm(`Delete all downloaded episodes for "${show.name || show.title}"? Running downloads will be skipped.`);
+  if (!ok) return;
+  const data = await api(`/api/downloads/${encodeURIComponent(show.id)}`, { method: 'DELETE' });
+  toast(`${data.deleted || 0} downloads removed${data.cancelled ? `, ${data.cancelled} cancelled` : ''}`);
+  await loadDownloads();
 }
 
 async function trackShow(show) {
@@ -560,6 +699,7 @@ async function openEpisodes(show) {
   const data = await api(`/api/shows/${encodeURIComponent(show.id)}/episodes?mode=${encodeURIComponent(mode)}`);
   show.episodes = data.episodes || [];
   show.latestEpisode = data.latestEpisode;
+  show.episodeTitles = data.episodeTitles || {};
   show.name = data.name || show.name;
   show.sourceName = data.sourceName || show.sourceName;
   show.englishName = data.englishName || show.englishName;
@@ -574,13 +714,36 @@ function renderEpisodeGrid(show) {
   els.episodeGrid.innerHTML = show.episodes.map((ep) => {
     const epText = String(ep);
     const classes = ['episode'];
+    const download = downloadFor(show, epText);
+    const status = download?.status || '';
+    const busy = isDownloadBusy(status);
+    const locked = isDownloadLocked(status);
     if (watched.has(epText)) classes.push('watched');
     if (epText === String(next)) classes.push('next');
+    const canDelete = status === 'done' || status === 'failed' || status === 'unknown';
+    const episodeState = episodeStatusText(show, epText, watched, next);
     return `
-      <div class="episode-cell">
-        <button class="${classes.join(' ')}" data-episode="${escapeHtml(epText)}" data-action="episode-play" type="button">${escapeHtml(epText)}</button>
-        <button class="episode-download" data-episode="${escapeHtml(epText)}" data-action="episode-download" type="button" title="Download episode ${escapeHtml(epText)}" aria-label="Download episode ${escapeHtml(epText)}">↓</button>
-      </div>
+      <article class="episode-row-wrap ${status ? `has-download ${escapeHtml(downloadClass(status))}` : ''}" data-episode="${escapeHtml(epText)}">
+        <div class="episode-row">
+          <div class="episode-number">${escapeHtml(epText)}</div>
+          <button class="${classes.join(' ')}" data-episode="${escapeHtml(epText)}" data-action="episode-play" type="button">
+            <span>${escapeHtml(episodeTitle(show, epText))}</span>
+            <small>${escapeHtml(episodeState)}</small>
+          </button>
+          <div class="episode-actions">
+            <button class="episode-download ${downloadClass(status)}" data-episode="${escapeHtml(epText)}" data-action="episode-download" type="button" title="${escapeHtml(downloadButtonText(status))} episode ${escapeHtml(epText)}" aria-label="${escapeHtml(downloadButtonText(status))} episode ${escapeHtml(epText)}" ${locked ? 'disabled' : ''}>
+              <span class="download-icon">${status === 'done' ? '✓' : '↓'}</span>
+              <span>${escapeHtml(downloadProgressText(download))}</span>
+            </button>
+            ${canDelete ? `<button class="episode-delete danger" data-episode="${escapeHtml(epText)}" data-action="episode-delete" type="button">Delete</button>` : ''}
+          </div>
+        </div>
+        ${busy ? `
+          <div class="episode-progress" aria-hidden="true">
+            <span></span>
+          </div>
+        ` : ''}
+      </article>
     `;
   }).join('');
 }
@@ -604,6 +767,50 @@ async function loadJobs() {
   `).join('') : '<div class="empty">No jobs.</div>';
 }
 
+async function loadDownloads() {
+  const data = await api('/api/downloads');
+  state.downloads = data.downloads || {};
+  renderDownloads();
+  renderLibrary();
+  if (state.activeShow) renderEpisodeGrid(state.activeShow);
+  scheduleDownloadsPoll();
+}
+
+function renderDownloads() {
+  const downloads = Object.values(state.downloads || {})
+    .filter((item) => item.status !== 'deleted')
+    .sort((a, b) => String(b.updatedAt || b.startedAt || '').localeCompare(String(a.updatedAt || a.startedAt || '')));
+  els.downloadsList.innerHTML = downloads.length ? downloads.map((item) => {
+    const size = item.file?.size ? `${Math.round(item.file.size / 1024 / 1024)} MB` : '';
+    const meta = [item.status, `Episode ${item.episode}`, size, item.file?.filename].filter(Boolean).join(' · ');
+    return `
+      <article class="download-card ${escapeHtml(downloadClass(item.status))}" data-show-id="${escapeHtml(item.showId)}" data-episode="${escapeHtml(item.episode)}">
+        <div>
+          <strong>${escapeHtml(item.showName || 'Download')}</strong>
+          <span>${escapeHtml(meta)}</span>
+        </div>
+        <button class="small-button danger" data-action="delete-download" type="button" ${isDownloadBusy(item.status) ? 'disabled' : ''}>Delete</button>
+      </article>
+    `;
+  }).join('') : '<div class="empty">No downloads.</div>';
+}
+
+function scheduleDownloadsPoll() {
+  clearTimeout(loadDownloads.timer);
+  const hasActive = Object.values(state.downloads || {}).some((item) => isDownloadBusy(item.status));
+  if (hasActive) {
+    loadDownloads.timer = setTimeout(() => loadDownloads().catch(() => {}), 1200);
+  }
+}
+
+async function deleteDownload(showId, episode) {
+  const ok = window.confirm(`Delete downloaded episode ${episode}?`);
+  if (!ok) return;
+  await api(`/api/downloads/${encodeURIComponent(showId)}/${encodeURIComponent(episode)}`, { method: 'DELETE' });
+  toast('Download deleted');
+  await loadDownloads();
+}
+
 async function clearJobs() {
   const ok = window.confirm('Clear all job entries and job log files?');
   if (!ok) return;
@@ -612,9 +819,118 @@ async function clearJobs() {
   toast('Jobs cleared');
 }
 
+async function requestNotificationPermission() {
+  if (!('Notification' in window)) return false;
+  if (Notification.permission === 'granted') return true;
+  if (Notification.permission !== 'default') return false;
+  return (await Notification.requestPermission()) === 'granted';
+}
+
+function notifyReleaseWatch(watch) {
+  const title = watch.matchedShow?.name || watch.matchedShow?.title || watch.query;
+  const key = `ani-web-release-watch-${watch.id}-${watch.foundAt || ''}`;
+  if (localStorage.getItem(key)) return;
+  localStorage.setItem(key, '1');
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification('Release found', {
+      body: title,
+      tag: `release-watch-${watch.id}`,
+    });
+    return;
+  }
+  toast(`Release found: ${title}`);
+}
+
+async function loadReleaseWatches() {
+  if (!els.releaseWatchesList) return;
+  const data = await api('/api/release-watches');
+  state.releaseWatches = data.watches || [];
+  renderReleaseWatches();
+}
+
+function renderReleaseWatches() {
+  if (!els.releaseWatchesList) return;
+  const count = state.releaseWatches.length;
+  const foundCount = state.releaseWatches.filter((watch) => watch.status === 'found').length;
+  if (els.releaseWatchesCount) {
+    els.releaseWatchesCount.textContent = foundCount ? `${foundCount}/${count}` : String(count);
+    els.releaseWatchesCount.classList.toggle('hot', foundCount > 0);
+  }
+  if (els.releaseWatchesToggleBtn) {
+    els.releaseWatchesToggleBtn.textContent = state.releaseWatchesOpen ? 'Hide' : 'Show';
+    els.releaseWatchesToggleBtn.disabled = count === 0;
+  }
+  if (!count) state.releaseWatchesOpen = false;
+  if (!state.releaseWatchesOpen) {
+    els.releaseWatchesList.hidden = true;
+    els.releaseWatchesList.innerHTML = '';
+    return;
+  }
+  els.releaseWatchesList.hidden = false;
+  els.releaseWatchesList.innerHTML = state.releaseWatches.length ? state.releaseWatches.map((watch) => {
+    const found = watch.status === 'found';
+    const title = watch.matchedShow?.name || watch.matchedShow?.title || '';
+    const checked = watch.lastCheckedAt ? new Date(watch.lastCheckedAt).toLocaleString() : 'Not checked yet';
+    return `
+      <article class="watch-card ${found ? 'found' : ''}" data-watch-id="${escapeHtml(watch.id)}">
+        <div>
+          <strong>${escapeHtml(watch.query)}</strong>
+          <span>${escapeHtml(found ? `Found: ${title}` : `Watching · ${watch.mode}`)}</span>
+          <span>${escapeHtml(`Last check: ${checked}`)}</span>
+        </div>
+        <div class="watch-actions">
+          ${found && watch.matchedShow?.id ? '<button class="small-button secondary" data-action="watch-track" type="button">Track</button>' : ''}
+          <button class="small-button danger" data-action="delete-watch" type="button">Remove</button>
+        </div>
+      </article>
+    `;
+  }).join('') : '<div class="empty">No watches yet.</div>';
+}
+
+async function watchRelease(query) {
+  const cleanQuery = String(query || '').trim();
+  if (!cleanQuery) return;
+  await requestNotificationPermission();
+  await api('/api/release-watches', {
+    method: 'POST',
+    body: JSON.stringify({ query: cleanQuery, mode: state.settings?.mode || 'sub' }),
+  });
+  state.releaseWatchesOpen = true;
+  toast(`Watching "${cleanQuery}"`);
+  await loadReleaseWatches();
+}
+
+async function checkReleaseWatches({ silent = false } = {}) {
+  const data = await api('/api/release-watches/check', { method: 'POST' });
+  state.releaseWatches = data.watches || [];
+  if (!silent && (data.found || []).length) state.releaseWatchesOpen = true;
+  renderReleaseWatches();
+  const found = data.found || [];
+  found.forEach(notifyReleaseWatch);
+  if (!silent) toast(found.length ? `${found.length} release watch found` : 'No releases found yet');
+}
+
+async function deleteReleaseWatch(id) {
+  await api(`/api/release-watches/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  state.releaseWatches = state.releaseWatches.filter((watch) => watch.id !== id);
+  if (!state.releaseWatches.length) state.releaseWatchesOpen = false;
+  renderReleaseWatches();
+  toast('Release watch removed');
+}
+
 document.addEventListener('click', async (event) => {
   const tab = event.target.closest('.tab');
   if (tab) switchView(tab.dataset.view);
+
+  const releaseWatchButton = event.target.closest('button[data-action="watch-release"]');
+  if (releaseWatchButton) {
+    try {
+      await withBusy(releaseWatchButton, 'Saving...', () => watchRelease(releaseWatchButton.dataset.query || state.lastSearchQuery));
+    } catch (err) {
+      toast(err.message);
+    }
+    return;
+  }
 
   const browseButton = event.target.closest('.browse-button');
   if (browseButton) {
@@ -662,6 +978,16 @@ function busyLabel(action) {
 }
 
 els.episodeGrid.addEventListener('click', async (event) => {
+  const deleteButton = event.target.closest('.episode-delete');
+  if (deleteButton && state.activeShow) {
+    try {
+      await withBusy(deleteButton, 'Deleting...', () => deleteEpisodeDownload(state.activeShow, deleteButton.dataset.episode));
+    } catch (err) {
+      toast(err.message);
+    }
+    return;
+  }
+
   const downloadButton = event.target.closest('.episode-download');
   if (downloadButton && state.activeShow) {
     try {
@@ -688,6 +1014,43 @@ els.episodeGrid.addEventListener('click', async (event) => {
 
 els.closeDialogBtn.addEventListener('click', () => els.dialog.close());
 els.closeDetailsBtn.addEventListener('click', () => els.detailsDialog.close());
+els.downloadAllBtn.addEventListener('click', () => {
+  if (!state.activeShow) return;
+  withBusy(els.downloadAllBtn, 'Queueing...', () => downloadAllEpisodes(state.activeShow)).catch((err) => toast(err.message));
+});
+els.deleteAllDownloadsBtn.addEventListener('click', () => {
+  if (!state.activeShow) return;
+  withBusy(els.deleteAllDownloadsBtn, 'Deleting...', () => deleteAllEpisodeDownloads(state.activeShow)).catch((err) => toast(err.message));
+});
+els.downloadsList.addEventListener('click', async (event) => {
+  const button = event.target.closest('button[data-action="delete-download"]');
+  if (!button) return;
+  const card = button.closest('.download-card');
+  if (!card) return;
+  try {
+    await withBusy(button, 'Deleting...', () => deleteDownload(card.dataset.showId, card.dataset.episode));
+  } catch (err) {
+    toast(err.message);
+  }
+});
+els.releaseWatchesList.addEventListener('click', async (event) => {
+  const button = event.target.closest('button[data-action]');
+  if (!button) return;
+  const card = button.closest('.watch-card');
+  const watch = state.releaseWatches.find((item) => item.id === card?.dataset.watchId);
+  if (!watch) return;
+  try {
+    if (button.dataset.action === 'delete-watch') {
+      await withBusy(button, 'Removing...', () => deleteReleaseWatch(watch.id));
+    }
+    if (button.dataset.action === 'watch-track' && watch.matchedShow) {
+      await withBusy(button, 'Saving...', () => trackShow(watch.matchedShow));
+      await deleteReleaseWatch(watch.id);
+    }
+  } catch (err) {
+    toast(err.message);
+  }
+});
 els.detailsBody.addEventListener('click', async (event) => {
   const button = event.target.closest('button[data-action]');
   if (!button) return;
@@ -710,6 +1073,12 @@ els.detailsBody.addEventListener('click', async (event) => {
   }
 });
 els.refreshBtn.addEventListener('click', () => loadLibrary(true).catch((err) => toast(err.message)));
+els.downloadsBtn.addEventListener('click', () => loadDownloads().catch((err) => toast(err.message)));
+els.releaseWatchesCheckBtn.addEventListener('click', () => checkReleaseWatches().catch((err) => toast(err.message)));
+els.releaseWatchesToggleBtn.addEventListener('click', () => {
+  state.releaseWatchesOpen = !state.releaseWatchesOpen;
+  renderReleaseWatches();
+});
 els.libraryFilter.addEventListener('change', () => {
   state.libraryFilter = els.libraryFilter.value;
   renderLibrary();
@@ -763,6 +1132,9 @@ if ('serviceWorker' in navigator) {
   try {
     await Promise.all([loadStatus(), loadSettings()]);
     await loadLibrary(false);
+    await loadDownloads();
+    await loadReleaseWatches();
+    checkReleaseWatches({ silent: true }).catch(() => {});
     await loadJobs();
   } catch (err) {
     toast(err.message);

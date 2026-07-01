@@ -51,12 +51,23 @@
             <button type="submit">Search</button>
           </form>
           <div class="browse-row" aria-label="Browse anime">
-            <button class="browse-button" data-recommended="1" type="button">Recommended</button>
+            <button class="browse-button" data-recommended="1" type="button">For you</button>
             <button class="browse-button" data-popular-range="0" type="button">Popular</button>
             <button class="browse-button" data-popular-range="1" type="button">Hot</button>
-            <button class="browse-button" data-popular-range="7" type="button">Weekly</button>
-            <button class="browse-button" data-popular-range="30" type="button">Monthly</button>
+            <button class="browse-button" data-popular-range="7" type="button">Week</button>
+            <button class="browse-button" data-popular-range="30" type="button">Month</button>
           </div>
+          <div class="section-head compact watch-head">
+            <div class="watch-title">
+              <h2>Watching</h2>
+              <span id="releaseWatchesCount" class="counter">0</span>
+            </div>
+            <div class="inline-actions">
+              <button id="releaseWatchesCheckBtn" class="small-button" type="button">Check</button>
+              <button id="releaseWatchesToggleBtn" class="small-button" type="button">Show</button>
+            </div>
+          </div>
+          <div id="releaseWatchesList" class="watch-list" hidden></div>
           <div id="searchResults" class="show-list"></div>
         </section>
 
@@ -104,6 +115,14 @@
             </form>
 
             <div class="section-head compact">
+              <h2>Downloads</h2>
+              <div class="inline-actions">
+                <button id="downloadsBtn" class="small-button" type="button">Refresh</button>
+              </div>
+            </div>
+            <div id="downloadsList" class="downloads-list"></div>
+
+            <div class="section-head compact">
               <h2>Logs</h2>
               <div class="inline-actions">
                 <button id="jobsBtn" class="small-button" type="button">Fetch</button>
@@ -130,7 +149,11 @@
         </div>
         <button id="closeDialogBtn" class="icon-button" type="button" title="Close" aria-label="Close">×</button>
       </div>
-      <div id="episodeGrid" class="episode-grid"></div>
+      <div class="episode-toolbar">
+        <button id="downloadAllBtn" class="secondary" type="button">Download all</button>
+        <button id="deleteAllDownloadsBtn" class="danger" type="button">Delete all</button>
+      </div>
+      <div id="episodeGrid" class="episode-list"></div>
     </dialog>
 
     <dialog id="detailsDialog">
@@ -145,6 +168,6 @@
     </dialog>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=44" defer></script>
+    <script src="/app.js?v=57" defer></script>
   </body>
 </html>

@@ -18,6 +18,7 @@ const PORT = Number(process.env.ANI_WEB_PORT || process.env.PORT || 7831);
 const ANI_CLI = process.env.ANI_CLI_BIN || 'ani-cli';
 const HISTORY_DIR = process.env.ANI_CLI_HIST_DIR || path.join(process.env.XDG_STATE_HOME || path.join(os.homedir(), '.local', 'state'), 'ani-cli');
 const HISTORY_FILE = path.join(HISTORY_DIR, 'ani-hsts');
+const DOWNLOAD_DIR = path.resolve(process.env.ANI_CLI_DOWNLOAD_DIR || os.homedir());
 const ALLANIME_BASE = process.env.ANI_WEB_ALLANIME_BASE || 'allanime.day';
 const ALLANIME_API = `https://api.${ALLANIME_BASE}/api`;
 const ALLANIME_REFERER = 'https://youtu-chan.com';
@@ -25,7 +26,10 @@ const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20
 const MAX_BODY = 1024 * 1024;
 const DETAIL_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
 const RECOMMENDATION_CACHE_TTL_MS = 45 * 60 * 1000;
+const DOWNLOAD_CONCURRENCY = Math.max(1, Number(process.env.ANI_WEB_DOWNLOAD_CONCURRENCY || 2));
 const jobs = new Map();
+const downloadQueue = [];
+let activeDownloads = 0;
 
 ensureDataDir();
 
@@ -78,6 +82,8 @@ function readState() {
   state.shows ||= {};
   state.settings = { ...defaultSettings(), ...(state.settings || {}) };
   state.jobs ||= [];
+  state.downloads ||= {};
+  state.releaseWatches ||= {};
   state.cache ||= {};
   state.cache.details ||= {};
   state.cache.recommendations ||= {};
@@ -216,6 +222,204 @@ function compareEpisodes(a, b) {
 
 function highestEpisode(episodes) {
   return [...episodes].filter(Boolean).sort(compareEpisodes).at(-1) || null;
+}
+
+function downloadKey(showId, episode) {
+  return `${showId}:${episodeKey(episode)}`;
+}
+
+function safeDownloadBase(value) {
+  return String(value || '')
+    .replace(/[\\/:*?"<>|]/g, '')
+    .trim();
+}
+
+function expectedDownloadPath(show, episode) {
+  const title = cleanTitle(show.sourceName || show.name || show.title || '');
+  const cleanedTitle = safeDownloadBase(title.replace(/\([^)]*\)/g, '').replace(/[!"#$%&'()*+,./:;<=>?@[\\\]^_`{|}~-]/g, ''));
+  const fallbackTitle = safeDownloadBase(title) || 'Anime';
+  const base = cleanedTitle || fallbackTitle;
+  return path.join(DOWNLOAD_DIR, `${base} Episode ${normalizeEpisode(episode)}.mp4`);
+}
+
+function isInsideDownloadDir(filePath) {
+  const resolved = path.resolve(filePath);
+  return resolved === DOWNLOAD_DIR || resolved.startsWith(`${DOWNLOAD_DIR}${path.sep}`);
+}
+
+function fileInfo(filePath) {
+  try {
+    const stat = fs.statSync(filePath);
+    if (!stat.isFile()) return null;
+    return {
+      path: filePath,
+      filename: path.basename(filePath),
+      size: stat.size,
+      updatedAt: stat.mtime.toISOString(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function sizeLabel(bytes) {
+  if (!Number.isFinite(Number(bytes)) || Number(bytes) <= 0) return '';
+  const mb = Number(bytes) / 1024 / 1024;
+  return `${mb >= 10 ? Math.round(mb) : mb.toFixed(1)} MB`;
+}
+
+function parseDownloadProgress(record) {
+  if (!record?.job?.logFile && !record?.logFile) return null;
+  try {
+    const logFile = record.job?.logFile || record.logFile;
+    const output = stripAnsi(fs.readFileSync(logFile, 'utf8')).slice(-12000);
+    const matches = [...output.matchAll(/\((\d{1,3}(?:\.\d+)?)%\)|\b(\d{1,3}(?:\.\d+)?)%/g)]
+      .map((match) => Number(match[1] ?? match[2]))
+      .filter((value) => Number.isFinite(value) && value >= 0 && value <= 100);
+    if (!matches.length) return null;
+    return Math.max(0, Math.min(100, matches.at(-1)));
+  } catch {
+    return null;
+  }
+}
+
+function downloadStatus(record) {
+  if (!record) return null;
+  const job = jobs.get(record.jobId);
+  const current = job || record.job || {};
+  const file = fileInfo(record.filePath);
+  let status = record.status || current.status || 'queued';
+  if (file && status !== 'deleted') status = current.status === 'failed' ? 'failed' : 'done';
+  if (current.status === 'running') status = 'running';
+  if (!file && ['queued', 'running'].includes(status) && !job) status = 'unknown';
+  return {
+    ...record,
+    status,
+    progress: status === 'done' ? 100 : parseDownloadProgress({ ...record, job: current }),
+    downloadedBytes: status === 'running' && file ? file.size : null,
+    downloadedLabel: status === 'running' && file ? sizeLabel(file.size) : '',
+    file: file || null,
+    job: current.id ? current : null,
+  };
+}
+
+function isDownloadBusy(status) {
+  return status === 'queued' || status === 'running';
+}
+
+function refreshDownloadRecords(state) {
+  state.downloads ||= {};
+  for (const [key, record] of Object.entries(state.downloads)) {
+    state.downloads[key] = downloadStatus(record);
+  }
+  return state.downloads;
+}
+
+function updateDownloadRecord(key, job) {
+  const state = readState();
+  const existing = state.downloads?.[key] || {};
+  state.downloads ||= {};
+  state.downloads[key] = downloadStatus({
+    ...existing,
+    job,
+    status: job.status,
+    finishedAt: job.finishedAt || existing.finishedAt,
+    updatedAt: new Date().toISOString(),
+  });
+  saveState(state);
+}
+
+function createDownloadRecord(state, show, episode, mode, job) {
+  const normalizedEpisode = normalizeEpisode(episode);
+  const key = downloadKey(show.id, normalizedEpisode);
+  state.downloads ||= {};
+  state.downloads[key] = downloadStatus({
+    key,
+    showId: show.id,
+    episode: normalizedEpisode,
+    showName: show.name || show.title || '',
+    mode,
+    filePath: expectedDownloadPath(show, normalizedEpisode),
+    jobId: job.id,
+    job,
+    status: job.status,
+    startedAt: job.startedAt,
+    updatedAt: new Date().toISOString(),
+  });
+  return state.downloads[key];
+}
+
+function cancelQueuedDownload(jobId) {
+  const index = downloadQueue.findIndex((item) => item.job.id === jobId);
+  if (index === -1) return false;
+  const [item] = downloadQueue.splice(index, 1);
+  item.cancelled = true;
+  item.job.status = 'cancelled';
+  item.job.finishedAt = new Date().toISOString();
+  item.onUpdate?.(item.job);
+  return true;
+}
+
+function cancelRunningDownload(jobId) {
+  const job = jobs.get(jobId);
+  if (!job || job.status !== 'running') return false;
+  job.status = 'cancelled';
+  job.finishedAt = new Date().toISOString();
+  try {
+    job.child?.kill('SIGTERM');
+  } catch {}
+  setTimeout(() => {
+    try {
+      if (job.child && !job.child.killed) job.child.kill('SIGKILL');
+    } catch {}
+  }, 1500);
+  return true;
+}
+
+function removeDownloadFiles(record) {
+  if (!record?.filePath || !isInsideDownloadDir(record.filePath)) return false;
+  let removed = false;
+  for (const filePath of [record.filePath, `${record.filePath}.aria2`]) {
+    if (fs.existsSync(filePath)) {
+      fs.rmSync(filePath, { force: true });
+      removed = true;
+    }
+  }
+  return removed;
+}
+
+function streamDownloadFile(req, res, filePath) {
+  const stat = fs.statSync(filePath);
+  const range = req.headers.range;
+  const headers = {
+    'content-type': 'video/mp4',
+    'accept-ranges': 'bytes',
+    'cache-control': 'no-store',
+  };
+
+  if (range) {
+    const match = range.match(/bytes=(\d*)-(\d*)/);
+    const start = match?.[1] ? Number(match[1]) : 0;
+    const end = match?.[2] ? Number(match[2]) : stat.size - 1;
+    if (!Number.isFinite(start) || !Number.isFinite(end) || start > end || start >= stat.size) {
+      res.writeHead(416, { 'content-range': `bytes */${stat.size}` });
+      res.end();
+      return;
+    }
+    res.writeHead(206, {
+      ...headers,
+      'content-length': end - start + 1,
+      'content-range': `bytes ${start}-${end}/${stat.size}`,
+    });
+    fs.createReadStream(filePath, { start, end }).pipe(res);
+    return;
+  }
+
+  res.writeHead(200, {
+    ...headers,
+    'content-length': stat.size,
+  });
+  fs.createReadStream(filePath).pipe(res);
 }
 
 function readHistory() {
@@ -470,13 +674,18 @@ async function getRelatedShowSummaries(relatedShows, mode = 'sub') {
 }
 
 async function getShowDetails(id, mode = 'sub', options = {}) {
-  const episodesQuery = 'query ($showId: String!) { show( _id: $showId ) { _id name englishName nativeName thumbnail banner thumbnails description genres score type status availableEpisodes availableEpisodesDetail franchiseKey franchiseName relatedShows }}';
+  const episodesQuery = 'query ($showId: String!) { show( _id: $showId ) { _id name englishName nativeName thumbnail banner thumbnails description genres score type status availableEpisodes availableEpisodesDetail lastEpisodeInfo franchiseKey franchiseName relatedShows }}';
   const json = await graphql(episodesQuery, { showId: id });
   const show = json?.data?.show || {};
   const list = show.availableEpisodesDetail?.[normalizeMode(mode)] || [];
   const episodes = list.map(String).sort(compareEpisodes);
   const episodeCount = show.availableEpisodes?.[normalizeMode(mode)] || episodes.length;
   const name = preferredName(show);
+  const lastInfo = show.lastEpisodeInfo?.[normalizeMode(mode)] || show.lastEpisodeInfo?.sub || show.lastEpisodeInfo?.raw || {};
+  const episodeTitles = {};
+  if (lastInfo.episodeString && lastInfo.notes) {
+    episodeTitles[normalizeEpisode(lastInfo.episodeString)] = String(lastInfo.notes).split('<note-split>')[0].trim();
+  }
   const details = {
     id,
     name,
@@ -496,6 +705,7 @@ async function getShowDetails(id, mode = 'sub', options = {}) {
     relatedShows: normalizeRelatedShows(show.relatedShows),
     title: `${name} (${episodeCount} episodes)`,
     episodeCount,
+    episodeTitles,
     episodes,
     latestEpisode: highestEpisode(episodes),
   };
@@ -607,6 +817,62 @@ async function recommendedAnime(state, mode = 'sub') {
   cacheSet(state, 'recommendations', key, ranked);
   trimCache(state, 'recommendations', 8);
   return ranked;
+}
+
+function normalizeWatchQuery(value) {
+  return String(value || '').trim().replace(/\s+/g, ' ');
+}
+
+function releaseWatchId(query, mode) {
+  return crypto.createHash('sha1').update(`${normalizeMode(mode)}:${normalizeWatchQuery(query).toLowerCase()}`).digest('hex').slice(0, 16);
+}
+
+function presentReleaseWatch(watch) {
+  return {
+    id: watch.id,
+    query: watch.query,
+    mode: normalizeMode(watch.mode),
+    status: watch.status || 'watching',
+    createdAt: watch.createdAt || null,
+    updatedAt: watch.updatedAt || null,
+    lastCheckedAt: watch.lastCheckedAt || null,
+    foundAt: watch.foundAt || null,
+    matchedShow: watch.matchedShow || null,
+  };
+}
+
+function createReleaseWatch(state, query, mode = state.settings.mode) {
+  const cleanQuery = normalizeWatchQuery(query);
+  if (!cleanQuery) throw new Error('Missing search query');
+  const normalizedMode = normalizeMode(mode);
+  const id = releaseWatchId(cleanQuery, normalizedMode);
+  const now = new Date().toISOString();
+  const existing = state.releaseWatches[id] || {};
+  state.releaseWatches[id] = {
+    ...existing,
+    id,
+    query: existing.query || cleanQuery,
+    mode: existing.mode || normalizedMode,
+    status: existing.status || 'watching',
+    createdAt: existing.createdAt || now,
+    updatedAt: now,
+  };
+  return state.releaseWatches[id];
+}
+
+async function checkReleaseWatch(state, watch) {
+  const now = new Date().toISOString();
+  const results = await searchAnime(watch.query, watch.mode || state.settings.mode);
+  const match = results[0] || null;
+  state.releaseWatches[watch.id] = {
+    ...watch,
+    status: match ? 'found' : 'watching',
+    matchedShow: match,
+    foundAt: match ? (watch.foundAt || now) : null,
+    lastCheckedAt: now,
+    updatedAt: now,
+  };
+  return state.releaseWatches[watch.id];
 }
 
 async function refreshShow(state, show) {
@@ -772,48 +1038,90 @@ function startPtyJob(label, args, envPatch = {}) {
   return job;
 }
 
-function startBackgroundJob(label, args, envPatch = {}) {
+function startBackgroundJob(label, args, envPatch = {}, onUpdate = null) {
   const id = crypto.randomUUID();
   const logFile = path.join(JOB_LOG_DIR, `${id}.log`);
-  const output = fs.openSync(logFile, 'a');
   const job = {
     id,
     label,
     args,
-    status: 'running',
-    output: 'Job started in the background',
+    status: 'queued',
+    output: 'Queued for download',
     logFile,
+    queuedAt: new Date().toISOString(),
     startedAt: new Date().toISOString(),
   };
   jobs.set(id, job);
+  downloadQueue.push({ job, args, envPatch, onUpdate, cancelled: false });
+  setImmediate(processDownloadQueue);
+  return job;
+}
 
-  const child = spawn(ANI_CLI, args, {
-    cwd: os.homedir(),
-    env: { ...process.env, ANI_CLI_EXTERNAL_MENU: '0', ...envPatch },
-    stdio: ['ignore', output, output],
-  });
+function processDownloadQueue() {
+  while (activeDownloads < DOWNLOAD_CONCURRENCY && downloadQueue.length) {
+    activeDownloads += 1;
+    runBackgroundJob(downloadQueue.shift());
+  }
+}
+
+function runBackgroundJob(item) {
+  const { job, args, envPatch, onUpdate } = item;
+  if (item.cancelled || job.status === 'cancelled') {
+    onUpdate?.(job);
+    return;
+  }
+  job.status = 'running';
+  job.output = 'Download running';
+  job.runStartedAt = new Date().toISOString();
+  onUpdate?.(job);
+
+  fs.writeFileSync(job.logFile, `${job.output}\n`, { flag: 'a' });
+  const usePtyLog = commandExists('script');
+  const output = usePtyLog ? null : fs.openSync(job.logFile, 'a');
+  const child = usePtyLog
+    ? spawn('script', ['-q', '-e', '-O', job.logFile, '--', ANI_CLI, ...args], {
+      cwd: os.homedir(),
+      env: { ...process.env, ANI_CLI_EXTERNAL_MENU: '0', ...envPatch },
+      stdio: 'ignore',
+    })
+    : spawn(ANI_CLI, args, {
+      cwd: os.homedir(),
+      env: { ...process.env, ANI_CLI_EXTERNAL_MENU: '0', ...envPatch },
+      stdio: ['ignore', output, output],
+    });
 
   job.pid = child.pid;
+  job.child = child;
   let outputClosed = false;
+  let finished = false;
   const closeOutput = () => {
     if (outputClosed) return;
     outputClosed = true;
-    fs.closeSync(output);
+    if (output !== null) fs.closeSync(output);
+  };
+  const finish = () => {
+    if (finished) return;
+    finished = true;
+    activeDownloads = Math.max(0, activeDownloads - 1);
+    processDownloadQueue();
   };
   child.on('error', (err) => {
     closeOutput();
     job.status = 'failed';
     job.error = err.message;
     job.finishedAt = new Date().toISOString();
+    onUpdate?.(job);
+    finish();
   });
   child.on('close', (code, signal) => {
     closeOutput();
-    job.status = code === 0 ? 'done' : 'failed';
+    job.status = job.status === 'cancelled' ? 'cancelled' : code === 0 ? 'done' : 'failed';
     job.exitCode = code;
     job.signal = signal;
     job.finishedAt = new Date().toISOString();
+    onUpdate?.(job);
+    finish();
   });
-  return job;
 }
 
 function hydrateJobLog(job) {
@@ -992,6 +1300,56 @@ async function handleApi(req, res, url) {
       return sendJson(res, 200, { results });
     }
 
+    if (req.method === 'GET' && url.pathname === '/api/release-watches') {
+      const state = readState();
+      const watches = Object.values(state.releaseWatches)
+        .map(presentReleaseWatch)
+        .sort((a, b) => String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')));
+      return sendJson(res, 200, { watches });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/release-watches') {
+      const body = await readBody(req);
+      const state = readState();
+      const watch = createReleaseWatch(state, body.query, body.mode || state.settings.mode);
+      saveState(state);
+      return sendJson(res, 200, { watch: presentReleaseWatch(watch) });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/release-watches/check') {
+      const state = readState();
+      const watches = Object.values(state.releaseWatches || {});
+      const checked = [];
+      for (const watch of watches) {
+        checked.push(await checkReleaseWatch(state, watch));
+      }
+      saveState(state);
+      return sendJson(res, 200, {
+        watches: checked.map(presentReleaseWatch),
+        found: checked.filter((watch) => watch.status === 'found').map(presentReleaseWatch),
+      });
+    }
+
+    const releaseWatchMatch = url.pathname.match(/^\/api\/release-watches\/([^/]+)$/);
+    if (req.method === 'DELETE' && releaseWatchMatch) {
+      const id = decodeURIComponent(releaseWatchMatch[1]);
+      const state = readState();
+      if (!state.releaseWatches[id]) return sendError(res, 404, 'Release watch not found');
+      delete state.releaseWatches[id];
+      saveState(state);
+      return sendJson(res, 200, { ok: true });
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/downloads') {
+      const state = readState();
+      const downloads = refreshDownloadRecords(state);
+      saveState(state);
+      return sendJson(res, 200, {
+        downloadDir: DOWNLOAD_DIR,
+        downloads: Object.fromEntries(Object.entries(downloads).map(([key, record]) => [key, downloadStatus(record)])),
+      });
+    }
+
     const episodeMatch = url.pathname.match(/^\/api\/shows\/([^/]+)\/episodes$/);
     if (req.method === 'GET' && episodeMatch) {
       const id = decodeURIComponent(episodeMatch[1]);
@@ -1160,9 +1518,131 @@ async function handleApi(req, res, url) {
         quality: body.quality || state.settings.quality,
       });
       const label = `Download ${details.name || body.title || body.name} ep ${body.episode}`;
-      const job = startBackgroundJob(label, args);
+      const key = downloadKey(body.id, body.episode);
+      const job = startBackgroundJob(label, args, {}, (updatedJob) => updateDownloadRecord(key, updatedJob));
+      createDownloadRecord(state, details, body.episode, mode, job);
       saveState(state);
-      return sendJson(res, 200, { job });
+      return sendJson(res, 200, { job, download: state.downloads[key] });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/download-season') {
+      const body = await readBody(req);
+      const state = readState();
+      const mode = normalizeMode(body.mode || state.settings.mode);
+      if (!body.id) throw new Error('Missing show id');
+
+      const details = await getShowDetails(body.id, mode);
+      if (!details.episodes.length) throw new Error('No episodes found');
+      if (state.shows[body.id]) {
+        mergeShow(state, { ...state.shows[body.id], ...details, lastCheckedAt: new Date().toISOString() });
+      }
+
+      let index = Number(body.index || 0);
+      if (!index) {
+        const results = await searchAnime(details.sourceName || details.englishName || details.name, mode);
+        index = results.find((item) => item.id === body.id)?.index || 1;
+      }
+
+      refreshDownloadRecords(state);
+      const queued = [];
+      for (const episode of details.episodes.sort(compareEpisodes)) {
+        const key = downloadKey(body.id, episode);
+        const existing = downloadStatus(state.downloads[key]);
+        if (existing && ['queued', 'running', 'done'].includes(existing.status)) continue;
+        const args = await buildAniCliArgs({
+          ...body,
+          ...details,
+          episode,
+          index,
+          mode,
+          download: true,
+          player: 'default',
+          quality: body.quality || state.settings.quality,
+        });
+        const label = `Download ${details.name || body.title || body.name} ep ${episode}`;
+        const job = startBackgroundJob(label, args, {}, (updatedJob) => updateDownloadRecord(key, updatedJob));
+        queued.push(createDownloadRecord(state, details, episode, mode, job));
+      }
+      saveState(state);
+      return sendJson(res, 200, { queued, concurrency: DOWNLOAD_CONCURRENCY });
+    }
+
+    const downloadPlaybackMatch = url.pathname.match(/^\/api\/downloads\/([^/]+)\/([^/]+)\/playback$/);
+    if (req.method === 'GET' && downloadPlaybackMatch) {
+      const showId = decodeURIComponent(downloadPlaybackMatch[1]);
+      const episode = decodeURIComponent(downloadPlaybackMatch[2]);
+      const key = downloadKey(showId, episode);
+      const state = readState();
+      const existing = downloadStatus(state.downloads?.[key]);
+      if (!existing || existing.status !== 'done' || !existing.file?.path) return sendError(res, 404, 'Downloaded episode not found');
+      if (!isInsideDownloadDir(existing.file.path)) return sendError(res, 403, 'Download path is outside the download directory');
+      return sendJson(res, 200, {
+        playback: {
+          local: true,
+          url: `/api/downloads/${encodeURIComponent(showId)}/${encodeURIComponent(episode)}/file`,
+          title: `${existing.showName || 'Video'} ep ${existing.episode}`,
+        },
+      });
+    }
+
+    const downloadFileMatch = url.pathname.match(/^\/api\/downloads\/([^/]+)\/([^/]+)\/file$/);
+    if (req.method === 'GET' && downloadFileMatch) {
+      const showId = decodeURIComponent(downloadFileMatch[1]);
+      const episode = decodeURIComponent(downloadFileMatch[2]);
+      const key = downloadKey(showId, episode);
+      const state = readState();
+      const existing = downloadStatus(state.downloads?.[key]);
+      if (!existing || existing.status !== 'done' || !existing.file?.path) return sendError(res, 404, 'Downloaded episode not found');
+      if (!isInsideDownloadDir(existing.file.path)) return sendError(res, 403, 'Download path is outside the download directory');
+      return streamDownloadFile(req, res, existing.file.path);
+    }
+
+    const downloadMatch = url.pathname.match(/^\/api\/downloads\/([^/]+)\/([^/]+)$/);
+    if (req.method === 'DELETE' && downloadMatch) {
+      const showId = decodeURIComponent(downloadMatch[1]);
+      const episode = decodeURIComponent(downloadMatch[2]);
+      const key = downloadKey(showId, episode);
+      const state = readState();
+      const existing = downloadStatus(state.downloads?.[key]);
+      if (!existing) return sendError(res, 404, 'Download not found');
+      cancelQueuedDownload(existing.jobId);
+      cancelRunningDownload(existing.jobId);
+      removeDownloadFiles(existing);
+      state.downloads[key] = {
+        ...existing,
+        status: 'deleted',
+        file: null,
+        deletedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      saveState(state);
+      return sendJson(res, 200, { download: state.downloads[key] });
+    }
+
+    const downloadsShowMatch = url.pathname.match(/^\/api\/downloads\/([^/]+)$/);
+    if (req.method === 'DELETE' && downloadsShowMatch) {
+      const showId = decodeURIComponent(downloadsShowMatch[1]);
+      const state = readState();
+      refreshDownloadRecords(state);
+      let deleted = 0;
+      let cancelled = 0;
+      for (const [key, record] of Object.entries(state.downloads || {})) {
+        if (record.showId !== showId || record.status === 'deleted') continue;
+        if (isDownloadBusy(record.status)) {
+          if (cancelQueuedDownload(record.jobId) || cancelRunningDownload(record.jobId)) cancelled += 1;
+        }
+        removeDownloadFiles(record);
+        state.downloads[key] = {
+          ...record,
+          status: 'deleted',
+          file: null,
+          deletedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        deleted += 1;
+      }
+      saveState(state);
+      return sendJson(res, 200, { deleted, cancelled });
     }
 
     if (req.method === 'POST' && url.pathname === '/api/play') {
