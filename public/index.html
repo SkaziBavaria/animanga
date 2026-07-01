@@ -7,7 +7,7 @@
     <title>Ani Web</title>
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="icon" href="/icon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/styles.css?v=67">
   </head>
   <body>
     <div class="app-shell">
@@ -167,7 +167,31 @@
       <div id="detailsBody" class="details-body"></div>
     </dialog>
 
+    <dialog id="playerDialog">
+      <div class="dialog-head">
+        <div>
+          <h2 id="playerTitle">Playing</h2>
+          <p class="player-hint">Streamed via ani-cli · close when done</p>
+        </div>
+        <button id="closePlayerBtn" class="icon-button" type="button" title="Close" aria-label="Close">×</button>
+      </div>
+      <div class="player-stage" id="playerStage">
+        <video id="playerVideo" controls playsinline></video>
+        <div class="gesture-zone gesture-left" aria-hidden="true"></div>
+        <div class="gesture-zone gesture-right" aria-hidden="true"></div>
+        <div class="player-osd" id="playerOsd" aria-hidden="true"></div>
+      </div>
+      <div class="player-controls">
+        <button id="prevEpisodeBtn" class="secondary" type="button">◀ Previous</button>
+        <label class="player-autoplay">
+          <input id="autoplayNext" type="checkbox" checked>
+          <span>Autoplay next</span>
+        </label>
+        <button id="nextEpisodeBtn" class="secondary" type="button">Next ▶</button>
+      </div>
+    </dialog>
+
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=57" defer></script>
+    <script type="module" src="/js/app.js?v=67"></script>
   </body>
 </html>

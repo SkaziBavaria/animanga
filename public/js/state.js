@@ -1,0 +1,15 @@
+export const state = {
+  settings: null,
+  library: [],
+  searchResults: [],
+  releaseWatches: [],
+  releaseWatchesOpen: false,
+  lastSearchQuery: '',
+  downloads: {},
+  positions: {},
+  libraryFilter: 'all',
+  librarySort: 'new',
+  activeShow: null,
+  detailsRelations: [],
+  discoverLoaded: false,
+};

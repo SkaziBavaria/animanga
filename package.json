@@ -2,7 +2,7 @@
   "name": "ani-web",
   "version": "0.1.0",
   "private": true,
-  "description": "Local web GUI for ani-cli in Termux",
+  "description": "Dockerized web GUI and PWA for ani-cli with in-browser playback, per-series downloads, and resume",
   "type": "commonjs",
   "scripts": {
     "start": "node server.js"

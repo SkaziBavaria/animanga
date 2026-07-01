@@ -1,0 +1,6 @@
+data/
+node_modules/
+.git/
+docker-compose.yml
+README.md
+LICENSE
