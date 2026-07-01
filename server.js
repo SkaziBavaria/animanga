@@ -23,6 +23,8 @@ const ALLANIME_API = `https://api.${ALLANIME_BASE}/api`;
 const ALLANIME_REFERER = 'https://youtu-chan.com';
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0';
 const MAX_BODY = 1024 * 1024;
+const DETAIL_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
+const RECOMMENDATION_CACHE_TTL_MS = 45 * 60 * 1000;
 const jobs = new Map();
 
 ensureDataDir();
@@ -76,6 +78,9 @@ function readState() {
   state.shows ||= {};
   state.settings = { ...defaultSettings(), ...(state.settings || {}) };
   state.jobs ||= [];
+  state.cache ||= {};
+  state.cache.details ||= {};
+  state.cache.recommendations ||= {};
   return state;
 }
 
@@ -93,6 +98,33 @@ function recentJobs(...groups) {
   return Array.from(byId.values())
     .sort((a, b) => Date.parse(b.startedAt || b.finishedAt || 0) - Date.parse(a.startedAt || a.finishedAt || 0))
     .slice(0, 30);
+}
+
+function cacheEntryFresh(entry, ttlMs) {
+  return entry?.createdAt && Date.now() - Date.parse(entry.createdAt) < ttlMs;
+}
+
+function cacheGet(state, namespace, key, ttlMs) {
+  const entry = state.cache?.[namespace]?.[key];
+  return cacheEntryFresh(entry, ttlMs) ? entry.value : null;
+}
+
+function cacheSet(state, namespace, key, value) {
+  state.cache ||= {};
+  state.cache[namespace] ||= {};
+  state.cache[namespace][key] = {
+    value,
+    createdAt: new Date().toISOString(),
+  };
+  return value;
+}
+
+function trimCache(state, namespace, maxEntries = 120) {
+  const bucket = state.cache?.[namespace];
+  if (!bucket) return;
+  const entries = Object.entries(bucket)
+    .sort((a, b) => Date.parse(b[1]?.createdAt || 0) - Date.parse(a[1]?.createdAt || 0));
+  for (const [key] of entries.slice(maxEntries)) delete bucket[key];
 }
 
 function sendJson(res, status, payload) {
@@ -476,8 +508,112 @@ async function getShowDetails(id, mode = 'sub', options = {}) {
   return details;
 }
 
+async function getCachedShowDetails(state, id, mode = 'sub', options = {}) {
+  const flavor = options.includeRelations ? 'relations' : options.includeNextSeason ? 'next' : 'base';
+  const key = `${normalizeMode(mode)}:${flavor}:${id}`;
+  if (!options.force) {
+    const cached = cacheGet(state, 'details', key, DETAIL_CACHE_TTL_MS);
+    if (cached) return cached;
+  }
+  const details = await getShowDetails(id, mode, options);
+  cacheSet(state, 'details', key, details);
+  trimCache(state, 'details', 160);
+  return details;
+}
+
+function genreWeights(shows) {
+  const weights = new Map();
+  for (const show of shows) {
+    const progressBoost = Number(show.watchedCount || 0) > 0 || show.lastWatched ? 1 : 0;
+    for (const genre of show.genres || []) {
+      const key = String(genre || '').trim();
+      if (!key) continue;
+      weights.set(key, (weights.get(key) || 0) + 2 + progressBoost);
+    }
+  }
+  return weights;
+}
+
+function recommendationScore(show, weights) {
+  const matches = (show.genres || [])
+    .map((genre) => ({ genre, weight: weights.get(genre) || 0 }))
+    .filter((match) => match.weight > 0)
+    .sort((a, b) => b.weight - a.weight);
+  const score = matches.reduce((total, match) => total + match.weight, 0) + Number(show.score || 0) / 10;
+  return {
+    score,
+    reason: matches.slice(0, 2).map((match) => match.genre).join(' + '),
+  };
+}
+
+async function recommendedAnime(state, mode = 'sub') {
+  const key = normalizeMode(mode);
+  const cached = cacheGet(state, 'recommendations', key, RECOMMENDATION_CACHE_TTL_MS);
+  if (cached) return cached;
+
+  seedStateFromHistory(state);
+  const tracked = Object.values(state.shows).filter((show) => show.tracked !== false);
+  const trackedIds = new Set(tracked.map((show) => show.id));
+  const libraryDetails = [];
+  for (const show of tracked.slice(0, 30)) {
+    try {
+      libraryDetails.push({
+        ...presentShow(show),
+        ...(await getCachedShowDetails(state, show.id, show.mode || mode)),
+      });
+    } catch {
+      libraryDetails.push(presentShow(show));
+    }
+  }
+
+  const weights = genreWeights(libraryDetails);
+  const candidateMap = new Map();
+  for (const range of ['0', '1', '7', '30']) {
+    const results = await popularAnime(range, mode);
+    for (const result of results.slice(0, 16)) {
+      if (!trackedIds.has(result.id) && !candidateMap.has(result.id)) candidateMap.set(result.id, result);
+    }
+  }
+
+  const candidates = [];
+  for (const candidate of Array.from(candidateMap.values()).slice(0, 48)) {
+    try {
+      candidates.push({
+        ...candidate,
+        ...(await getCachedShowDetails(state, candidate.id, mode)),
+      });
+    } catch {
+      candidates.push(candidate);
+    }
+  }
+
+  const ranked = candidates
+    .map((candidate) => {
+      const rankedCandidate = recommendationScore(candidate, weights);
+      return {
+        ...candidate,
+        recommendationScore: rankedCandidate.score,
+        recommendationReason: rankedCandidate.reason,
+      };
+    })
+    .sort((a, b) => (b.recommendationScore - a.recommendationScore) || Number(b.score || 0) - Number(a.score || 0))
+    .slice(0, 24)
+    .map((candidate, index) => ({
+      ...candidate,
+      index: index + 1,
+      recommendationReason: candidate.recommendationReason || 'Popular with anime viewers',
+    }));
+
+  cacheSet(state, 'recommendations', key, ranked);
+  trimCache(state, 'recommendations', 8);
+  return ranked;
+}
+
 async function refreshShow(state, show) {
-  const details = await getShowDetails(show.id, show.mode || state.settings.mode, { includeNextSeason: true });
+  const details = await getCachedShowDetails(state, show.id, show.mode || state.settings.mode, {
+    includeNextSeason: true,
+    force: true,
+  });
   const merged = mergeShow(state, {
     ...show,
     ...details,
@@ -804,6 +940,14 @@ async function handleApi(req, res, url) {
       return sendJson(res, 200, { results });
     }
 
+    if (req.method === 'GET' && url.pathname === '/api/recommendations') {
+      const state = readState();
+      const mode = url.searchParams.get('mode') || state.settings.mode;
+      const results = await recommendedAnime(state, mode);
+      saveState(state);
+      return sendJson(res, 200, { results });
+    }
+
     const episodeMatch = url.pathname.match(/^\/api\/shows\/([^/]+)\/episodes$/);
     if (req.method === 'GET' && episodeMatch) {
       const id = decodeURIComponent(episodeMatch[1]);
@@ -826,8 +970,8 @@ async function handleApi(req, res, url) {
     if (req.method === 'GET' && detailsMatch) {
       const id = decodeURIComponent(detailsMatch[1]);
       const mode = url.searchParams.get('mode') || readState().settings.mode;
-      const details = await getShowDetails(id, mode, { includeRelations: true });
       const state = readState();
+      const details = await getCachedShowDetails(state, id, mode, { includeRelations: true });
       if (state.shows[id]) {
         mergeShow(state, {
           ...state.shows[id],

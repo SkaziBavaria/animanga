@@ -266,6 +266,7 @@ function showCard(show, source) {
           <span class="pill">${escapeHtml(show.mode || state.settings?.mode || 'sub')}</span>
           ${hasNews ? `<span class="pill hot">${show.newCount} new</span>` : ''}
           ${nextSeasonPill(show)}
+          ${show.recommendationReason ? `<span class="pill reason">${escapeHtml(show.recommendationReason)}</span>` : ''}
           ${show.refreshError ? `<span class="pill danger">Refresh failed</span>` : ''}
         </div>
       </div>
@@ -431,6 +432,18 @@ async function browsePopular(range, label) {
     : '<div class="empty">No results.</div>';
 }
 
+async function browseRecommended() {
+  state.discoverLoaded = true;
+  els.searchResults.innerHTML = '<div class="empty">Finding recommendations...</div>';
+  const mode = state.settings?.mode || 'sub';
+  const data = await api(`/api/recommendations?mode=${encodeURIComponent(mode)}`);
+  const results = data.results || [];
+  state.searchResults = results;
+  els.searchResults.innerHTML = results.length
+    ? results.map((show) => showCard(show, 'search')).join('')
+    : '<div class="empty">No recommendations yet. Track a few shows and refresh your library.</div>';
+}
+
 function loadDefaultDiscover() {
   if (state.discoverLoaded) return;
   const popularButton = document.querySelector('.browse-button[data-popular-range="0"]');
@@ -586,7 +599,10 @@ document.addEventListener('click', async (event) => {
   if (browseButton) {
     document.querySelectorAll('.browse-button').forEach((button) => button.classList.toggle('active', button === browseButton));
     try {
-      await withBusy(browseButton, 'Loading...', () => browsePopular(browseButton.dataset.popularRange, browseButton.textContent.trim()));
+      const task = browseButton.dataset.recommended
+        ? () => browseRecommended()
+        : () => browsePopular(browseButton.dataset.popularRange, browseButton.textContent.trim());
+      await withBusy(browseButton, 'Loading...', task);
     } catch (err) {
       toast(err.message);
     }

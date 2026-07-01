@@ -244,6 +244,11 @@ h2 {
   background: color-mix(in srgb, var(--accent) 82%, white);
 }
 
+.pill.reason {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 44%, var(--line));
+}
+
 .card-actions {
   grid-column: 1 / -1;
   display: grid;
@@ -289,7 +294,7 @@ h2 {
 
 .browse-row {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 8px;
   margin-bottom: 12px;
 }
