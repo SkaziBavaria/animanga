@@ -270,8 +270,9 @@ function showCard(show, source) {
           ${show.refreshError ? `<span class="pill danger">Refresh failed</span>` : ''}
         </div>
       </div>
-      <div class="card-actions three">
+      <div class="card-actions four">
         <button class="primary" data-action="play" data-ep="${escapeHtml(next)}">${escapeHtml(playLabel)}</button>
+        <button class="secondary" data-action="download" data-ep="${escapeHtml(next)}">Download</button>
         <button class="secondary" data-action="episodes">Episodes</button>
         <button class="secondary" data-action="details">About</button>
         ${extraActions}
@@ -480,6 +481,21 @@ async function playShow(show, episode) {
   }
 }
 
+async function downloadEpisode(show, episode) {
+  toast(`Starting download for ep ${episode}...`);
+  await api('/api/download', {
+    method: 'POST',
+    body: JSON.stringify({
+      ...show,
+      episode,
+      mode: show.mode || state.settings.mode,
+      quality: state.settings.quality,
+    }),
+  });
+  toast('Download started. Check Settings > Logs.');
+  setTimeout(() => loadJobs().catch(() => {}), 1200);
+}
+
 async function trackShow(show) {
   toast('Adding to library...');
   await api('/api/track', { method: 'POST', body: JSON.stringify({ ...show, tracked: true }) });
@@ -560,7 +576,12 @@ function renderEpisodeGrid(show) {
     const classes = ['episode'];
     if (watched.has(epText)) classes.push('watched');
     if (epText === String(next)) classes.push('next');
-    return `<button class="${classes.join(' ')}" data-episode="${escapeHtml(epText)}" type="button">${escapeHtml(epText)}</button>`;
+    return `
+      <div class="episode-cell">
+        <button class="${classes.join(' ')}" data-episode="${escapeHtml(epText)}" data-action="episode-play" type="button">${escapeHtml(epText)}</button>
+        <button class="episode-download" data-episode="${escapeHtml(epText)}" data-action="episode-download" type="button" title="Download episode ${escapeHtml(epText)}" aria-label="Download episode ${escapeHtml(epText)}">↓</button>
+      </div>
+    `;
   }).join('');
 }
 
@@ -616,6 +637,7 @@ document.addEventListener('click', async (event) => {
     try {
       await withBusy(cardButton, busyLabel(action), async () => {
         if (action === 'play') await playShow(show, cardButton.dataset.ep || nextEpisode(show) || '1');
+        if (action === 'download') await downloadEpisode(show, cardButton.dataset.ep || nextEpisode(show) || '1');
         if (action === 'track') await trackShow(show);
         if (action === 'tracked') toast('Already in library');
         if (action === 'remove') await removeShow(show);
@@ -631,6 +653,7 @@ document.addEventListener('click', async (event) => {
 function busyLabel(action) {
   return {
     play: 'Starting...',
+    download: 'Starting...',
     track: 'Saving...',
     remove: 'Removing...',
     episodes: 'Fetching...',
@@ -639,6 +662,16 @@ function busyLabel(action) {
 }
 
 els.episodeGrid.addEventListener('click', async (event) => {
+  const downloadButton = event.target.closest('.episode-download');
+  if (downloadButton && state.activeShow) {
+    try {
+      await withBusy(downloadButton, '…', () => downloadEpisode(state.activeShow, downloadButton.dataset.episode));
+    } catch (err) {
+      toast(err.message);
+    }
+    return;
+  }
+
   const button = event.target.closest('.episode');
   if (!button || !state.activeShow) return;
   const episode = button.dataset.episode;

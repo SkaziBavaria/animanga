@@ -264,6 +264,14 @@ h2 {
   grid-column: 1 / -1;
 }
 
+.card-actions.four {
+  grid-template-columns: 1fr 1fr;
+}
+
+.card-actions.four .primary {
+  grid-column: 1 / -1;
+}
+
 .primary {
   color: #071310;
   background: var(--accent);
@@ -560,14 +568,30 @@ dialog::backdrop {
 
 .episode-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(74px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
   gap: 8px;
+}
+
+.episode-cell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 42px;
+  gap: 6px;
 }
 
 .episode {
   min-height: 54px;
   display: grid;
   place-items: center;
+  border: 1px solid var(--line);
+}
+
+.episode-download {
+  min-height: 54px;
+  min-width: 42px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  color: var(--accent);
   border: 1px solid var(--line);
 }
 

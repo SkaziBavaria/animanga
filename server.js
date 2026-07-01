@@ -772,6 +772,50 @@ function startPtyJob(label, args, envPatch = {}) {
   return job;
 }
 
+function startBackgroundJob(label, args, envPatch = {}) {
+  const id = crypto.randomUUID();
+  const logFile = path.join(JOB_LOG_DIR, `${id}.log`);
+  const output = fs.openSync(logFile, 'a');
+  const job = {
+    id,
+    label,
+    args,
+    status: 'running',
+    output: 'Job started in the background',
+    logFile,
+    startedAt: new Date().toISOString(),
+  };
+  jobs.set(id, job);
+
+  const child = spawn(ANI_CLI, args, {
+    cwd: os.homedir(),
+    env: { ...process.env, ANI_CLI_EXTERNAL_MENU: '0', ...envPatch },
+    stdio: ['ignore', output, output],
+  });
+
+  job.pid = child.pid;
+  let outputClosed = false;
+  const closeOutput = () => {
+    if (outputClosed) return;
+    outputClosed = true;
+    fs.closeSync(output);
+  };
+  child.on('error', (err) => {
+    closeOutput();
+    job.status = 'failed';
+    job.error = err.message;
+    job.finishedAt = new Date().toISOString();
+  });
+  child.on('close', (code, signal) => {
+    closeOutput();
+    job.status = code === 0 ? 'done' : 'failed';
+    job.exitCode = code;
+    job.signal = signal;
+    job.finishedAt = new Date().toISOString();
+  });
+  return job;
+}
+
 function hydrateJobLog(job) {
   if (!job?.logFile) return job;
   try {
@@ -1087,6 +1131,38 @@ async function handleApi(req, res, url) {
       writeHistoryEntry(show, target);
       saveState(state);
       return sendJson(res, 200, { show: presentShow(show) });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/download') {
+      const body = await readBody(req);
+      const state = readState();
+      const mode = normalizeMode(body.mode || state.settings.mode);
+      if (!body.id) throw new Error('Missing show id');
+      if (!body.episode) throw new Error('Missing episode');
+
+      const details = await getShowDetails(body.id, mode);
+      if (!details.episodes.includes(normalizeEpisode(body.episode))) {
+        return sendError(res, 422, `Episode ${body.episode} is not available yet`, {
+          latestEpisode: details.latestEpisode,
+          episodeCount: details.episodeCount,
+        });
+      }
+      if (state.shows[body.id]) {
+        mergeShow(state, { ...state.shows[body.id], ...details, lastCheckedAt: new Date().toISOString() });
+      }
+
+      const args = await buildAniCliArgs({
+        ...body,
+        ...details,
+        mode,
+        download: true,
+        player: 'default',
+        quality: body.quality || state.settings.quality,
+      });
+      const label = `Download ${details.name || body.title || body.name} ep ${body.episode}`;
+      const job = startBackgroundJob(label, args);
+      saveState(state);
+      return sendJson(res, 200, { job });
     }
 
     if (req.method === 'POST' && url.pathname === '/api/play') {
