@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#111318">
+    <title>Ani Web</title>
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <h1>Ani Web</h1>
+          <p id="statusText">Starting...</p>
+        </div>
+        <button id="refreshBtn" class="icon-button" type="button" title="Refresh library" aria-label="Refresh library">↻</button>
+      </header>
+
+      <main>
+        <section id="libraryView" class="view active" aria-labelledby="libraryTitle">
+          <div class="section-head">
+            <h2 id="libraryTitle">Library</h2>
+            <span id="libraryCount" class="counter">0</span>
+          </div>
+          <div class="library-tools">
+            <select id="libraryFilter" aria-label="Filter library">
+              <option value="all">All shows</option>
+              <option value="continue">Up next</option>
+              <option value="caughtup">Caught up</option>
+              <option value="notstarted">Not started</option>
+            </select>
+            <select id="librarySort" aria-label="Sort library">
+              <option value="new">New first</option>
+              <option value="recent">Recently watched</option>
+              <option value="progress">Progress</option>
+              <option value="az">A-Z</option>
+            </select>
+          </div>
+          <div id="libraryList" class="show-list"></div>
+        </section>
+
+        <section id="searchView" class="view" aria-labelledby="searchTitle">
+          <div class="section-head">
+            <h2 id="searchTitle">Discover</h2>
+          </div>
+          <form id="searchForm" class="search-row">
+            <input id="searchInput" name="q" type="search" autocomplete="off" placeholder="Search anime">
+            <button type="submit">Search</button>
+          </form>
+          <div class="browse-row" aria-label="Browse anime">
+            <button class="browse-button" data-popular-range="0" type="button">Popular</button>
+            <button class="browse-button" data-popular-range="1" type="button">Hot</button>
+            <button class="browse-button" data-popular-range="7" type="button">Weekly</button>
+            <button class="browse-button" data-popular-range="30" type="button">Monthly</button>
+          </div>
+          <div id="searchResults" class="show-list"></div>
+        </section>
+
+        <section id="settingsView" class="view" aria-labelledby="settingsTitle">
+          <div class="section-head">
+            <h2 id="settingsTitle">Settings</h2>
+          </div>
+          <form id="settingsForm" class="panel settings-grid">
+            <label>
+              <span>Mode</span>
+              <select name="mode">
+                <option value="sub">Sub</option>
+                <option value="dub">Dub</option>
+              </select>
+            </label>
+            <label>
+              <span>Quality</span>
+              <select name="quality">
+                <option value="best">Best</option>
+                <option value="1080">1080p</option>
+                <option value="720">720p</option>
+                <option value="480">480p</option>
+                <option value="worst">Worst</option>
+              </select>
+            </label>
+            <label class="switch-row">
+              <span>Skip intro</span>
+              <input name="skipIntro" type="checkbox">
+            </label>
+            <label class="switch-row">
+              <span>Mark started as watched</span>
+              <input name="autoTrackPlayed" type="checkbox">
+            </label>
+            <button type="submit">Save</button>
+          </form>
+
+          <details class="advanced-panel">
+            <summary>Advanced</summary>
+            <form id="commandForm" class="panel command-panel">
+              <label>
+                <span>ani-cli command</span>
+                <input id="commandInput" name="command" type="text" placeholder='-q 720 -e 1 "one piece"'>
+              </label>
+              <button type="submit">Run</button>
+            </form>
+
+            <div class="section-head compact">
+              <h2>Logs</h2>
+              <div class="inline-actions">
+                <button id="jobsBtn" class="small-button" type="button">Fetch</button>
+                <button id="clearJobsBtn" class="small-button danger" type="button">Clear</button>
+              </div>
+            </div>
+            <div id="jobsList" class="jobs-list"></div>
+          </details>
+        </section>
+      </main>
+
+      <nav class="tabbar" aria-label="Primary navigation">
+        <button class="tab active" data-view="libraryView" type="button">Library</button>
+        <button class="tab" data-view="searchView" type="button">Discover</button>
+        <button class="tab" data-view="settingsView" type="button">Settings</button>
+      </nav>
+    </div>
+
+    <dialog id="showDialog">
+      <div class="dialog-head">
+        <div>
+          <h2 id="dialogTitle"></h2>
+          <p id="dialogMeta"></p>
+        </div>
+        <button id="closeDialogBtn" class="icon-button" type="button" title="Close" aria-label="Close">×</button>
+      </div>
+      <div id="episodeGrid" class="episode-grid"></div>
+    </dialog>
+
+    <dialog id="detailsDialog">
+      <div class="dialog-head">
+        <div>
+          <h2 id="detailsTitle"></h2>
+          <p id="detailsMeta"></p>
+        </div>
+        <button id="closeDetailsBtn" class="icon-button" type="button" title="Close" aria-label="Close">×</button>
+      </div>
+      <div id="detailsBody" class="details-body"></div>
+    </dialog>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script src="/app.js?v=42" defer></script>
+  </body>
+</html>
