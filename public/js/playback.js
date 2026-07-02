@@ -14,6 +14,16 @@ let currentSkip = { op: null, ed: null };
 let introSkipped = false;
 let outroTriggered = false;
 let finishedMarked = false;
+let playerSeeking = false;
+let controlsHover = false;
+let controlsHideTimer = 0;
+let ignoreStageClicksUntil = 0;
+let ignoreControlClicksUntil = 0;
+let controlPointerArmed = false;
+let suppressControlRevealUntil = 0;
+let stageClickTimer = 0;
+let desktopSeekOsd = { side: null, total: 0, at: 0 };
+let desktopOsdTimer = 0;
 
 function adjacentEpisode(show, episode, dir) {
   const list = (show?.episodes || []).map(String);
@@ -195,6 +205,202 @@ function trackStarted(show, episode) {
   postBeacon('/api/mark', { id: show.id, episode, watched: true });
 }
 
+function fullscreenElement() {
+  return document.fullscreenElement || document.webkitFullscreenElement || null;
+}
+
+function isPlayerStageFullscreen() {
+  return Boolean(fullscreenElement()) || els.playerDialog?.classList.contains('player-fullscreen');
+}
+
+async function requestPlayerFullscreen() {
+  els.playerDialog?.classList.add('player-fullscreen');
+  document.body.classList.add('player-fullscreen-active');
+  const root = document.documentElement;
+  const request = root.requestFullscreen || root.webkitRequestFullscreen;
+  if (!request) return;
+  await request.call(root);
+}
+
+async function exitPlayerFullscreen() {
+  els.playerDialog?.classList.remove('player-fullscreen');
+  document.body.classList.remove('player-fullscreen-active');
+  const exit = document.exitFullscreen || document.webkitExitFullscreen;
+  if (!fullscreenElement() || !exit) return;
+  await exit.call(document);
+}
+
+async function togglePlayerFullscreen() {
+  try {
+    if (isPlayerStageFullscreen()) await exitPlayerFullscreen();
+    else await requestPlayerFullscreen();
+  } catch {}
+}
+
+function shouldHideVideoControls() {
+  const video = els.playerVideo;
+  return Boolean(currentContext && video && !video.paused && !playerSeeking && !controlsHover);
+}
+
+function setVideoControlsVisible(visible) {
+  els.playerStage?.classList.toggle('controls-hidden', !visible);
+  if (!visible) controlPointerArmed = false;
+}
+
+function areVideoControlsHidden() {
+  return els.playerStage?.classList.contains('controls-hidden') ?? false;
+}
+
+function scheduleVideoControlsHide() {
+  clearTimeout(controlsHideTimer);
+  if (!shouldHideVideoControls()) {
+    setVideoControlsVisible(true);
+    return;
+  }
+  controlsHideTimer = setTimeout(() => {
+    if (shouldHideVideoControls()) setVideoControlsVisible(false);
+  }, 2200);
+}
+
+function showVideoControlsTemporarily() {
+  if (Date.now() < suppressControlRevealUntil) return;
+  setVideoControlsVisible(true);
+  scheduleVideoControlsHide();
+}
+
+function revealVideoControlsOnly() {
+  controlPointerArmed = false;
+  ignoreControlClicksUntil = Date.now() + 1200;
+  showVideoControlsTemporarily();
+}
+
+function toggleVideoControlsFromSurface() {
+  if (areVideoControlsHidden()) {
+    revealVideoControlsOnly();
+  } else {
+    clearTimeout(controlsHideTimer);
+    suppressControlRevealUntil = Date.now() + 450;
+    setVideoControlsVisible(false);
+  }
+}
+
+function showPlayerOsd(label, side = 'center') {
+  const osd = els.playerOsd;
+  if (!osd) return;
+  osd.textContent = label;
+  osd.classList.toggle('osd-left', side === 'left');
+  osd.classList.toggle('osd-right', side === 'right');
+  osd.classList.add('show');
+  clearTimeout(desktopOsdTimer);
+  desktopOsdTimer = setTimeout(() => {
+    osd.classList.remove('show', 'osd-left', 'osd-right');
+  }, 700);
+}
+
+function seekByStagePosition(event) {
+  const rect = els.playerStage?.getBoundingClientRect();
+  if (!rect) return;
+  const side = event.clientX < rect.left + rect.width / 2 ? 'left' : 'right';
+  const seconds = side === 'right' ? 10 : -10;
+  const now = Date.now();
+  seekRelative(seconds, { silent: true });
+  if (desktopSeekOsd.side === side && now - desktopSeekOsd.at <= 900) {
+    desktopSeekOsd.total += seconds;
+  } else {
+    desktopSeekOsd = { side, total: seconds, at: now };
+  }
+  desktopSeekOsd.at = now;
+  showPlayerOsd(`${desktopSeekOsd.total > 0 ? '+' : ''}${desktopSeekOsd.total}s`, side);
+}
+
+function formatClock(seconds) {
+  if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
+  const total = Math.floor(seconds);
+  const mins = Math.floor(total / 60);
+  const secs = String(total % 60).padStart(2, '0');
+  return `${mins}:${secs}`;
+}
+
+function updateVideoControls() {
+  const video = els.playerVideo;
+  if (!video) return;
+
+  if (els.playPauseBtn) {
+    els.playPauseBtn.innerHTML = video.paused ? '&#9654;' : '&#10074;&#10074;';
+    els.playPauseBtn.title = video.paused ? 'Play' : 'Pause';
+    els.playPauseBtn.setAttribute('aria-label', video.paused ? 'Play' : 'Pause');
+  }
+  if (els.muteBtn) {
+    const muted = video.muted || video.volume === 0;
+    els.muteBtn.innerHTML = muted ? '&#128263;' : '&#128266;';
+    els.muteBtn.title = muted ? 'Unmute' : 'Mute';
+    els.muteBtn.setAttribute('aria-label', muted ? 'Unmute' : 'Mute');
+  }
+  if (els.playerFullscreenBtn) {
+    const fullscreen = isPlayerStageFullscreen();
+    els.playerFullscreenBtn.innerHTML = fullscreen ? '&#9587;' : '&#9974;';
+    els.playerFullscreenBtn.title = fullscreen ? 'Exit fullscreen' : 'Fullscreen';
+    els.playerFullscreenBtn.setAttribute('aria-label', fullscreen ? 'Exit fullscreen' : 'Fullscreen');
+  }
+
+  const duration = Number.isFinite(video.duration) ? video.duration : 0;
+  if (els.playerTime) els.playerTime.textContent = `${formatClock(video.currentTime)} / ${formatClock(duration)}`;
+  if (els.playerSeek && !playerSeeking) {
+    els.playerSeek.disabled = duration <= 0;
+    els.playerSeek.value = duration > 0 ? String(Math.round((video.currentTime / duration) * 1000)) : '0';
+  }
+  if (els.playerSeek) {
+    const seekProgress = duration > 0 ? Math.max(0, Math.min(100, (video.currentTime / duration) * 100)) : 0;
+    els.playerSeek.style.setProperty('--range-progress', `${seekProgress}%`);
+  }
+  if (els.playerVolume) {
+    const volume = video.muted ? 0 : video.volume;
+    els.playerVolume.value = String(volume);
+    els.playerVolume.style.setProperty('--range-progress', `${Math.max(0, Math.min(100, volume * 100))}%`);
+  }
+}
+
+function togglePlayback() {
+  const video = els.playerVideo;
+  if (!video) return;
+  if (video.paused) video.play().catch(() => {});
+  else video.pause();
+}
+
+function shouldIgnoreControlClick(event) {
+  const ignore = !controlPointerArmed || Date.now() < ignoreControlClicksUntil;
+  controlPointerArmed = false;
+  if (!ignore) return false;
+  event.preventDefault();
+  event.stopPropagation();
+  return true;
+}
+
+function seekRelative(seconds, options = {}) {
+  const video = els.playerVideo;
+  if (!video || !Number.isFinite(video.currentTime)) return;
+  const duration = Number.isFinite(video.duration) ? video.duration : Infinity;
+  video.currentTime = Math.max(0, Math.min(duration, video.currentTime + seconds));
+  updateVideoControls();
+  if (!options.silent) showVideoControlsTemporarily();
+}
+
+function isPlayerControlTarget(target) {
+  return target === els.skipButton || els.videoControls?.contains(target) || els.centerControls?.contains(target);
+}
+
+function toggleMute() {
+  const video = els.playerVideo;
+  if (!video) return;
+  if (video.muted || video.volume === 0) {
+    video.muted = false;
+    if (video.volume === 0) video.volume = 1;
+  } else {
+    video.muted = true;
+  }
+  updateVideoControls();
+}
+
 function openBrowserPlayback(show, episode, playback) {
   currentContext = { showId: show.id, episode: String(episode) };
   currentShow = show;
@@ -205,10 +411,12 @@ function openBrowserPlayback(show, episode, playback) {
   finishedMarked = false;
   hideSkipButton();
   updatePlayerNav();
+  updateVideoControls();
   els.playerTitle.textContent = playback.title || `${show.name || show.title || 'Video'} ep ${episode}`;
   els.playerVideo.pause();
   els.playerVideo.removeAttribute('src');
   els.playerVideo.load();
+  updateVideoControls();
 
   const resume = positionFor(show.id, episode)?.position || 0;
   const direct = canPlayDirect(playback);
@@ -227,6 +435,8 @@ function openBrowserPlayback(show, episode, playback) {
 
   if (!els.playerDialog.open) els.playerDialog.showModal();
   els.playerVideo.play().catch(() => {});
+  updateVideoControls();
+  showVideoControlsTemporarily();
 }
 
 function openMpvPlayback(show, episode, playback) {
@@ -286,6 +496,10 @@ export function bindPlayerDialog() {
     els.playerVideo.removeAttribute('src');
     els.playerVideo.load();
     hideSkipButton();
+    if (els.playerDialog.classList.contains('player-fullscreen')) exitPlayerFullscreen();
+    clearTimeout(controlsHideTimer);
+    setVideoControlsVisible(true);
+    updateVideoControls();
     currentContext = null;
     currentShow = null;
     renderLibrary();
@@ -294,20 +508,155 @@ export function bindPlayerDialog() {
     }
   });
 
-  els.prevEpisodeBtn?.addEventListener('click', () => playAdjacent(-1));
-  els.nextEpisodeBtn?.addEventListener('click', () => playAdjacent(1));
+  els.prevEpisodeBtn?.addEventListener('click', (event) => {
+    if (shouldIgnoreControlClick(event)) return;
+    event.stopPropagation();
+    playAdjacent(-1);
+    showVideoControlsTemporarily();
+  });
+  els.nextEpisodeBtn?.addEventListener('click', (event) => {
+    if (shouldIgnoreControlClick(event)) return;
+    event.stopPropagation();
+    playAdjacent(1);
+    showVideoControlsTemporarily();
+  });
+  els.playPauseBtn?.addEventListener('click', (event) => {
+    if (shouldIgnoreControlClick(event)) return;
+    event.stopPropagation();
+    togglePlayback();
+    showVideoControlsTemporarily();
+  });
+  els.muteBtn?.addEventListener('click', (event) => {
+    if (shouldIgnoreControlClick(event)) return;
+    event.stopPropagation();
+    toggleMute();
+    showVideoControlsTemporarily();
+  });
+  els.playerFullscreenBtn?.addEventListener('click', (event) => {
+    if (shouldIgnoreControlClick(event)) return;
+    event.stopPropagation();
+    togglePlayerFullscreen();
+    showVideoControlsTemporarily();
+  });
+  els.playerSeek?.addEventListener('input', () => {
+    const video = els.playerVideo;
+    if (!video || !Number.isFinite(video.duration) || video.duration <= 0) return;
+    playerSeeking = true;
+    video.currentTime = (Number(els.playerSeek.value) / 1000) * video.duration;
+    updateVideoControls();
+    setVideoControlsVisible(true);
+  });
+  els.playerSeek?.addEventListener('change', () => {
+    playerSeeking = false;
+    updateVideoControls();
+    persistProgress();
+    showVideoControlsTemporarily();
+  });
+  els.playerVolume?.addEventListener('input', () => {
+    const video = els.playerVideo;
+    if (!video) return;
+    video.volume = Number(els.playerVolume.value);
+    video.muted = video.volume === 0;
+    updateVideoControls();
+    showVideoControlsTemporarily();
+  });
+  els.videoControls?.addEventListener('mouseenter', () => {
+    controlsHover = true;
+    setVideoControlsVisible(true);
+    clearTimeout(controlsHideTimer);
+  });
+  els.videoControls?.addEventListener('mouseleave', () => {
+    controlsHover = false;
+    scheduleVideoControlsHide();
+  });
+  els.videoControls?.addEventListener('focusin', () => {
+    controlsHover = true;
+    setVideoControlsVisible(true);
+    clearTimeout(controlsHideTimer);
+  });
+  els.videoControls?.addEventListener('focusout', () => {
+    controlsHover = false;
+    scheduleVideoControlsHide();
+  });
+  const armControlPointer = () => {
+    controlPointerArmed = true;
+    ignoreControlClicksUntil = 0;
+  };
+  els.videoControls?.addEventListener('pointerdown', armControlPointer);
+  els.centerControls?.addEventListener('pointerdown', armControlPointer);
+  els.videoControls?.addEventListener('touchstart', armControlPointer, { passive: true });
+  els.centerControls?.addEventListener('touchstart', armControlPointer, { passive: true });
+  els.playerStage?.addEventListener('mousemove', showVideoControlsTemporarily);
+  els.playerStage?.addEventListener('click', (event) => {
+    if (isPlayerControlTarget(event.target)) return;
+    if (Date.now() < ignoreStageClicksUntil) {
+      return;
+    }
+    clearTimeout(stageClickTimer);
+    stageClickTimer = setTimeout(() => {
+      toggleVideoControlsFromSurface();
+    }, 180);
+  });
+  els.playerStage?.addEventListener('dblclick', (event) => {
+    if (event.target === els.skipButton || els.videoControls?.contains(event.target)) return;
+    clearTimeout(stageClickTimer);
+    suppressControlRevealUntil = Date.now() + 450;
+    seekByStagePosition(event);
+  });
+  window.aniWebPlayerTap = () => {
+    ignoreStageClicksUntil = Date.now() + 1200;
+    toggleVideoControlsFromSurface();
+  };
+  window.aniWebPlayerSeek = (seconds) => {
+    ignoreStageClicksUntil = Date.now() + 1200;
+    seekRelative(seconds, { silent: true });
+  };
+  document.addEventListener('keydown', (event) => {
+    if (!currentContext || event.key.toLowerCase() !== 'f') return;
+    const tag = document.activeElement?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    event.preventDefault();
+    togglePlayerFullscreen();
+  });
+  document.addEventListener('fullscreenchange', updateVideoControls);
+  document.addEventListener('webkitfullscreenchange', updateVideoControls);
+  document.addEventListener('fullscreenchange', () => {
+    if (!fullscreenElement()) {
+      els.playerDialog?.classList.remove('player-fullscreen');
+      document.body.classList.remove('player-fullscreen-active');
+    }
+  });
+  document.addEventListener('webkitfullscreenchange', () => {
+    if (!fullscreenElement()) {
+      els.playerDialog?.classList.remove('player-fullscreen');
+      document.body.classList.remove('player-fullscreen-active');
+    }
+  });
 
   setupPlayerGestures();
 
   els.playerVideo.addEventListener('timeupdate', () => {
     if (!currentContext) return;
     handleSkipTimes();
+    updateVideoControls();
     const now = Date.now();
     if (now - lastSavedAt < 5000) return;
     lastSavedAt = now;
     persistProgress();
   });
   els.playerVideo.addEventListener('pause', persistProgress);
+  els.playerVideo.addEventListener('play', () => {
+    updateVideoControls();
+    showVideoControlsTemporarily();
+  });
+  els.playerVideo.addEventListener('pause', () => {
+    updateVideoControls();
+    setVideoControlsVisible(true);
+    clearTimeout(controlsHideTimer);
+  });
+  els.playerVideo.addEventListener('loadedmetadata', updateVideoControls);
+  els.playerVideo.addEventListener('durationchange', updateVideoControls);
+  els.playerVideo.addEventListener('volumechange', updateVideoControls);
   els.playerVideo.addEventListener('ended', () => {
     if (!currentContext) return;
     markEpisodeFinished();

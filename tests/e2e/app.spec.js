@@ -33,8 +33,12 @@ test.describe('Shell & navigation', () => {
   test('opens and closes the browser player', async ({ page }) => {
     await page.click('#libraryList .show-card button[data-action="play"]');
     await expect(page.locator('#playerDialog')).toBeVisible();
+    await expect(page.locator('#fullscreenBtn')).toHaveCount(0);
+    await expect(page.locator('#videoControls')).toBeVisible();
+    await expect(page.locator('#playerFullscreenBtn')).toBeVisible();
     await expect(page.locator('#prevEpisodeBtn')).toBeVisible();
     await expect(page.locator('#nextEpisodeBtn')).toBeVisible();
+    await expect(page.locator('#playerVideo')).not.toHaveAttribute('controls');
 
     await page.click('#closePlayerBtn');
     await expect(page.locator('#playerDialog')).toBeHidden();
