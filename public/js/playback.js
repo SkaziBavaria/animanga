@@ -15,15 +15,20 @@ let introSkipped = false;
 let outroTriggered = false;
 let finishedMarked = false;
 let playerSeeking = false;
-let controlsHover = false;
-let controlsHideTimer = 0;
-let ignoreStageClicksUntil = 0;
-let ignoreControlClicksUntil = 0;
-let controlPointerArmed = false;
-let suppressControlRevealUntil = 0;
-let stageClickTimer = 0;
-let desktopSeekOsd = { side: null, total: 0, at: 0 };
-let desktopOsdTimer = 0;
+const controlsState = {
+  hover: false,
+  hideTimer: 0,
+  ignoreStageClicksUntil: 0,
+  ignoreControlClicksUntil: 0,
+  pointerArmed: false,
+  suppressRevealUntil: 0,
+  stageClickTimer: 0,
+  seekOsd: { side: null, total: 0, at: 0 },
+  osdTimer: 0,
+  ignoreStageDblClickUntil: 0,
+};
+
+const SEEK_CHAIN_MS = 900;
 
 function adjacentEpisode(show, episode, dir) {
   const list = (show?.episodes || []).map(String);
@@ -239,12 +244,12 @@ async function togglePlayerFullscreen() {
 
 function shouldHideVideoControls() {
   const video = els.playerVideo;
-  return Boolean(currentContext && video && !video.paused && !playerSeeking && !controlsHover);
+  return Boolean(currentContext && video && !video.paused && !playerSeeking && !controlsState.hover);
 }
 
 function setVideoControlsVisible(visible) {
   els.playerStage?.classList.toggle('controls-hidden', !visible);
-  if (!visible) controlPointerArmed = false;
+  if (!visible) controlsState.pointerArmed = false;
 }
 
 function areVideoControlsHidden() {
@@ -252,25 +257,25 @@ function areVideoControlsHidden() {
 }
 
 function scheduleVideoControlsHide() {
-  clearTimeout(controlsHideTimer);
+  clearTimeout(controlsState.hideTimer);
   if (!shouldHideVideoControls()) {
     setVideoControlsVisible(true);
     return;
   }
-  controlsHideTimer = setTimeout(() => {
+  controlsState.hideTimer = setTimeout(() => {
     if (shouldHideVideoControls()) setVideoControlsVisible(false);
   }, 2200);
 }
 
 function showVideoControlsTemporarily() {
-  if (Date.now() < suppressControlRevealUntil) return;
+  if (Date.now() < controlsState.suppressRevealUntil) return;
   setVideoControlsVisible(true);
   scheduleVideoControlsHide();
 }
 
 function revealVideoControlsOnly() {
-  controlPointerArmed = false;
-  ignoreControlClicksUntil = Date.now() + 1200;
+  controlsState.pointerArmed = false;
+  controlsState.ignoreControlClicksUntil = Date.now() + 1200;
   showVideoControlsTemporarily();
 }
 
@@ -278,8 +283,8 @@ function toggleVideoControlsFromSurface() {
   if (areVideoControlsHidden()) {
     revealVideoControlsOnly();
   } else {
-    clearTimeout(controlsHideTimer);
-    suppressControlRevealUntil = Date.now() + 450;
+    clearTimeout(controlsState.hideTimer);
+    controlsState.suppressRevealUntil = Date.now() + 450;
     setVideoControlsVisible(false);
   }
 }
@@ -291,10 +296,25 @@ function showPlayerOsd(label, side = 'center') {
   osd.classList.toggle('osd-left', side === 'left');
   osd.classList.toggle('osd-right', side === 'right');
   osd.classList.add('show');
-  clearTimeout(desktopOsdTimer);
-  desktopOsdTimer = setTimeout(() => {
+  clearTimeout(controlsState.osdTimer);
+  controlsState.osdTimer = setTimeout(() => {
     osd.classList.remove('show', 'osd-left', 'osd-right');
   }, 700);
+}
+
+function showAccumulatedSeekOsd(side, seconds) {
+  const now = Date.now();
+  if (controlsState.seekOsd.side === side && now - controlsState.seekOsd.at <= SEEK_CHAIN_MS) {
+    controlsState.seekOsd.total += seconds;
+  } else {
+    controlsState.seekOsd = { side, total: seconds, at: now };
+  }
+  controlsState.seekOsd.at = now;
+  showPlayerOsd(`${controlsState.seekOsd.total > 0 ? '+' : ''}${controlsState.seekOsd.total}s`, side);
+}
+
+function isSeekChainActive() {
+  return Date.now() - controlsState.seekOsd.at <= SEEK_CHAIN_MS;
 }
 
 function seekByStagePosition(event) {
@@ -302,15 +322,8 @@ function seekByStagePosition(event) {
   if (!rect) return;
   const side = event.clientX < rect.left + rect.width / 2 ? 'left' : 'right';
   const seconds = side === 'right' ? 10 : -10;
-  const now = Date.now();
   seekRelative(seconds, { silent: true });
-  if (desktopSeekOsd.side === side && now - desktopSeekOsd.at <= 900) {
-    desktopSeekOsd.total += seconds;
-  } else {
-    desktopSeekOsd = { side, total: seconds, at: now };
-  }
-  desktopSeekOsd.at = now;
-  showPlayerOsd(`${desktopSeekOsd.total > 0 ? '+' : ''}${desktopSeekOsd.total}s`, side);
+  showAccumulatedSeekOsd(side, seconds);
 }
 
 function formatClock(seconds) {
@@ -326,19 +339,20 @@ function updateVideoControls() {
   if (!video) return;
 
   if (els.playPauseBtn) {
-    els.playPauseBtn.innerHTML = video.paused ? '&#9654;' : '&#10074;&#10074;';
+    els.playPauseBtn.classList.toggle('is-paused', video.paused);
+    els.playPauseBtn.classList.toggle('is-playing', !video.paused);
     els.playPauseBtn.title = video.paused ? 'Play' : 'Pause';
     els.playPauseBtn.setAttribute('aria-label', video.paused ? 'Play' : 'Pause');
   }
   if (els.muteBtn) {
     const muted = video.muted || video.volume === 0;
-    els.muteBtn.innerHTML = muted ? '&#128263;' : '&#128266;';
+    els.muteBtn.classList.toggle('is-muted', muted);
     els.muteBtn.title = muted ? 'Unmute' : 'Mute';
     els.muteBtn.setAttribute('aria-label', muted ? 'Unmute' : 'Mute');
   }
   if (els.playerFullscreenBtn) {
     const fullscreen = isPlayerStageFullscreen();
-    els.playerFullscreenBtn.innerHTML = fullscreen ? '&#9587;' : '&#9974;';
+    els.playerFullscreenBtn.classList.toggle('is-fullscreen', fullscreen);
     els.playerFullscreenBtn.title = fullscreen ? 'Exit fullscreen' : 'Fullscreen';
     els.playerFullscreenBtn.setAttribute('aria-label', fullscreen ? 'Exit fullscreen' : 'Fullscreen');
   }
@@ -368,8 +382,8 @@ function togglePlayback() {
 }
 
 function shouldIgnoreControlClick(event) {
-  const ignore = !controlPointerArmed || Date.now() < ignoreControlClicksUntil;
-  controlPointerArmed = false;
+  const ignore = !controlsState.pointerArmed || Date.now() < controlsState.ignoreControlClicksUntil;
+  controlsState.pointerArmed = false;
   if (!ignore) return false;
   event.preventDefault();
   event.stopPropagation();
@@ -497,7 +511,7 @@ export function bindPlayerDialog() {
     els.playerVideo.load();
     hideSkipButton();
     if (els.playerDialog.classList.contains('player-fullscreen')) exitPlayerFullscreen();
-    clearTimeout(controlsHideTimer);
+    clearTimeout(controlsState.hideTimer);
     setVideoControlsVisible(true);
     updateVideoControls();
     currentContext = null;
@@ -561,26 +575,26 @@ export function bindPlayerDialog() {
     showVideoControlsTemporarily();
   });
   els.videoControls?.addEventListener('mouseenter', () => {
-    controlsHover = true;
+    controlsState.hover = true;
     setVideoControlsVisible(true);
-    clearTimeout(controlsHideTimer);
+    clearTimeout(controlsState.hideTimer);
   });
   els.videoControls?.addEventListener('mouseleave', () => {
-    controlsHover = false;
+    controlsState.hover = false;
     scheduleVideoControlsHide();
   });
   els.videoControls?.addEventListener('focusin', () => {
-    controlsHover = true;
+    controlsState.hover = true;
     setVideoControlsVisible(true);
-    clearTimeout(controlsHideTimer);
+    clearTimeout(controlsState.hideTimer);
   });
   els.videoControls?.addEventListener('focusout', () => {
-    controlsHover = false;
+    controlsState.hover = false;
     scheduleVideoControlsHide();
   });
   const armControlPointer = () => {
-    controlPointerArmed = true;
-    ignoreControlClicksUntil = 0;
+    controlsState.pointerArmed = true;
+    controlsState.ignoreControlClicksUntil = 0;
   };
   els.videoControls?.addEventListener('pointerdown', armControlPointer);
   els.centerControls?.addEventListener('pointerdown', armControlPointer);
@@ -589,27 +603,36 @@ export function bindPlayerDialog() {
   els.playerStage?.addEventListener('mousemove', showVideoControlsTemporarily);
   els.playerStage?.addEventListener('click', (event) => {
     if (isPlayerControlTarget(event.target)) return;
-    if (Date.now() < ignoreStageClicksUntil) {
+    if (Date.now() < controlsState.ignoreStageClicksUntil) {
       return;
     }
-    clearTimeout(stageClickTimer);
-    stageClickTimer = setTimeout(() => {
+    if (isSeekChainActive()) {
+      clearTimeout(controlsState.stageClickTimer);
+      controlsState.suppressRevealUntil = Date.now() + 450;
+      controlsState.ignoreStageDblClickUntil = Date.now() + 320;
+      seekByStagePosition(event);
+      return;
+    }
+    clearTimeout(controlsState.stageClickTimer);
+    controlsState.stageClickTimer = setTimeout(() => {
       toggleVideoControlsFromSurface();
     }, 180);
   });
   els.playerStage?.addEventListener('dblclick', (event) => {
     if (event.target === els.skipButton || els.videoControls?.contains(event.target)) return;
-    clearTimeout(stageClickTimer);
-    suppressControlRevealUntil = Date.now() + 450;
+    if (Date.now() < controlsState.ignoreStageDblClickUntil) return;
+    clearTimeout(controlsState.stageClickTimer);
+    controlsState.suppressRevealUntil = Date.now() + 450;
     seekByStagePosition(event);
   });
-  window.aniWebPlayerTap = () => {
-    ignoreStageClicksUntil = Date.now() + 1200;
+  const handleGestureTap = () => {
+    controlsState.ignoreStageClicksUntil = Date.now() + 1200;
     toggleVideoControlsFromSurface();
   };
-  window.aniWebPlayerSeek = (seconds) => {
-    ignoreStageClicksUntil = Date.now() + 1200;
+  const handleGestureSeek = (side, seconds) => {
+    controlsState.ignoreStageClicksUntil = Date.now() + 1200;
     seekRelative(seconds, { silent: true });
+    showAccumulatedSeekOsd(side, seconds);
   };
   document.addEventListener('keydown', (event) => {
     if (!currentContext || event.key.toLowerCase() !== 'f') return;
@@ -633,7 +656,11 @@ export function bindPlayerDialog() {
     }
   });
 
-  setupPlayerGestures();
+  setupPlayerGestures({
+    onTap: handleGestureTap,
+    onSeek: handleGestureSeek,
+    isSeekChainActive,
+  });
 
   els.playerVideo.addEventListener('timeupdate', () => {
     if (!currentContext) return;
@@ -652,7 +679,7 @@ export function bindPlayerDialog() {
   els.playerVideo.addEventListener('pause', () => {
     updateVideoControls();
     setVideoControlsVisible(true);
-    clearTimeout(controlsHideTimer);
+    clearTimeout(controlsState.hideTimer);
   });
   els.playerVideo.addEventListener('loadedmetadata', updateVideoControls);
   els.playerVideo.addEventListener('durationchange', updateVideoControls);

@@ -9,9 +9,8 @@ const BRIGHTNESS_RANGE = 1.6;
 let brightness = 1;
 let lastTap = { at: 0, side: null };
 let tapTimer = 0;
-let seekOsd = { side: null, total: 0, at: 0 };
 
-export function setupPlayerGestures() {
+export function setupPlayerGestures({ onTap, onSeek, isSeekChainActive } = {}) {
   const stage = document.getElementById('playerStage');
   const osd = document.getElementById('playerOsd');
   const video = els.playerVideo;
@@ -77,22 +76,19 @@ export function setupPlayerGestures() {
       const now = Date.now();
       const seekSeconds = active.side === 'right' ? 10 : -10;
 
-      if (lastTap.side === active.side && now - lastTap.at <= DOUBLE_TAP_MS) {
+      if (isSeekChainActive?.()) {
         clearTimeout(tapTimer);
         lastTap = { at: 0, side: null };
-        window.aniWebPlayerSeek?.(seekSeconds);
-        if (seekOsd.side === active.side && now - seekOsd.at <= 900) {
-          seekOsd.total += seekSeconds;
-        } else {
-          seekOsd = { side: active.side, total: seekSeconds, at: now };
-        }
-        seekOsd.at = now;
-        showOsd(`${seekOsd.total > 0 ? '+' : ''}${seekOsd.total}s`, null, active.side);
+        onSeek?.(active.side, seekSeconds);
+      } else if (lastTap.side === active.side && now - lastTap.at <= DOUBLE_TAP_MS) {
+        clearTimeout(tapTimer);
+        lastTap = { at: 0, side: null };
+        onSeek?.(active.side, seekSeconds);
       } else {
         lastTap = { at: now, side: active.side };
         clearTimeout(tapTimer);
         tapTimer = setTimeout(() => {
-          window.aniWebPlayerTap?.();
+          onTap?.();
           lastTap = { at: 0, side: null };
         }, DOUBLE_TAP_MS);
       }
@@ -102,6 +98,7 @@ export function setupPlayerGestures() {
 
   const left = stage.querySelector('.gesture-left');
   const right = stage.querySelector('.gesture-right');
+  if (!left || !right) return;
 
   left.addEventListener('touchstart', (event) => onStart('left', event), { passive: true });
   right.addEventListener('touchstart', (event) => onStart('right', event), { passive: true });

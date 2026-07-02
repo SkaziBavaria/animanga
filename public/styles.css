@@ -1192,10 +1192,11 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
   cursor: not-allowed;
 }
 
-.play-center-button {
+.center-controls .play-center-button {
   width: 62px;
   height: 62px;
   min-width: 62px;
+  flex: 0 0 62px;
   font-size: 28px;
 }
 
@@ -1226,6 +1227,9 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
 }
 
 .video-control-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 40px;
   height: 32px;
   min-width: 40px;
@@ -1245,6 +1249,53 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
 .video-control-button:hover {
   background: rgba(255, 255, 255, .16);
   opacity: 1;
+}
+
+.video-control-button::before {
+  display: block;
+}
+
+.previous-button::before {
+  content: "\00AB";
+}
+
+.next-button::before {
+  content: "\00BB";
+}
+
+.play-center-button::before {
+  content: "";
+  width: 22px;
+  height: 24px;
+  margin: 0 auto;
+  transform: translateX(2px);
+  background: currentColor;
+  clip-path: polygon(18% 8%, 18% 92%, 88% 50%);
+}
+
+.play-center-button.is-playing::before {
+  width: 18px;
+  height: 22px;
+  margin: 0 auto;
+  transform: none;
+  clip-path: none;
+  background: linear-gradient(to right, currentColor 0 35%, transparent 35% 65%, currentColor 65% 100%);
+}
+
+.volume-button::before {
+  content: "\1F50A";
+}
+
+.volume-button.is-muted::before {
+  content: "\1F507";
+}
+
+.fullscreen-button::before {
+  content: "\26F6";
+}
+
+.fullscreen-button.is-fullscreen::before {
+  content: "\2573";
 }
 
 .player-time {

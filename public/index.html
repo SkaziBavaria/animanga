@@ -7,7 +7,7 @@
     <title>Ani Web</title>
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="icon" href="/icon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="/styles.css?v=90">
+    <link rel="stylesheet" href="/styles.css?v=92">
   </head>
   <body>
     <div class="app-shell">
@@ -182,16 +182,16 @@
         <div class="player-osd" id="playerOsd" aria-hidden="true"></div>
         <button id="skipButton" class="skip-button" type="button" hidden></button>
         <div class="center-controls" id="centerControls">
-          <button id="prevEpisodeBtn" class="video-control-button" type="button" title="Previous episode" aria-label="Previous episode">&#171;</button>
-          <button id="playPauseBtn" class="video-control-button play-center-button" type="button" title="Play" aria-label="Play">&#9654;</button>
-          <button id="nextEpisodeBtn" class="video-control-button" type="button" title="Next episode" aria-label="Next episode">&#187;</button>
+          <button id="prevEpisodeBtn" class="video-control-button previous-button" type="button" title="Previous episode" aria-label="Previous episode"></button>
+          <button id="playPauseBtn" class="video-control-button play-center-button is-paused" type="button" title="Play" aria-label="Play"></button>
+          <button id="nextEpisodeBtn" class="video-control-button next-button" type="button" title="Next episode" aria-label="Next episode"></button>
         </div>
         <div class="video-controls" id="videoControls">
           <span id="playerTime" class="player-time">0:00 / 0:00</span>
           <input id="playerSeek" class="player-seek" type="range" min="0" max="1000" value="0" step="1" aria-label="Seek">
-          <button id="muteBtn" class="video-control-button" type="button" title="Mute" aria-label="Mute">&#128266;</button>
+          <button id="muteBtn" class="video-control-button volume-button" type="button" title="Mute" aria-label="Mute"></button>
           <input id="playerVolume" class="player-volume" type="range" min="0" max="1" value="1" step="0.01" aria-label="Volume">
-          <button id="playerFullscreenBtn" class="video-control-button" type="button" title="Fullscreen" aria-label="Fullscreen">&#9974;</button>
+          <button id="playerFullscreenBtn" class="video-control-button fullscreen-button" type="button" title="Fullscreen" aria-label="Fullscreen"></button>
         </div>
       </div>
       <div class="player-controls">
@@ -203,6 +203,6 @@
     </dialog>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
-    <script type="module" src="/js/app.js?v=90"></script>
+    <script type="module" src="/js/app.js?v=92"></script>
   </body>
 </html>

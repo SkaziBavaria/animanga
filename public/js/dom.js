@@ -38,6 +38,7 @@ export const els = {
   playerTitle: $('#playerTitle'),
   playerStage: $('#playerStage'),
   playerVideo: $('#playerVideo'),
+  playerOsd: $('#playerOsd'),
   centerControls: $('#centerControls'),
   videoControls: $('#videoControls'),
   playPauseBtn: $('#playPauseBtn'),
