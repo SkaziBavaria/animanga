@@ -4,10 +4,16 @@ import { state } from './state.js';
 import { usesBrowserPlayer } from './status.js';
 import { positionFor, saveProgress } from './progress.js';
 import { setupPlayerGestures } from './player-gestures.js';
+import { renderLibrary } from './library.js';
+import { loadSkipTimes, skipShowTitle } from './aniskip.js';
 
 let currentContext = null;
 let currentShow = null;
 let lastSavedAt = 0;
+let currentSkip = { op: null, ed: null };
+let introSkipped = false;
+let outroTriggered = false;
+let finishedMarked = false;
 
 function adjacentEpisode(show, episode, dir) {
   const list = (show?.episodes || []).map(String);
@@ -68,6 +74,90 @@ function attachResume(resumeSeconds) {
   video.addEventListener('loadedmetadata', onLoaded);
 }
 
+function attachSkipTimes(show, episode) {
+  const title = skipShowTitle(show);
+  if (!title) return;
+  const video = els.playerVideo;
+  const requestContext = currentContext;
+  const onLoaded = () => {
+    video.removeEventListener('loadedmetadata', onLoaded);
+    loadSkipTimes(title, episode, video.duration).then((skip) => {
+      if (currentContext !== requestContext) return;
+      currentSkip = skip || { op: null, ed: null };
+    });
+  };
+  video.addEventListener('loadedmetadata', onLoaded);
+}
+
+function hideSkipButton() {
+  if (!els.skipButton) return;
+  els.skipButton.hidden = true;
+  els.skipButton.onclick = null;
+}
+
+function showSkipButton(label, onClick) {
+  if (!els.skipButton) return;
+  els.skipButton.textContent = label;
+  els.skipButton.hidden = false;
+  els.skipButton.onclick = onClick;
+}
+
+function markEpisodeFinished() {
+  if (!currentContext || finishedMarked) return;
+  finishedMarked = true;
+  const { showId, episode } = currentContext;
+  const duration = els.playerVideo.duration;
+  if (Number.isFinite(duration) && duration > 0) saveProgress(showId, episode, duration, duration);
+  if (state.settings.autoTrackPlayed === false) return;
+  postBeacon('/api/mark', { id: showId, episode, watched: true });
+  if (currentShow) {
+    currentShow.lastWatched = episode;
+    currentShow.watchedEpisodes = Array.from(new Set([...(currentShow.watchedEpisodes || []), episode]));
+  }
+  renderLibrary();
+  if (state.activeShow && state.activeShow.id === showId) {
+    import('./episodes.js').then(({ renderEpisodeGrid }) => renderEpisodeGrid(state.activeShow)).catch(() => {});
+  }
+}
+
+function handleSkipTimes() {
+  if (!currentContext) return;
+  const video = els.playerVideo;
+  const t = video.currentTime;
+  const { op, ed } = currentSkip;
+  const inOp = op && t >= op.start && t < op.end;
+  const inEd = ed && t >= ed.start && t < ed.end;
+
+  if (inOp) {
+    if (state.settings.skipIntro && !introSkipped) {
+      introSkipped = true;
+      video.currentTime = op.end;
+      hideSkipButton();
+    } else {
+      showSkipButton('Skip Intro ▶', () => {
+        introSkipped = true;
+        video.currentTime = op.end;
+        hideSkipButton();
+      });
+    }
+    return;
+  }
+
+  if (inEd) {
+    if (!outroTriggered) {
+      outroTriggered = true;
+      markEpisodeFinished();
+    }
+    showSkipButton('Skip Outro ▶', () => {
+      video.currentTime = Number.isFinite(ed.end) ? ed.end : video.duration;
+      hideSkipButton();
+    });
+    return;
+  }
+
+  hideSkipButton();
+}
+
 function intentUrl(url, player, title) {
   const parsed = new URL(url, window.location.origin);
   const extras = [
@@ -109,6 +199,11 @@ function openBrowserPlayback(show, episode, playback) {
   currentContext = { showId: show.id, episode: String(episode) };
   currentShow = show;
   lastSavedAt = 0;
+  currentSkip = { op: null, ed: null };
+  introSkipped = false;
+  outroTriggered = false;
+  finishedMarked = false;
+  hideSkipButton();
   updatePlayerNav();
   els.playerTitle.textContent = playback.title || `${show.name || show.title || 'Video'} ep ${episode}`;
   els.playerVideo.pause();
@@ -119,6 +214,7 @@ function openBrowserPlayback(show, episode, playback) {
   const direct = canPlayDirect(playback);
   els.playerVideo.onerror = null;
   attachResume(resume);
+  attachSkipTimes(show, episode);
   els.playerVideo.src = playbackStreamUrl(playback);
   if (direct) {
     els.playerVideo.onerror = () => {
@@ -131,12 +227,11 @@ function openBrowserPlayback(show, episode, playback) {
 
   if (!els.playerDialog.open) els.playerDialog.showModal();
   els.playerVideo.play().catch(() => {});
-  trackStarted(show, episode);
 }
 
 function openMpvPlayback(show, episode, playback) {
   window.location.href = intentUrl(playback.url, 'android_mpv', playback.title);
-  trackStarted(show, episode);
+  if (state.settings.autoTrackPlayed !== false) trackStarted(show, episode);
 }
 
 export function openPlayback(show, episode, playback) {
@@ -190,8 +285,10 @@ export function bindPlayerDialog() {
     els.playerVideo.pause();
     els.playerVideo.removeAttribute('src');
     els.playerVideo.load();
+    hideSkipButton();
     currentContext = null;
     currentShow = null;
+    renderLibrary();
     if (state.activeShow) {
       import('./episodes.js').then(({ renderEpisodeGrid }) => renderEpisodeGrid(state.activeShow)).catch(() => {});
     }
@@ -204,6 +301,7 @@ export function bindPlayerDialog() {
 
   els.playerVideo.addEventListener('timeupdate', () => {
     if (!currentContext) return;
+    handleSkipTimes();
     const now = Date.now();
     if (now - lastSavedAt < 5000) return;
     lastSavedAt = now;
@@ -212,7 +310,7 @@ export function bindPlayerDialog() {
   els.playerVideo.addEventListener('pause', persistProgress);
   els.playerVideo.addEventListener('ended', () => {
     if (!currentContext) return;
-    saveProgress(currentContext.showId, currentContext.episode, els.playerVideo.duration, els.playerVideo.duration);
+    markEpisodeFinished();
     if (els.autoplayNext?.checked && adjacentEpisode(currentShow, currentContext.episode, 1)) {
       playAdjacent(1);
     }

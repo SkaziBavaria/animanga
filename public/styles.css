@@ -1038,6 +1038,31 @@ dialog::backdrop {
   font-size: 13px;
 }
 
+.skip-button {
+  position: absolute;
+  right: 14px;
+  bottom: 78px;
+  z-index: 4;
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, .3);
+  background: rgba(20, 20, 20, .82);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .12s ease, transform .12s ease;
+}
+
+.skip-button:hover {
+  background: rgba(40, 40, 40, .92);
+  transform: translateY(-1px);
+}
+
+.skip-button[hidden] {
+  display: none;
+}
+
 .player-controls {
   display: flex;
   align-items: center;

@@ -7,7 +7,7 @@
     <title>Ani Web</title>
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="icon" href="/icon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="/styles.css?v=67">
+    <link rel="stylesheet" href="/styles.css?v=69">
   </head>
   <body>
     <div class="app-shell">
@@ -94,11 +94,11 @@
               </select>
             </label>
             <label class="switch-row">
-              <span>Skip intro</span>
+              <span>Auto-skip intro</span>
               <input name="skipIntro" type="checkbox">
             </label>
             <label class="switch-row">
-              <span>Mark started as watched</span>
+              <span>Auto-mark watched on finish</span>
               <input name="autoTrackPlayed" type="checkbox">
             </label>
             <button type="submit">Save</button>
@@ -180,6 +180,7 @@
         <div class="gesture-zone gesture-left" aria-hidden="true"></div>
         <div class="gesture-zone gesture-right" aria-hidden="true"></div>
         <div class="player-osd" id="playerOsd" aria-hidden="true"></div>
+        <button id="skipButton" class="skip-button" type="button" hidden></button>
       </div>
       <div class="player-controls">
         <button id="prevEpisodeBtn" class="secondary" type="button">◀ Previous</button>
@@ -192,6 +193,6 @@
     </dialog>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
-    <script type="module" src="/js/app.js?v=67"></script>
+    <script type="module" src="/js/app.js?v=69"></script>
   </body>
 </html>

@@ -41,5 +41,6 @@ export const els = {
   prevEpisodeBtn: $('#prevEpisodeBtn'),
   nextEpisodeBtn: $('#nextEpisodeBtn'),
   autoplayNext: $('#autoplayNext'),
+  skipButton: $('#skipButton'),
   toast: $('#toast'),
 };

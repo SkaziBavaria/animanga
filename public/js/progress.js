@@ -9,6 +9,12 @@ export function positionFor(showId, episode) {
   return state.positions[positionKey(showId, episode)] || null;
 }
 
+export function latestPositionForShow(showId) {
+  const entries = Object.values(state.positions || {}).filter((entry) => entry.showId === showId);
+  if (!entries.length) return null;
+  return entries.sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0))[0];
+}
+
 export async function loadProgress() {
   const data = await api('/api/progress');
   state.positions = data.positions || {};

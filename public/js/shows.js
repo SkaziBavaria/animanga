@@ -2,6 +2,7 @@ import { state } from './state.js';
 import {
   downloadedEpisodeCount,
 } from './download-helpers.js';
+import { latestPositionForShow } from './progress.js';
 import {
   escapeHtml,
   hasNewEpisodeToContinue,
@@ -12,8 +13,10 @@ import {
   thumbnailUrl,
 } from './util.js';
 
-function playActionLabel(show, source) {
-  if (source === 'library' && hasStarted(show) && hasNewEpisodeToContinue(show)) return 'Continue';
+function playActionLabel(show, source, resuming) {
+  if (source !== 'library') return 'Play';
+  if (resuming) return 'Resume';
+  if (hasStarted(show) && hasNewEpisodeToContinue(show)) return 'Continue';
   return 'Play';
 }
 
@@ -48,10 +51,11 @@ export function noSearchResultsHtml(query) {
 }
 
 export function showCard(show, source) {
-  const next = nextEpisode(show);
+  const resume = source === 'library' ? latestPositionForShow(show.id) : null;
+  const next = resume?.episode || nextEpisode(show);
   const hasNews = Number(show.newCount) > 0;
   const thumb = thumbnailUrl(show);
-  const playLabel = playActionLabel(show, source);
+  const playLabel = playActionLabel(show, source, Boolean(resume));
   const downloadedCount = downloadedEpisodeCount(show.id);
   const isTracked = source !== 'library' && state.library.some((item) => item.id === show.id);
   const extraActions = source === 'library'

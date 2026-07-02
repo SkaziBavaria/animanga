@@ -8,7 +8,7 @@ import {
   downloadEpisode,
   bindDownloadControls,
 } from './downloads.js';
-import { openEpisodes, playShow, renderEpisodeGrid, bindEpisodeDialog } from './episodes.js';
+import { openEpisodes, playShow, bindEpisodeDialog } from './episodes.js';
 import { loadJobs, clearJobs } from './jobs.js';
 import { loadLibrary, renderLibrary, trackShow, removeShow } from './library.js';
 import { bindPlayerDialog } from './playback.js';
@@ -76,11 +76,9 @@ function bindEpisodeGrid() {
     if (!button || !state.activeShow) return;
     const episode = button.dataset.episode;
     try {
+      // Watched state now updates once playback actually finishes (see markEpisodeFinished in playback.js),
+      // not the moment the player opens.
       await playShow(state.activeShow, episode);
-      state.activeShow.lastWatched = episode;
-      state.activeShow.watchedEpisodes = Array.from(new Set([...(state.activeShow.watchedEpisodes || []), episode]));
-      renderEpisodeGrid(state.activeShow);
-      button.classList.add('watched');
     } catch (err) {
       toast(err.message);
     }
