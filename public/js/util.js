@@ -96,6 +96,65 @@ export function episodeTitle(show, episode) {
   return show.episodeTitles?.[episode] || show.episodeTitles?.[String(episode)] || 'Episode';
 }
 
+export function dateFromAllAnimeDate(value) {
+  if (!value || typeof value !== 'object') return null;
+  const year = Number(value.year);
+  const month = Number(value.month);
+  const date = Number(value.date);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(date)) return null;
+  const hour = Number.isFinite(Number(value.hour)) ? Number(value.hour) : 0;
+  const minute = Number.isFinite(Number(value.minute)) ? Number(value.minute) : 0;
+  const second = Number.isFinite(Number(value.second)) ? Number(value.second) : 0;
+  return new Date(year, month, date, hour, minute, second);
+}
+
+export function dateFromUnixSeconds(value) {
+  const seconds = Number(value);
+  return Number.isFinite(seconds) && seconds > 0 ? new Date(seconds * 1000) : null;
+}
+
+export function formatShortDate(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric' }).format(date);
+}
+
+export function formatShortDateTime(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(date);
+}
+
+export function dateFromIso(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+export function releasePills(show) {
+  const pills = [];
+  const season = show.season;
+  if (season?.quarter && season?.year) pills.push(`Started ${season.quarter} ${season.year}`);
+
+  const next = show.nextAiringEpisode;
+  const nextDate = dateFromUnixSeconds(next?.airingAt || next?.airingAtUnix || next?.time);
+  if (nextDate) {
+    const ep = next?.episode ? `Ep ${next.episode}` : 'Next ep';
+    pills.push(`${ep} ${formatShortDateTime(nextDate)}`);
+  } else {
+    const lastDate = dateFromUnixSeconds(show.lastEpisodeTimestamp) || dateFromAllAnimeDate(show.lastEpisodeDate);
+    if (lastDate) pills.push(`Last ep ${formatShortDate(lastDate)}`);
+  }
+
+  const startDate = dateFromAllAnimeDate(show.airedStart);
+  if (!pills.length && startDate) pills.push(`Started ${formatShortDate(startDate)}`);
+  return pills;
+}
+
+export function episodeReleaseLabel(show, episode) {
+  const value = show.episodeDates?.[episode] || show.episodeDates?.[String(episode)];
+  const date = dateFromIso(value) || dateFromUnixSeconds(value);
+  return date ? `Released ${formatShortDate(date)}` : '';
+}
+
 export function busyLabel(action) {
   return {
     play: 'Starting...',

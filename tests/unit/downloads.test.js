@@ -5,9 +5,13 @@ const path = require('node:path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-process.env.ANI_WEB_DATA_DIR = path.join(os.tmpdir(), `ani-web-dl-unit-${process.pid}`);
+const DATA_DIR = path.join(os.tmpdir(), `ani-web-dl-unit-${process.pid}`);
+const DOWNLOAD_DIR = path.join(DATA_DIR, 'downloads');
+process.env.ANI_WEB_DATA_DIR = DATA_DIR;
+process.env.ANI_CLI_DOWNLOAD_DIR = DOWNLOAD_DIR;
 
-const { downloadKey, downloadStatus, isDownloadBusy } = require('../../lib/downloads');
+const fs = require('node:fs');
+const { downloadKey, downloadStatus, isDownloadBusy, resolveDownloadPath } = require('../../lib/downloads');
 
 test('downloadKey combines show id and episode', () => {
   assert.equal(downloadKey('abc', '1'), 'abc:1');
@@ -37,4 +41,15 @@ test('isDownloadBusy reflects active states', () => {
   assert.equal(isDownloadBusy('running'), true);
   assert.equal(isDownloadBusy('done'), false);
   assert.equal(isDownloadBusy('deleted'), false);
+});
+
+test('resolveDownloadPath reads completed paths with spaces from logs', () => {
+  const showDir = path.join(DOWNLOAD_DIR, 'A Show With Spaces');
+  const filePath = path.join(showDir, 'A Show With Spaces Episode 1.mp4');
+  const logFile = path.join(DATA_DIR, 'job.log');
+  fs.mkdirSync(showDir, { recursive: true });
+  fs.writeFileSync(filePath, '');
+  fs.writeFileSync(logFile, `Download complete: ${filePath}\n`);
+
+  assert.equal(resolveDownloadPath({ episode: '1', logFile }), filePath);
 });

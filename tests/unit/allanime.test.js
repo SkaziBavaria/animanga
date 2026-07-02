@@ -72,23 +72,43 @@ test('popularAnime maps the anyCard recommendations', async () => {
 });
 
 test('getShowDetails maps episodes and metadata', async () => {
-  stub({
-    data: {
-      show: {
-        _id: 'd1',
-        name: 'Detail Show',
-        availableEpisodes: { sub: 3 },
-        availableEpisodesDetail: { sub: ['1', '2', '3'] },
-        genres: ['Action'],
-        description: 'A show.',
+  allanime.setRawFetcher(async (query) => {
+    if (query.includes('episodeInfos')) {
+      return JSON.stringify({
+        data: {
+          episodeInfos: [
+            { episodeIdNum: 2, notes: 'Second Title', uploadDates: { sub: '2026-04-08T18:30:00.000Z' } },
+          ],
+        },
+      });
+    }
+    return JSON.stringify({
+      data: {
+        show: {
+          _id: 'd1',
+          name: 'Detail Show',
+          availableEpisodes: { sub: 3 },
+          availableEpisodesDetail: { sub: ['1', '2', '3'] },
+          airedStart: { year: 2026, month: 3, date: 1 },
+          season: { quarter: 'Spring', year: 2026 },
+          nextAiringEpisode: { airingAt: 1775400000, episode: 4 },
+          lastEpisodeTimestamp: { sub: 1774795200 },
+          genres: ['Action'],
+          description: 'A show.',
+        },
       },
-    },
+    });
   });
   const details = await allanime.getShowDetails('d1', 'sub');
   assert.equal(details.id, 'd1');
   assert.deepEqual(details.episodes, ['1', '2', '3']);
   assert.equal(details.latestEpisode, '3');
   assert.equal(details.episodeCount, 3);
+  assert.deepEqual(details.season, { quarter: 'Spring', year: 2026 });
+  assert.deepEqual(details.nextAiringEpisode, { airingAt: 1775400000, episode: 4 });
+  assert.equal(details.lastEpisodeTimestamp, 1774795200);
+  assert.equal(details.episodeTitles['2'], 'Second Title');
+  assert.equal(details.episodeDates['2'], '2026-04-08T18:30:00.000Z');
   assert.deepEqual(details.genres, ['Action']);
 });
 

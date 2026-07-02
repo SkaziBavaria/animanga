@@ -9,6 +9,7 @@ import {
   hasStarted,
   highestWatchedEpisode,
   nextEpisode,
+  releasePills,
   showInitials,
   thumbnailUrl,
 } from './util.js';
@@ -58,6 +59,7 @@ export function showCard(show, source) {
   const playLabel = playActionLabel(show, source, Boolean(resume));
   const downloadedCount = downloadedEpisodeCount(show.id);
   const isTracked = source !== 'library' && state.library.some((item) => item.id === show.id);
+  const schedulePills = releasePills(show);
   const extraActions = source === 'library'
     ? '<button class="danger" data-action="remove">Remove</button>'
     : isTracked
@@ -75,6 +77,7 @@ export function showCard(show, source) {
           <span class="pill">${escapeHtml(show.mode || state.settings?.mode || 'sub')}</span>
           ${hasNews ? `<span class="pill hot">${show.newCount} new</span>` : ''}
           ${downloadedCount ? `<span class="pill downloaded">↓ ${downloadedCount} saved</span>` : ''}
+          ${schedulePills.map((pill) => `<span class="pill schedule">${escapeHtml(pill)}</span>`).join('')}
           ${nextSeasonPill(show)}
           ${show.recommendationReason ? `<span class="pill reason">${escapeHtml(show.recommendationReason)}</span>` : ''}
           ${show.refreshError ? `<span class="pill danger">Refresh failed</span>` : ''}
