@@ -1,0 +1,40 @@
+name: Container Security
+
+on:
+  push:
+    branches: [main, ani-web-docker]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t ani-web:ci .
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: ani-web:ci
+          format: spdx-json
+          output-file: ani-web.spdx.json
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: ani-web-sbom
+          path: ani-web.spdx.json
+          retention-days: 14
+
+      - name: Scan image vulnerabilities
+        uses: anchore/scan-action@v6
+        with:
+          image: ani-web:ci
+          fail-build: true
+          severity-cutoff: high
