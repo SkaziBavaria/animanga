@@ -399,6 +399,24 @@ function seekRelative(seconds, options = {}) {
   if (!options.silent) showVideoControlsTemporarily();
 }
 
+function setPlayerVolume(value, options = {}) {
+  const video = els.playerVideo;
+  if (!video) return;
+  const volume = Math.max(0, Math.min(1, value));
+  video.volume = volume;
+  video.muted = volume === 0;
+  updateVideoControls();
+  if (!options.silent) showVideoControlsTemporarily();
+  if (!options.hideOsd) showPlayerOsd(volume === 0 ? 'Mute' : `Vol ${Math.round(volume * 100)}%`, 'right');
+}
+
+function adjustPlayerVolume(delta) {
+  const video = els.playerVideo;
+  if (!video) return;
+  const base = video.muted ? 0 : video.volume;
+  setPlayerVolume(base + delta);
+}
+
 function isPlayerControlTarget(target) {
   return target === els.skipButton || els.videoControls?.contains(target) || els.centerControls?.contains(target);
 }
@@ -448,6 +466,7 @@ function openBrowserPlayback(show, episode, playback) {
   }
 
   if (!els.playerDialog.open) els.playerDialog.showModal();
+  els.playerStage?.focus({ preventScroll: true });
   els.playerVideo.play().catch(() => {});
   updateVideoControls();
   showVideoControlsTemporarily();
@@ -567,12 +586,7 @@ export function bindPlayerDialog() {
     showVideoControlsTemporarily();
   });
   els.playerVolume?.addEventListener('input', () => {
-    const video = els.playerVideo;
-    if (!video) return;
-    video.volume = Number(els.playerVolume.value);
-    video.muted = video.volume === 0;
-    updateVideoControls();
-    showVideoControlsTemporarily();
+    setPlayerVolume(Number(els.playerVolume.value), { hideOsd: true });
   });
   els.videoControls?.addEventListener('mouseenter', () => {
     controlsState.hover = true;
@@ -625,6 +639,11 @@ export function bindPlayerDialog() {
     controlsState.suppressRevealUntil = Date.now() + 450;
     seekByStagePosition(event);
   });
+  els.playerStage?.addEventListener('wheel', (event) => {
+    if (!currentContext || event.ctrlKey) return;
+    event.preventDefault();
+    adjustPlayerVolume(event.deltaY < 0 ? 0.05 : -0.05);
+  }, { passive: false });
   const handleGestureTap = () => {
     controlsState.ignoreStageClicksUntil = Date.now() + 1200;
     toggleVideoControlsFromSurface();
@@ -635,11 +654,36 @@ export function bindPlayerDialog() {
     showAccumulatedSeekOsd(side, seconds);
   };
   document.addEventListener('keydown', (event) => {
-    if (!currentContext || event.key.toLowerCase() !== 'f') return;
+    if (!currentContext) return;
     const tag = document.activeElement?.tagName;
-    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-    event.preventDefault();
-    togglePlayerFullscreen();
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON') return;
+
+    if (event.key === ' ' || event.key === 'Spacebar') {
+      event.preventDefault();
+      togglePlayback();
+      showVideoControlsTemporarily();
+      return;
+    }
+
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+      event.preventDefault();
+      const seconds = event.key === 'ArrowRight' ? 10 : -10;
+      const side = event.key === 'ArrowRight' ? 'right' : 'left';
+      seekRelative(seconds, { silent: true });
+      showAccumulatedSeekOsd(side, seconds);
+      return;
+    }
+
+    if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+      event.preventDefault();
+      adjustPlayerVolume(event.key === 'ArrowUp' ? 0.05 : -0.05);
+      return;
+    }
+
+    if (event.key.toLowerCase() === 'f') {
+      event.preventDefault();
+      togglePlayerFullscreen();
+    }
   });
   document.addEventListener('fullscreenchange', updateVideoControls);
   document.addEventListener('webkitfullscreenchange', updateVideoControls);

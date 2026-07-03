@@ -1,5 +1,5 @@
-const CACHE = 'ani-web-v94';
-const ASSETS = ['/', '/index.html', '/styles.css?v=94', '/js/app.js?v=94', '/manifest.webmanifest', '/icon.svg'];
+const CACHE = 'ani-web-v95';
+const ASSETS = ['/', '/index.html', '/styles.css?v=95', '/js/app.js?v=95', '/manifest.webmanifest', '/icon.svg'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ASSETS)));

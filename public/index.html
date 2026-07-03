@@ -7,7 +7,7 @@
     <title>Ani Web</title>
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="icon" href="/icon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="/styles.css?v=94">
+    <link rel="stylesheet" href="/styles.css?v=95">
   </head>
   <body>
     <div class="app-shell">
@@ -175,7 +175,7 @@
         </div>
         <button id="closePlayerBtn" class="icon-button" type="button" title="Close" aria-label="Close">×</button>
       </div>
-      <div class="player-stage" id="playerStage">
+      <div class="player-stage" id="playerStage" tabindex="-1">
         <video id="playerVideo" playsinline></video>
         <div class="gesture-zone gesture-left" aria-hidden="true"></div>
         <div class="gesture-zone gesture-right" aria-hidden="true"></div>
@@ -203,6 +203,6 @@
     </dialog>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
-    <script type="module" src="/js/app.js?v=94"></script>
+    <script type="module" src="/js/app.js?v=95"></script>
   </body>
 </html>
