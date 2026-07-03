@@ -39,7 +39,7 @@ test('resolveMalId falls back to the top result when no exact title matches', as
   assert.equal(id, 99);
 });
 
-test('resolveMalId caches a negative result to avoid repeat lookups', async () => {
+test('resolveMalId does not reuse negative cache entries', async () => {
   let calls = 0;
   setRawFetcher(async () => {
     calls += 1;
@@ -50,6 +50,28 @@ test('resolveMalId caches a negative result to avoid repeat lookups', async () =
   const second = await resolveMalId(state, 'Totally Unknown Show');
   assert.equal(first, null);
   assert.equal(second, null);
+  assert.equal(calls, 2);
+  assert.equal(state.cache.malIds, undefined);
+});
+
+test('resolveMalId ignores stale negative cache entries from old state files', async () => {
+  let calls = 0;
+  setRawFetcher(async () => {
+    calls += 1;
+    return jsonResponse({ data: [{ mal_id: 123, title: 'Recovered Show' }] });
+  });
+  const state = {
+    cache: {
+      malIds: {
+        'recovered show': {
+          value: { malId: null },
+          createdAt: new Date().toISOString(),
+        },
+      },
+    },
+  };
+  const id = await resolveMalId(state, 'Recovered Show');
+  assert.equal(id, 123);
   assert.equal(calls, 1);
 });
 
@@ -75,6 +97,7 @@ test('fetchSkipTimes returns empty result when nothing is found', async () => {
   const state = freshState();
   const skip = await fetchSkipTimes(state, 42, '5', 1440);
   assert.deepEqual(skip, { op: null, ed: null });
+  assert.equal(state.cache.skipTimes, undefined);
 });
 
 test('fetchSkipTimes tolerates network failures', async () => {
