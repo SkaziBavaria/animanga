@@ -232,21 +232,25 @@ function isPlayerStageFullscreen() {
   return Boolean(fullscreenElement()) || els.playerDialog?.classList.contains('player-fullscreen');
 }
 
+function focusPlayerStage() {
+  els.playerStage?.focus({ preventScroll: true });
+}
+
 async function requestPlayerFullscreen() {
   els.playerDialog?.classList.add('player-fullscreen');
   document.body.classList.add('player-fullscreen-active');
   const root = document.documentElement;
   const request = root.requestFullscreen || root.webkitRequestFullscreen;
-  if (!request) return;
-  await request.call(root);
+  if (request) await request.call(root);
+  focusPlayerStage();
 }
 
 async function exitPlayerFullscreen() {
   els.playerDialog?.classList.remove('player-fullscreen');
   document.body.classList.remove('player-fullscreen-active');
   const exit = document.exitFullscreen || document.webkitExitFullscreen;
-  if (!fullscreenElement() || !exit) return;
-  await exit.call(document);
+  if (fullscreenElement() && exit) await exit.call(document);
+  focusPlayerStage();
 }
 
 async function togglePlayerFullscreen() {
@@ -480,7 +484,7 @@ function openBrowserPlayback(show, episode, playback) {
   }
 
   if (!els.playerDialog.open) els.playerDialog.showModal();
-  els.playerStage?.focus({ preventScroll: true });
+  focusPlayerStage();
   els.playerVideo.play().catch(() => {});
   updateVideoControls();
   showVideoControlsTemporarily();
@@ -708,12 +712,14 @@ export function bindPlayerDialog() {
       els.playerDialog?.classList.remove('player-fullscreen');
       document.body.classList.remove('player-fullscreen-active');
     }
+    if (currentContext) focusPlayerStage();
   });
   document.addEventListener('webkitfullscreenchange', () => {
     if (!fullscreenElement()) {
       els.playerDialog?.classList.remove('player-fullscreen');
       document.body.classList.remove('player-fullscreen-active');
     }
+    if (currentContext) focusPlayerStage();
   });
 
   setupPlayerGestures({

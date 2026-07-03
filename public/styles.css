@@ -1031,6 +1031,11 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
   background: #000;
 }
 
+.player-stage:focus,
+.player-stage:focus-visible {
+  outline: 0;
+}
+
 .player-stage:fullscreen,
 .player-stage:-webkit-full-screen {
   display: flex;
@@ -1316,11 +1321,23 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
   height: 18px;
   background: transparent;
   cursor: pointer;
+  border: 0;
+  outline: 0;
+  box-shadow: none;
+}
+
+.player-seek:focus,
+.player-seek:focus-visible,
+.player-volume:focus,
+.player-volume:focus-visible {
+  outline: 0;
+  box-shadow: none;
 }
 
 .player-seek::-webkit-slider-runnable-track,
 .player-volume::-webkit-slider-runnable-track {
   height: 4px;
+  border: 0;
   border-radius: 999px;
   background: linear-gradient(to right, #fff 0 var(--range-progress), rgba(255, 255, 255, .34) var(--range-progress) 100%);
 }
@@ -1340,6 +1357,7 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
 .player-seek::-moz-range-track,
 .player-volume::-moz-range-track {
   height: 4px;
+  border: 0;
   border-radius: 999px;
   background: rgba(255, 255, 255, .34);
 }
