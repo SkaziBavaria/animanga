@@ -96,4 +96,35 @@ test.describe('Episodes dialog', () => {
     await expect(page.locator('#skipButton')).toContainText('Skip Outro');
     await expect(page.locator('#episodeGrid .episode-play[data-episode="2"]')).toHaveClass(/watched/);
   });
+
+  test('retries skip lookup after the video duration becomes available', async ({ page }) => {
+    const skipDurations = [];
+    await installApiMocks(page, {
+      skipTimes: (url) => {
+        const duration = Number(url.searchParams.get('duration') || 0);
+        skipDurations.push(duration);
+        return duration > 0 ? { op: { start: 10, end: 90 }, ed: null } : { op: null, ed: null };
+      },
+    });
+    await page.goto('/');
+    await page.click('#libraryList .show-card button[data-action="episodes"]');
+
+    await page.click('#episodeGrid .episode-play[data-episode="2"]');
+    await expect(page.locator('#playerDialog')).toBeVisible();
+
+    await expect.poll(() => skipDurations.includes(0)).toBe(true);
+    await page.evaluate(() => {
+      const video = document.querySelector('#playerVideo');
+      Object.defineProperty(video, 'duration', { value: 120, configurable: true });
+      Object.defineProperty(video, 'currentTime', { value: 12, writable: true, configurable: true });
+      video.dispatchEvent(new Event('durationchange'));
+    });
+
+    await expect.poll(() => page.evaluate(() => {
+      document.querySelector('#playerVideo').dispatchEvent(new Event('timeupdate'));
+      return document.querySelector('#skipButton').hidden;
+    })).toBe(false);
+    expect(skipDurations).toContain(120);
+    await expect(page.locator('#skipButton')).toContainText('Skip Intro');
+  });
 });

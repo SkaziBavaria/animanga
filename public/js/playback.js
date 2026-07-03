@@ -15,6 +15,7 @@ let introSkipped = false;
 let outroTriggered = false;
 let finishedMarked = false;
 let playerSeeking = false;
+let detachSkipTimes = null;
 const controlsState = {
   hover: false,
   hideTimer: 0,
@@ -90,18 +91,31 @@ function attachResume(resumeSeconds) {
 }
 
 function attachSkipTimes(show, episode) {
+  detachSkipTimes?.();
+  detachSkipTimes = null;
   const title = skipShowTitle(show);
   if (!title) return;
   const video = els.playerVideo;
   const requestContext = currentContext;
-  const onLoaded = () => {
-    video.removeEventListener('loadedmetadata', onLoaded);
-    loadSkipTimes(title, episode, video.duration).then((skip) => {
+  let lastDuration = null;
+
+  const requestSkipTimes = () => {
+    const duration = Number.isFinite(video.duration) && video.duration > 0 ? Math.round(video.duration) : 0;
+    if (duration === lastDuration) return;
+    lastDuration = duration;
+    loadSkipTimes(title, episode, duration).then((skip) => {
       if (currentContext !== requestContext) return;
-      currentSkip = skip || { op: null, ed: null };
+      if (skip?.op || skip?.ed) currentSkip = skip;
     });
   };
-  video.addEventListener('loadedmetadata', onLoaded);
+
+  video.addEventListener('loadedmetadata', requestSkipTimes);
+  video.addEventListener('durationchange', requestSkipTimes);
+  detachSkipTimes = () => {
+    video.removeEventListener('loadedmetadata', requestSkipTimes);
+    video.removeEventListener('durationchange', requestSkipTimes);
+  };
+  requestSkipTimes();
 }
 
 function hideSkipButton() {
@@ -529,6 +543,8 @@ export function bindPlayerDialog() {
     els.playerVideo.removeAttribute('src');
     els.playerVideo.load();
     hideSkipButton();
+    detachSkipTimes?.();
+    detachSkipTimes = null;
     if (els.playerDialog.classList.contains('player-fullscreen')) exitPlayerFullscreen();
     clearTimeout(controlsState.hideTimer);
     setVideoControlsVisible(true);

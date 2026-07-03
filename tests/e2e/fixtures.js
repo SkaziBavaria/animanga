@@ -99,7 +99,10 @@ async function installApiMocks(page, overrides = {}) {
     if (p === '/api/release-watches/check') return route.fulfill(jsonBody({ watches: releaseWatches, found: [] }));
     if (p === '/api/jobs' && method === 'GET') return route.fulfill(jsonBody({ jobs }));
     if (p === '/api/jobs' && method === 'DELETE') return route.fulfill(jsonBody({ ok: true }));
-    if (p === '/api/skip-times' && method === 'GET') return route.fulfill(jsonBody({ skip: skipTimes }));
+    if (p === '/api/skip-times' && method === 'GET') {
+      const skip = typeof skipTimes === 'function' ? skipTimes(url) : skipTimes;
+      return route.fulfill(jsonBody({ skip }));
+    }
 
     // --- discover ---
     if (p === '/api/search') {

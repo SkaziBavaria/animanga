@@ -11,14 +11,22 @@ export async function loadSkipTimes(title, episode, duration) {
   const ep = String(episode || '').trim();
   if (!cleanedTitle || !ep) return { op: null, ed: null };
 
-  const key = `${cleanedTitle}::${ep}`;
+  const roundedDuration = Math.round(duration || 0);
+  const key = `${cleanedTitle}::${ep}::${roundedDuration}`;
   if (cache.has(key)) return cache.get(key);
 
   const promise = api(
-    `/api/skip-times?title=${encodeURIComponent(cleanedTitle)}&episode=${encodeURIComponent(ep)}&duration=${Math.round(duration || 0)}`
+    `/api/skip-times?title=${encodeURIComponent(cleanedTitle)}&episode=${encodeURIComponent(ep)}&duration=${roundedDuration}`
   )
-    .then((data) => data?.skip || { op: null, ed: null })
-    .catch(() => ({ op: null, ed: null }));
+    .then((data) => {
+      const skip = data?.skip || { op: null, ed: null };
+      if (!skip.op && !skip.ed) cache.delete(key);
+      return skip;
+    })
+    .catch(() => {
+      cache.delete(key);
+      return { op: null, ed: null };
+    });
 
   cache.set(key, promise);
   return promise;
