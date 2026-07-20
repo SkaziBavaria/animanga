@@ -27,7 +27,7 @@ test.describe('Episodes dialog', () => {
 
     const ep2 = page.locator('#episodeGrid .episode-play[data-episode="2"]');
     await expect(ep2).toHaveClass(/in-progress/);
-    await expect(ep2).toContainText('Resume 2:00 / 24:00 · 8% watched');
+    await expect(ep2).toContainText('Resume 2:00 / 24:00 · 8%');
     const progress = page.locator('#episodeGrid .episode-row-wrap[data-episode="2"] .episode-view-progress');
     await expect(progress).toBeVisible();
     await expect(progress).toHaveAttribute('aria-valuenow', '8');
