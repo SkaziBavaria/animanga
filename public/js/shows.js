@@ -58,12 +58,12 @@ function nextSeasonPill(show) {
   const status = String(next.status || '').toLowerCase();
   const episodeCount = Number(next.episodeCount || next.latestEpisode || 0);
   if (status.includes('not yet') || status.includes('upcoming')) {
-    return '<span class="pill sequel upcoming">Next: upcoming</span>';
+    return '<span class="pill sequel upcoming" title="A sequel has been announced">Sequel announced</span>';
   }
   if (episodeCount > 0 || status.includes('finished') || status.includes('releasing')) {
-    return '<span class="pill sequel released">Next: released</span>';
+    return '<span class="pill sequel released" title="A sequel is available now">Sequel available</span>';
   }
-  return '<span class="pill sequel">Next season</span>';
+  return '<span class="pill sequel">Sequel</span>';
 }
 
 export function noSearchResultsHtml(query) {
@@ -78,13 +78,15 @@ export function noSearchResultsHtml(query) {
 export function showCard(show, source) {
   const resume = source === 'library' ? latestPositionForShow(show) : null;
   const next = resume?.episode || nextEpisode(show);
-  const hasNews = Number(show.newCount) > 0;
+  const hasNews = source === 'library' && Number(show.newCount) > 0;
   const thumb = thumbnailUrl(show);
   const playLabel = playActionLabel(show, source, Boolean(resume));
   const playText = playButtonLabel(playLabel, next);
   const downloadedCount = downloadedEpisodeCount(show.id);
   const isTracked = source !== 'library' && state.library.some((item) => item.id === show.id);
   const schedulePills = releasePills(show);
+  const showStatus = String(show.status || '').toLowerCase();
+  const isUpcoming = showStatus.includes('not yet') || showStatus.includes('upcoming');
   const extraActions = source === 'library'
     ? '<button class="danger" data-action="remove">Remove</button>'
     : isTracked
@@ -98,11 +100,10 @@ export function showCard(show, source) {
       <div class="show-main">
         <div class="show-title">${escapeHtml(show.name || show.title)}</div>
         <div class="show-meta">
-          <span class="pill">${escapeHtml(progressLabel(show, source))}</span>
+          <span class="pill${hasNews ? ' hot' : ''}"${hasNews ? ` title="${escapeHtml(`${show.newCount} new episode${Number(show.newCount) === 1 ? '' : 's'} available`)}"` : ''}>${escapeHtml(progressLabel(show, source))}</span>
           ${modeSelector(show)}
-          ${hasNews ? `<span class="pill hot">${show.newCount} new</span>` : ''}
           ${downloadedCount ? `<span class="pill downloaded">↓ ${downloadedCount} saved</span>` : ''}
-          ${schedulePills.map((pill) => `<span class="pill schedule">${escapeHtml(pill)}</span>`).join('')}
+          ${schedulePills.map((pill, index) => `<span class="pill schedule${isUpcoming && index === 0 ? ' upcoming' : ''}">${escapeHtml(pill)}</span>`).join('')}
           ${nextSeasonPill(show)}
           ${show.recommendationReason ? `<span class="pill reason">${escapeHtml(show.recommendationReason)}</span>` : ''}
           ${show.refreshError ? `<span class="pill danger">Refresh failed</span>` : ''}

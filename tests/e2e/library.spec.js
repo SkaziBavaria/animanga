@@ -4,9 +4,47 @@ const { test, expect } = require('@playwright/test');
 const { installApiMocks, makeShow } = require('./fixtures');
 
 const SHOWS = [
-  makeShow({ id: 'a', name: 'Alpha', title: 'Alpha (12 episodes)', lastWatched: '3', latestEpisode: 12, watchedEpisodes: ['1', '2', '3'], newCount: 1 }),
-  makeShow({ id: 'b', name: 'Bravo', title: 'Bravo (12 episodes)', lastWatched: '12', latestEpisode: 12, watchedEpisodes: ['12'], newCount: 0 }),
-  makeShow({ id: 'c', name: 'Charlie', title: 'Charlie (12 episodes)', lastWatched: '', latestEpisode: 12, watchedEpisodes: [], newCount: 0 }),
+  makeShow({
+    id: 'a',
+    name: 'Alpha',
+    title: 'Alpha (12 episodes)',
+    lastWatched: '3',
+    latestEpisode: 12,
+    watchedEpisodes: ['1', '2', '3'],
+    newCount: 1,
+    status: 'Finished',
+    airedStart: { year: 2015, month: 6, date: 5 },
+    airedEnd: { year: 2018, month: 2, date: 25 },
+    lastEpisodeDate: { year: 2018, month: 2, date: 25 },
+    hasNextSeason: true,
+    nextSeason: { status: 'Not Yet Released' },
+  }),
+  makeShow({
+    id: 'b',
+    name: 'Bravo',
+    title: 'Bravo (12 episodes)',
+    lastWatched: '12',
+    latestEpisode: 12,
+    watchedEpisodes: ['12'],
+    newCount: 0,
+    status: 'Releasing',
+    airedStart: { year: 2024, month: 0, date: 1 },
+    lastEpisodeTimestamp: Math.floor(Date.now() / 1000),
+    broadcastInterval: '604800000',
+    hasNextSeason: true,
+    nextSeason: { status: 'Finished', episodeCount: 12 },
+  }),
+  makeShow({
+    id: 'c',
+    name: 'Charlie',
+    title: 'Charlie (12 episodes)',
+    lastWatched: '',
+    latestEpisode: 12,
+    watchedEpisodes: [],
+    newCount: 0,
+    status: 'Not Yet Released',
+    airedStart: { year: 2027, month: 0, date: 1 },
+  }),
 ];
 
 test.describe('Library filtering & sorting', () => {
@@ -20,6 +58,52 @@ test.describe('Library filtering & sorting', () => {
     await page.selectOption('#libraryFilter', 'continue');
     await expect(page.locator('#libraryList .show-card')).toHaveCount(1);
     await expect(page.locator('#libraryList')).toContainText('Alpha');
+  });
+
+  test('highlights progress instead of adding a separate new-episode pill', async ({ page }) => {
+    const alpha = page.locator('.show-card[data-id="a"]');
+    const progress = alpha.locator('.show-meta > .pill').first();
+    await expect(progress).toHaveText('Progress 3 / 12');
+    await expect(progress).toHaveClass(/hot/);
+    await expect(progress).toHaveAttribute('title', '1 new episode available');
+    await expect(alpha.locator('.show-meta')).not.toContainText('1 new');
+
+    const bravoProgress = page.locator('.show-card[data-id="b"] .show-meta > .pill').first();
+    await expect(bravoProgress).not.toHaveClass(/hot/);
+  });
+
+  test('shows a compact year range instead of separate start and last-episode pills', async ({ page }) => {
+    const meta = page.locator('.show-card[data-id="a"] .show-meta');
+    await expect(meta.locator('.pill.schedule')).toHaveCount(1);
+    await expect(meta.locator('.pill.schedule')).toHaveText('2015–2018');
+    await expect(meta).not.toContainText('Started');
+    await expect(meta).not.toContainText('Last ep');
+  });
+
+  test('estimates the next episode when AllAnime only provides a broadcast interval', async ({ page }) => {
+    const schedule = page.locator('.show-card[data-id="b"] .pill.schedule');
+    await expect(schedule).toHaveCount(2);
+    await expect(schedule.nth(0)).toHaveText('2024–ongoing');
+    await expect(schedule.nth(1)).toContainText('Expected ep 13');
+  });
+
+  test('uses clear sequel labels and reserves yellow for an available sequel', async ({ page }) => {
+    const announced = page.locator('.show-card[data-id="a"] .pill.sequel');
+    await expect(announced).toHaveText('Sequel announced');
+    await expect(announced).toHaveClass(/upcoming/);
+    await expect(announced).toHaveAttribute('title', 'A sequel has been announced');
+
+    const available = page.locator('.show-card[data-id="b"] .pill.sequel');
+    await expect(available).toHaveText('Sequel available');
+    await expect(available).toHaveClass(/released/);
+    await expect(available).toHaveAttribute('title', 'A sequel is available now');
+  });
+
+  test('shows the current title itself as announced without adding another pill', async ({ page }) => {
+    const schedule = page.locator('.show-card[data-id="c"] .pill.schedule');
+    await expect(schedule).toHaveCount(1);
+    await expect(schedule).toHaveText('Announced · 2027');
+    await expect(schedule).toHaveClass(/upcoming/);
   });
 
   test('filters to caught-up shows', async ({ page }) => {

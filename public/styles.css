@@ -256,20 +256,29 @@ h2 {
 }
 
 .pill.sequel {
-  color: #061614;
-  background: color-mix(in srgb, var(--accent) 78%, white);
-  border-color: transparent;
+  color: var(--text);
+  background: rgba(255, 255, 255, .03);
+  border-color: var(--line);
   font-weight: 760;
 }
 
 .pill.sequel.upcoming {
-  color: #17130a;
-  background: color-mix(in srgb, var(--accent-2) 86%, white);
+  color: #061614;
+  background: color-mix(in srgb, var(--accent) 82%, white);
+  border-color: transparent;
 }
 
 .pill.sequel.released {
+  color: #17130a;
+  background: color-mix(in srgb, var(--accent-2) 86%, white);
+  border-color: transparent;
+}
+
+.pill.schedule.upcoming {
   color: #061614;
   background: color-mix(in srgb, var(--accent) 82%, white);
+  border-color: transparent;
+  font-weight: 760;
 }
 
 .pill.reason {
