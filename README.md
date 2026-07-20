@@ -1,162 +1,82 @@
-# Ani Web
+# ani-web
 
-Lokalt webbgui for `ani-cli` i Termux. Appen kor en liten Node-server pa telefonen och kan installeras som PWA fran Chrome/Android.
+ani-web is a small web interface for [ani-cli](https://github.com/pystardust/ani-cli). It runs locally, keeps track of watched episodes and playback progress, and works on both a Docker host and an Android phone through Termux.
 
-Pa PC kan du kora samma app i Docker med inbyggd webblasarspelare.
+The player runs in the browser, so you can also install the site as a PWA from Chrome.
 
-Dockerimagen kor en stabil, pinnad `ani-cli`-bas. Vid varje Docker-build hamtas
-senaste upstream `fix` enbart som referens och dess aktuella key, epoch, build-ID
-och Origin appliceras lokalt pa den stabila basen. Upstreams experimentella
-skript kors aldrig direkt.
+## Run with Docker
 
-## Start (Termux)
+You need Docker with the Compose plugin.
 
-Ny installation direkt i Termux:
+```sh
+git clone https://github.com/SkaziBavaria/ani-web.git
+cd ani-web
+docker compose up -d --build
+```
+
+Open [http://localhost:7831](http://localhost:7831).
+
+To update later:
+
+```sh
+cd ani-web
+git pull --ff-only
+docker compose up -d --build
+```
+
+Docker stores the database, ani-cli history, logs, and downloaded episodes in the local `data/` directory. Rebuilding or restarting the container does not remove them.
+
+## Run on Android with Termux
+
+Install a current version of Termux from F-Droid or GitHub. The old Play Store build is not supported.
+
+Inside Termux, run:
 
 ```sh
 pkg install -y curl
-curl -fsSL https://raw.githubusercontent.com/SkaziBavaria/ani-web/ani-web-docker/scripts/install-termux.sh | sh
+curl -fsSL https://raw.githubusercontent.com/SkaziBavaria/ani-web/main/scripts/install-termux.sh | sh
 ```
 
-Installern lagger projektet i `~/ani-web`, installerar Termux-beroenden,
-verifierar Node/SQLite och skapar kommandot `ani-web`. Den installerar samma
-pinnade ani-cli-bas som Docker och applicerar aktuella krypteringsvarden fran
-upstream `fix` innan skriptet ersatter `$PREFIX/bin/ani-cli`. Starta sedan med:
+The installer adds the required Termux packages, checks Node and SQLite, installs the same pinned and patched ani-cli build used by Docker, and places ani-web in `~/ani-web`.
+
+Start it with:
 
 ```sh
 ani-web
 ```
 
-For en annan installationsmapp eller branch kan installern koras med exempelvis:
+Then open [http://127.0.0.1:7831](http://127.0.0.1:7831) in Chrome. If you want to download episodes to shared storage, run `termux-setup-storage` once and accept Android's permission prompt.
 
-```sh
-ANI_WEB_INSTALL_DIR="$HOME/apps/ani-web" ANI_WEB_BRANCH=ani-web-docker sh scripts/install-termux.sh
-```
+To update the Termux installation, run the installer again. It only fast-forwards a clean checkout and will leave local changes alone.
 
-Manuell start fran ett redan klonat repo fungerar fortfarande:
+Android may stop Termux in the background. Setting Termux battery usage to **Unrestricted** usually fixes that. You can also run `termux-wake-lock` while using the server.
 
-```sh
-cd ~/ani-web
-npm start
-```
+## Sync between devices
 
-Oppna sedan:
+Library entries, watched episodes, playback positions, SUB/DUB choices, and settings can be synced between installations. Video files, caches, and job logs stay local.
 
-```text
-http://127.0.0.1:7831
-```
+### GitHub
 
-Chrome: menyknappen -> `Lagg till pa startskarmen`.
+GitHub is the easiest option for local and Termux installations because it does not require a public domain or HTTPS callback.
 
-## Start (Docker / PC)
+1. Create a GitHub OAuth App in **GitHub Settings → Developer settings → OAuth Apps**.
+2. Use your ani-web address as the homepage. The required callback field can be `http://127.0.0.1` because Device Flow does not use it.
+3. Enable **Device Flow** in the OAuth App settings.
+4. Copy its Client ID into **Settings → Cloud sync → GitHub** in ani-web.
+5. Choose a different device name on each installation, save, and connect.
 
-Kräver Docker. I WSL eller Linux:
+ani-web creates a private repository named `aniweb-sync-data`. Each device writes its own sync file, and records are merged instead of replacing the complete database. The OAuth `repo` scope is required to create and update a private repository, so only connect an OAuth App you trust.
 
-```sh
-cd ani-web
-docker compose up --build
-```
+### Google Drive
 
-Oppna i webblasaren:
+Google Drive is also supported, but it requires a Google Cloud OAuth Web client and an authorized HTTPS redirect URI. The exact callback URI is shown in **Settings → Cloud sync → Google Drive**.
 
-```text
-http://localhost:7831
-```
+## Useful environment variables
 
-Uppspelning sker i webblasaren via ani-cli debug-lage och en stream-proxy.
+- `ANI_WEB_PORT=7832` changes the port.
+- `ANI_WEB_HOST=0.0.0.0` exposes the server on the local network. Only do this on a network you trust.
+- `ANI_WEB_CLIENT_PLAYBACK=1` forces browser playback.
+- `ANI_CLI_BIN=/path/to/ani-cli` selects a different ani-cli executable.
+- `ANI_CLI_DOWNLOAD_DIR=/path/to/downloads` changes the download directory.
 
-All data sparas i mappen `data/` bredvid `docker-compose.yml` (bind-mount till `/data` i containern). Den overlever `docker compose up`, `down` och ombyggen. Vill du borja om helt: stoppa och radera mappen `data/`.
-
-## Projektstruktur
-
-```text
-server.js          Startpunkt (HTTP-server)
-lib/               Servermoduler (API, nedladdningar, proxy, m.m.)
-public/
-  index.html       PWA-skal
-  styles.css       UI
-  sw.js            Service worker
-  js/
-    app.js         Frontend-startpunkt
-    state.js       Delad app-state
-    dom.js         DOM-referenser
-    api.js         fetch, toast, withBusy
-    util.js        Hjälpfunktioner (episoder, HTML)
-    status.js      Serverstatus, uppspelningsläge
-    playback.js    Webbläsare + MPV-uppspelning
-    download-helpers.js  Nedladdningsstatus
-    downloads.js   Nedladdningskö och UI
-    shows.js       Show-kort och relaterade serier
-    library.js     Bibliotek, track/remove
-    discover.js    Sök, popular, rekommendationer
-    episodes.js    Avsnittsdialog
-    details.js     Om-serie-dialog
-    jobs.js        Jobbloggar
-    release-watches.js  Release-bevakning
-    events.js      Event listeners
-```
-
-## Vad som sparas (persistent)
-
-I Docker ligger allt under `data/` i projektet:
-
-```text
-data/
-  app/
-    ani-web.sqlite Foljda serier, sedda avsnitt, installningar,
-                   cache, watch-list, nedladdningsposter och tittarpositioner
-    state.json     Aldre state som importeras automatiskt vid forsta starten
-    job-logs/      Loggar for nedladdnings-/kommandojobb
-  ani-cli/
-    ani-hsts       ani-cli-historiken
-  downloads/       Nedladdade avsnitt (.mp4)
-```
-
-Allt detta overlever `docker compose up/down` och `--build`. Ingenting behover konfigureras extra.
-
-I Termux (utan Docker) sparas state i `data/ani-web.sqlite` i projektet och historiken i `~/.local/state/ani-cli/ani-hsts`. Node 22.16 eller senare kravs; Dockerimagen kor senaste Node.
-
-## Google Drive-synk
-
-Bibliotek, sedda/osedda episoder, tittarpositioner och vanliga installningar kan
-synkas mellan flera ani-web-installationer. Cache, jobbloggar och videofiler
-synkas inte. Varje enhet behaller sin egen SQLite-databas och mergear andringar
-post for post, vilket gor att offlineandringar skickas nasta gang enheten far
-internet.
-
-1. Skapa eller valj ett projekt i Google Cloud Console.
-2. Aktivera Google Drive API.
-3. Skapa en OAuth 2.0-klient av typen **Web application**.
-4. Oppna ani-web Settings och kopiera vardet i **Authorized redirect URI** till
-   OAuth-klientens lista over tillatna redirect-URI:er.
-5. Klistra in Client ID och Client Secret i ani-web, tryck Save och sedan
-   Connect Google.
-
-Upprepa pa varje enhet. Anvand olika Device name men samma Google-konto och
-OAuth-klient. Tokens och Client Secret sparas endast i den lokala databasen.
-
-## GitHub-synk
-
-GitHub-synk fungerar utan domannamn, HTTPS eller OAuth-callback till ani-web.
-Varje installation skriver en egen JSON-fil i ett privat repository och samma
-post-for-post-merge som Google Drive anvands for offlineandringar och konflikter.
-
-1. Oppna GitHub Settings -> Developer settings -> OAuth Apps och skapa en OAuth App.
-2. Homepage URL kan vara adressen till din ani-web. Authorization callback URL
-   anvands inte av Device Flow och kan sattas till `http://127.0.0.1`.
-3. Oppna OAuth-appens installningar och aktivera **Device Flow**.
-4. Kopiera appens Client ID till ani-web Settings -> Cloud sync -> GitHub.
-5. Tryck Save och Connect GitHub, oppna GitHub-lanken och skriv in koden.
-
-Ani-web skapar automatiskt det privata repot `aniweb-sync-data`. GitHubs OAuth
-scope `repo` kravs for att skapa och skriva till privata repositories och ger
-darfor bredare repoatkomst an en fine-grained token. Token lagras endast i den
-lokala SQLite-databasen och visas aldrig via API:t.
-
-## Installningar
-
-- `ANI_WEB_PORT=7832 npm start` byter port.
-- `ANI_WEB_HOST=0.0.0.0 npm start` gor servern natverksatkomlig. Anvand bara pa ett nat du litar pa.
-- `ANI_CLI_BIN=/path/till/ani-cli npm start` anvander en annan `ani-cli`.
-- `ANI_WEB_CLIENT_PLAYBACK=1` tvingar webblasarspelare (satt automatiskt i Docker).
-- `ANI_CLI_DOWNLOAD_DIR=/path/till/nedladdningar` styr var avsnitt sparas.
+The native installation requires Node 22.16 or newer. The Docker image includes a compatible Node version and all runtime dependencies.

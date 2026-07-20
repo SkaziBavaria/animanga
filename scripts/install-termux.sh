@@ -2,7 +2,7 @@
 set -eu
 
 REPO_URL="${ANI_WEB_REPO_URL:-https://github.com/SkaziBavaria/ani-web.git}"
-BRANCH="${ANI_WEB_BRANCH:-ani-web-docker}"
+BRANCH="${ANI_WEB_BRANCH:-main}"
 INSTALL_DIR="${ANI_WEB_INSTALL_DIR:-$HOME/ani-web}"
 ANI_CLI_STABLE_URL="https://raw.githubusercontent.com/pystardust/ani-cli/cc45a5530af350fb0e1a759e1d962814df5876fe/ani-cli"
 ANI_CLI_REFERENCE_URL="https://raw.githubusercontent.com/pystardust/ani-cli/fix/ani-cli"
@@ -23,7 +23,7 @@ if [ -d "$INSTALL_DIR/.git" ]; then
   if [ -n "$(git -C "$INSTALL_DIR" status --porcelain)" ]; then
     printf 'Local changes found; leaving the existing checkout unchanged.\n'
   else
-    git -C "$INSTALL_DIR" fetch origin "$BRANCH"
+    git -C "$INSTALL_DIR" fetch origin "$BRANCH:refs/remotes/origin/$BRANCH"
     git -C "$INSTALL_DIR" checkout "$BRANCH"
     git -C "$INSTALL_DIR" merge --ff-only "origin/$BRANCH"
   fi
