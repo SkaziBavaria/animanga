@@ -61,6 +61,28 @@ test.describe('Discover: search & browse', () => {
     await expect(page.locator('#searchResults .show-card')).toHaveCount(1);
   });
 
+  test('filters discover results by multiple genres', async ({ page }) => {
+    await installApiMocks(page);
+    await page.goto('/');
+    await page.click('.tab[data-view="searchView"]');
+
+    const request = page.waitForRequest((req) => {
+      const url = new URL(req.url());
+      return url.pathname === '/api/search'
+        && url.searchParams.getAll('genre').join(',') === 'Action,Fantasy'
+        && url.searchParams.get('year') === '2025';
+    });
+    await page.click('#genreFilterSummary');
+    await page.check('#genreFilter input[value="Action"]');
+    await page.check('#genreFilter input[value="Fantasy"]');
+    await page.fill('#discoverYearFilter', '2025');
+    await page.click('#genreApplyBtn');
+    await request;
+
+    await expect(page.locator('#searchResults .show-card')).toHaveCount(1);
+    await expect(page.locator('#genreFilterSummary')).toContainText('Action, Fantasy, 2025');
+  });
+
   test('opens the about dialog with synopsis and related seasons', async ({ page }) => {
     await installApiMocks(page, {
       relations: [{ id: 'rel1', name: 'Season 2', relation: 'sequel', episodeCount: 12, status: 'Finished' }],

@@ -4,6 +4,11 @@ Lokalt webbgui for `ani-cli` i Termux. Appen kor en liten Node-server pa telefon
 
 Pa PC kan du kora samma app i Docker med inbyggd webblasarspelare.
 
+Dockerimagen kor en stabil, pinnad `ani-cli`-bas. Vid varje Docker-build hamtas
+senaste upstream `fix` enbart som referens och dess aktuella key, epoch, build-ID
+och Origin appliceras lokalt pa den stabila basen. Upstreams experimentella
+skript kors aldrig direkt.
+
 ## Start (Termux)
 
 ```sh
@@ -74,8 +79,9 @@ I Docker ligger allt under `data/` i projektet:
 ```text
 data/
   app/
-    state.json     Foljda serier, sedda avsnitt, installningar,
-                   watch-list, nedladdningsposter, tittarpositioner
+    ani-web.sqlite Foljda serier, sedda avsnitt, installningar,
+                   cache, watch-list, nedladdningsposter och tittarpositioner
+    state.json     Aldre state som importeras automatiskt vid forsta starten
     job-logs/      Loggar for nedladdnings-/kommandojobb
   ani-cli/
     ani-hsts       ani-cli-historiken
@@ -84,7 +90,26 @@ data/
 
 Allt detta overlever `docker compose up/down` och `--build`. Ingenting behover konfigureras extra.
 
-I Termux (utan Docker) sparas state i `data/state.json` i projektet och historiken i `~/.local/state/ani-cli/ani-hsts`.
+I Termux (utan Docker) sparas state i `data/ani-web.sqlite` i projektet och historiken i `~/.local/state/ani-cli/ani-hsts`. Node 22.16 eller senare kravs; Dockerimagen kor senaste Node.
+
+## Google Drive-synk
+
+Bibliotek, sedda/osedda episoder, tittarpositioner och vanliga installningar kan
+synkas mellan flera ani-web-installationer. Cache, jobbloggar och videofiler
+synkas inte. Varje enhet behaller sin egen SQLite-databas och mergear andringar
+post for post, vilket gor att offlineandringar skickas nasta gang enheten far
+internet.
+
+1. Skapa eller valj ett projekt i Google Cloud Console.
+2. Aktivera Google Drive API.
+3. Skapa en OAuth 2.0-klient av typen **Web application**.
+4. Oppna ani-web Settings och kopiera vardet i **Authorized redirect URI** till
+   OAuth-klientens lista over tillatna redirect-URI:er.
+5. Klistra in Client ID och Client Secret i ani-web, tryck Save och sedan
+   Connect Google.
+
+Upprepa pa varje enhet. Anvand olika Device name men samma Google-konto och
+OAuth-klient. Tokens och Client Secret sparas endast i den lokala databasen.
 
 ## Installningar
 

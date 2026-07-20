@@ -5,6 +5,8 @@ export const state = {
   releaseWatches: [],
   releaseWatchesOpen: false,
   lastSearchQuery: '',
+  discoverGenres: [],
+  discoverYear: null,
   downloads: {},
   positions: {},
   libraryFilter: 'all',

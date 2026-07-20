@@ -8,6 +8,13 @@ function currentMode() {
   return state.settings?.mode || 'sub';
 }
 
+function discoverFilterParams() {
+  const params = new URLSearchParams();
+  for (const genre of state.discoverGenres || []) params.append('genre', genre);
+  if (state.discoverYear) params.set('year', String(state.discoverYear));
+  return params;
+}
+
 function renderSearchResults(results, emptyHtml) {
   state.searchResults = results;
   els.searchResults.innerHTML = results.length
@@ -20,8 +27,27 @@ export async function search(q) {
   state.discoverLoaded = true;
   state.lastSearchQuery = q;
   els.searchResults.innerHTML = '<div class="empty">Searching...</div>';
-  const data = await api(`/api/search?q=${encodeURIComponent(q)}&mode=${encodeURIComponent(currentMode())}`);
+  const params = discoverFilterParams();
+  params.set('q', q);
+  params.set('mode', currentMode());
+  const data = await api(`/api/search?${params.toString()}`);
   renderSearchResults(data.results || [], noSearchResultsHtml(q));
+}
+
+export async function applyDiscoverFilters({ genres, year }) {
+  state.discoverGenres = [...genres];
+  state.discoverYear = year || null;
+  document.querySelectorAll('.browse-button').forEach((button) => button.classList.remove('active'));
+  const query = els.searchInput.value.trim();
+  state.discoverLoaded = true;
+  state.lastSearchQuery = query;
+  const label = [genres.length ? genres.join(' + ') : '', year || ''].filter(Boolean).join(' · ') || 'all titles';
+  els.searchResults.innerHTML = `<div class="empty">Loading ${escapeHtml(label)}...</div>`;
+  const params = discoverFilterParams();
+  params.set('q', query);
+  params.set('mode', currentMode());
+  const data = await api(`/api/search?${params.toString()}`);
+  renderSearchResults(data.results || [], '<div class="empty">No results for this genre.</div>');
 }
 
 export async function browsePopular(range, label) {

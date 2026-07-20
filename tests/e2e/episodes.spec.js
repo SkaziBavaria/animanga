@@ -27,8 +27,21 @@ test.describe('Episodes dialog', () => {
 
     const ep2 = page.locator('#episodeGrid .episode-play[data-episode="2"]');
     await expect(ep2).toHaveClass(/in-progress/);
-    await expect(ep2).toContainText('Resume');
-    await expect(ep2.locator('.episode-resume')).toBeVisible();
+    await expect(ep2).toContainText('Resume 2:00 / 24:00 · 8% watched');
+    const progress = page.locator('#episodeGrid .episode-row-wrap[data-episode="2"] .episode-view-progress');
+    await expect(progress).toBeVisible();
+    await expect(progress).toHaveAttribute('aria-valuenow', '8');
+  });
+
+  test('shows complete progress for a watched episode', async ({ page }) => {
+    await installApiMocks(page);
+    await page.goto('/');
+    await page.click('#libraryList .show-card button[data-action="episodes"]');
+
+    const progress = page.locator('#episodeGrid .episode-row-wrap[data-episode="1"] .episode-view-progress');
+    await expect(progress).toBeVisible();
+    await expect(progress).toHaveClass(/complete/);
+    await expect(progress).toHaveAttribute('aria-valuenow', '100');
   });
 
   test('downloads a single episode', async ({ page }) => {
@@ -68,7 +81,7 @@ test.describe('Episodes dialog', () => {
     await expect(page.locator('#episodeGrid .episode-play[data-episode="2"]')).toHaveClass(/watched/);
   });
 
-  test('considers the episode done once the outro/credits begin', async ({ page }) => {
+  test('does not mark the episode done from an early outro timestamp', async ({ page }) => {
     await installApiMocks(page, {
       skipTimes: { op: null, ed: { start: 2, end: 4 } },
     });
@@ -85,15 +98,17 @@ test.describe('Episodes dialog', () => {
       video.dispatchEvent(new Event('loadedmetadata'));
     });
 
-    const mark = page.waitForRequest((req) => req.url().endsWith('/api/mark') && req.method() === 'POST');
     // Skip times are fetched asynchronously; keep nudging timeupdate until they land.
     await expect.poll(() => page.evaluate(() => {
       document.querySelector('#playerVideo').dispatchEvent(new Event('timeupdate'));
       return document.querySelector('#skipButton').hidden;
     })).toBe(false);
-    await mark;
-
     await expect(page.locator('#skipButton')).toContainText('Skip Outro');
+    await expect(page.locator('#episodeGrid .episode-play[data-episode="2"]')).not.toHaveClass(/watched/);
+
+    const mark = page.waitForRequest((req) => req.url().endsWith('/api/mark') && req.method() === 'POST');
+    await page.evaluate(() => document.querySelector('#playerVideo').dispatchEvent(new Event('ended')));
+    await mark;
     await expect(page.locator('#episodeGrid .episode-play[data-episode="2"]')).toHaveClass(/watched/);
   });
 

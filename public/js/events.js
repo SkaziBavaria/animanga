@@ -1,14 +1,14 @@
 import { api, toast, withBusy, runAction } from './api.js';
 import { els } from './dom.js';
 import { state } from './state.js';
-import { browsePopular, browseRecommended, search, switchView } from './discover.js';
+import { applyDiscoverFilters, browsePopular, browseRecommended, search, switchView } from './discover.js';
 import { openDetails, bindDetailsDialog } from './details.js';
 import {
   deleteEpisodeDownload,
   downloadEpisode,
   bindDownloadControls,
 } from './downloads.js';
-import { openEpisodes, playShow, bindEpisodeDialog } from './episodes.js';
+import { openEpisodes, playShow, bindEpisodeDialog, toggleEpisodeWatched } from './episodes.js';
 import { loadJobs, clearJobs } from './jobs.js';
 import { loadLibrary, renderLibrary, trackShow, removeShow } from './library.js';
 import { bindPlayerDialog } from './playback.js';
@@ -34,6 +34,11 @@ function bindGlobalClicks() {
 
     const browseButton = event.target.closest('.browse-button');
     if (browseButton) {
+      state.discoverGenres = [];
+      state.discoverYear = null;
+      els.genreFilter.querySelectorAll('input[type="checkbox"]').forEach((input) => { input.checked = false; });
+      els.discoverYearFilter.value = '';
+      els.genreFilterSummary.textContent = 'Filters · All';
       document.querySelectorAll('.browse-button').forEach((button) => button.classList.toggle('active', button === browseButton));
       const task = browseButton.dataset.recommended
         ? () => browseRecommended()
@@ -60,6 +65,12 @@ function bindGlobalClicks() {
 
 function bindEpisodeGrid() {
   els.episodeGrid.addEventListener('click', async (event) => {
+    const watchedButton = event.target.closest('.episode-watch');
+    if (watchedButton && state.activeShow) {
+      await runAction(watchedButton, '…', () => toggleEpisodeWatched(state.activeShow, watchedButton.dataset.episode));
+      return;
+    }
+
     const deleteButton = event.target.closest('.episode-delete');
     if (deleteButton && state.activeShow) {
       await runAction(deleteButton, 'Deleting...', () => deleteEpisodeDownload(state.activeShow, deleteButton.dataset.episode));
@@ -145,6 +156,25 @@ function bindLibraryControls() {
   });
 }
 
+function bindDiscoverControls() {
+  els.genreApplyBtn.addEventListener('click', () => {
+    const genres = Array.from(els.genreFilter.querySelectorAll('input[type="checkbox"]:checked')).map((input) => input.value);
+    const yearValue = Number(els.discoverYearFilter.value);
+    const year = Number.isInteger(yearValue) && yearValue >= 1917 && yearValue <= 2100 ? yearValue : null;
+    const summary = [...genres, year].filter(Boolean);
+    els.genreFilterSummary.textContent = summary.length ? `Filters · ${summary.join(', ')}` : 'Filters · All';
+    els.genreFilter.open = false;
+    applyDiscoverFilters({ genres, year }).catch((err) => toast(err.message));
+  });
+  els.genreClearBtn.addEventListener('click', () => {
+    els.genreFilter.querySelectorAll('input[type="checkbox"]').forEach((input) => { input.checked = false; });
+    els.discoverYearFilter.value = '';
+    els.genreFilterSummary.textContent = 'Filters · All';
+    els.genreFilter.open = false;
+    applyDiscoverFilters({ genres: [], year: null }).catch((err) => toast(err.message));
+  });
+}
+
 function bindJobsControls() {
   els.jobsBtn.addEventListener('click', () => loadJobs().catch((err) => toast(err.message)));
   els.clearJobsBtn.addEventListener('click', () => clearJobs().catch((err) => toast(err.message)));
@@ -196,6 +226,7 @@ export function bindEvents() {
   bindReleaseWatches();
   bindDetailsRelated();
   bindLibraryControls();
+  bindDiscoverControls();
   bindJobsControls();
   bindForms();
 }

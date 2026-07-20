@@ -16,6 +16,21 @@ export function stripDescription(value) {
   return textarea.value.replace(/\n{3,}/g, '\n\n').trim();
 }
 
+export function formatCacheAge(seconds) {
+  const value = Math.max(0, Number(seconds) || 0);
+  if (value < 60) return 'just now';
+  if (value < 3600) return `${Math.floor(value / 60)}m ago`;
+  if (value < 86400) return `${Math.floor(value / 3600)}h ago`;
+  return `${Math.floor(value / 86400)}d ago`;
+}
+
+export function cacheStatusLabel(data) {
+  if (data?.offline) return `offline cache · ${formatCacheAge(data.offlineAgeSeconds ?? data.cache?.ageSeconds)}`;
+  if (data?.cache?.offline) return `offline cache · ${formatCacheAge(data.cache.ageSeconds)}`;
+  if (data?.cache?.cached) return `cached ${formatCacheAge(data.cache.ageSeconds)}`;
+  return 'live';
+}
+
 export function episodeNumber(value) {
   if (value === null || value === undefined || value === '') return NaN;
   return Number(value);
@@ -39,20 +54,30 @@ export function highestWatchedEpisode(show) {
 
 export function nextEpisode(show) {
   const list = show.episodes || [];
-  const watched = new Set(show.watchedEpisodes || []);
+  const watched = new Set((show.watchedEpisodes || []).map(String));
   const last = episodeNumber(show.lastWatched);
   if (list.length) {
+    const unwatched = list.filter((ep) => !watched.has(String(ep)));
+    if (!unwatched.length) return null;
     if (Number.isFinite(last)) {
-      return list.find((ep) => Number(ep) > last) || list.at(-1);
+      return unwatched.find((ep) => Number(ep) > last) || unwatched[0];
     }
-    return list.find((ep) => !watched.has(String(ep))) || list.at(-1);
+    return unwatched[0];
   }
 
   const latest = episodeNumber(show.latestEpisode || show.episodeCount);
-  if (Number.isFinite(last) && Number.isFinite(latest) && last < latest) return String(last + 1);
-  if (!Number.isFinite(last)) return '1';
-  if (Number.isFinite(latest)) return String(latest);
-  return show.lastWatched || '1';
+  if (Number.isFinite(latest)) {
+    for (let episode = 1; episode <= latest; episode += 1) {
+      const value = String(episode);
+      if (!watched.has(value) && (!Number.isFinite(last) || episode > last)) return value;
+    }
+    for (let episode = 1; episode <= latest; episode += 1) {
+      const value = String(episode);
+      if (!watched.has(value)) return value;
+    }
+    return null;
+  }
+  return Number.isFinite(last) ? String(last + 1) : '1';
 }
 
 export function hasNewEpisodeToContinue(show) {

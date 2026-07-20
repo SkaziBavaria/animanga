@@ -9,8 +9,12 @@ export function positionFor(showId, episode) {
   return state.positions[positionKey(showId, episode)] || null;
 }
 
-export function latestPositionForShow(showId) {
-  const entries = Object.values(state.positions || {}).filter((entry) => entry.showId === showId);
+export function latestPositionForShow(show) {
+  const showId = typeof show === 'string' ? show : show?.id;
+  const watched = new Set((typeof show === 'object' ? show.watchedEpisodes : []).map(String));
+  const entries = Object.values(state.positions || {}).filter((entry) => (
+    entry.showId === showId && !watched.has(String(entry.episode))
+  ));
   if (!entries.length) return null;
   return entries.sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0))[0];
 }

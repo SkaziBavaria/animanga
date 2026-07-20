@@ -1,11 +1,19 @@
-FROM node:20-bookworm-slim
+FROM node:26-bookworm-slim
 
+# Keep the last known compatible upstream script as a stable patch base.
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
     curl ca-certificates grep sed openssl fzf ffmpeg aria2 \
-  && rm -rf /var/lib/apt/lists/* \
-  && curl -fsSL https://raw.githubusercontent.com/pystardust/ani-cli/master/ani-cli -o /usr/local/bin/ani-cli \
-  && chmod +x /usr/local/bin/ani-cli
+  && rm -rf /var/lib/apt/lists/*
+
+ADD https://raw.githubusercontent.com/pystardust/ani-cli/cc45a5530af350fb0e1a759e1d962814df5876fe/ani-cli /usr/local/bin/ani-cli
+ADD https://raw.githubusercontent.com/pystardust/ani-cli/fix/ani-cli /tmp/ani-cli-reference
+COPY scripts/patch-ani-cli-crypto.js /tmp/patch-ani-cli-crypto.js
+
+RUN node /tmp/patch-ani-cli-crypto.js /usr/local/bin/ani-cli /tmp/ani-cli-reference \
+  && sh -n /usr/local/bin/ani-cli \
+  && chmod +x /usr/local/bin/ani-cli \
+  && rm -f /tmp/ani-cli-reference /tmp/patch-ani-cli-crypto.js
 
 WORKDIR /app
 

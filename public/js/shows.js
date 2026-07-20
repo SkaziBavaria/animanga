@@ -21,6 +21,14 @@ function playActionLabel(show, source, resuming) {
   return 'Play';
 }
 
+function playActionClass(label) {
+  return `play-action play-action-${String(label || 'play').toLowerCase()}`;
+}
+
+function playButtonLabel(label, episode) {
+  return episode ? `${label} ep ${episode}` : label;
+}
+
 function progressLabel(show, source) {
   const latest = show.latestEpisode || show.episodeCount || '';
   if (source !== 'library') return latest ? `Episodes ${latest}` : 'Episodes ?';
@@ -52,11 +60,12 @@ export function noSearchResultsHtml(query) {
 }
 
 export function showCard(show, source) {
-  const resume = source === 'library' ? latestPositionForShow(show.id) : null;
+  const resume = source === 'library' ? latestPositionForShow(show) : null;
   const next = resume?.episode || nextEpisode(show);
   const hasNews = Number(show.newCount) > 0;
   const thumb = thumbnailUrl(show);
   const playLabel = playActionLabel(show, source, Boolean(resume));
+  const playText = playButtonLabel(playLabel, next);
   const downloadedCount = downloadedEpisodeCount(show.id);
   const isTracked = source !== 'library' && state.library.some((item) => item.id === show.id);
   const schedulePills = releasePills(show);
@@ -84,7 +93,7 @@ export function showCard(show, source) {
         </div>
       </div>
       <div class="card-actions three">
-        <button class="primary" data-action="play" data-ep="${escapeHtml(next)}">${escapeHtml(playLabel)}</button>
+        <button class="primary ${playActionClass(playLabel)}" data-action="play" data-ep="${escapeHtml(next)}">${escapeHtml(playText)}</button>
         <button class="secondary" data-action="episodes">Episodes</button>
         <button class="secondary" data-action="details">About</button>
         ${extraActions}

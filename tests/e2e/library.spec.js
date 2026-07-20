@@ -32,6 +32,9 @@ test.describe('Library filtering & sorting', () => {
     await page.selectOption('#libraryFilter', 'notstarted');
     await expect(page.locator('#libraryList .show-card')).toHaveCount(1);
     await expect(page.locator('#libraryList')).toContainText('Charlie');
+    const playButton = page.locator('.show-card[data-id="c"] button[data-action="play"]');
+    await expect(playButton).toHaveText('Play ep 1');
+    await expect(playButton).toHaveClass(/play-action-play/);
   });
 
   test('sorts alphabetically', async ({ page }) => {
@@ -75,11 +78,11 @@ test.describe('Resume playback from the library card', () => {
         id: 'a',
         name: 'Alpha',
         title: 'Alpha (12 episodes)',
-        lastWatched: '3',
+        lastWatched: '2',
         latestEpisode: 12,
-        watchedEpisodes: ['1', '2', '3'],
+        watchedEpisodes: ['1', '2'],
       })],
-      // Episode 3 was only half-watched; a resume position should win over "next episode" (4).
+      // Episode 3 was only half-watched; its resume position should be selected.
       positions: {
         'a:3': { showId: 'a', episode: '3', position: 400, duration: 1400, updatedAt: new Date().toISOString() },
       },
@@ -87,8 +90,31 @@ test.describe('Resume playback from the library card', () => {
     await page.goto('/');
 
     const playButton = page.locator('.show-card[data-id="a"] button[data-action="play"]');
-    await expect(playButton).toHaveText('Resume');
+    await expect(playButton).toHaveText('Resume ep 3');
+    await expect(playButton).toHaveClass(/play-action-resume/);
     await expect(playButton).toHaveAttribute('data-ep', '3');
+  });
+
+  test('ignores stale resume positions for watched episodes', async ({ page }) => {
+    await installApiMocks(page, {
+      library: [makeShow({
+        id: 'a',
+        name: 'Alpha',
+        title: 'Alpha (3 episodes)',
+        lastWatched: '3',
+        latestEpisode: 3,
+        watchedEpisodes: ['1', '2', '3'],
+        episodes: ['1', '2', '3'],
+      })],
+      positions: {
+        'a:3': { showId: 'a', episode: '3', position: 400, duration: 1400, updatedAt: new Date().toISOString() },
+      },
+    });
+    await page.goto('/');
+
+    const playButton = page.locator('.show-card[data-id="a"] button[data-action="play"]');
+    await expect(playButton).toHaveText('Play');
+    await expect(playButton).toHaveClass(/play-action-play/);
   });
 
   test('falls back to the next episode once no position is in progress', async ({ page }) => {
@@ -107,7 +133,8 @@ test.describe('Resume playback from the library card', () => {
     await page.goto('/');
 
     const playButton = page.locator('.show-card[data-id="a"] button[data-action="play"]');
-    await expect(playButton).toHaveText('Continue');
+    await expect(playButton).toHaveText('Continue ep 4');
+    await expect(playButton).toHaveClass(/play-action-continue/);
     await expect(playButton).toHaveAttribute('data-ep', '4');
   });
 

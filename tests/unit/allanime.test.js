@@ -112,6 +112,11 @@ test('getShowDetails maps episodes and metadata', async () => {
   assert.deepEqual(details.genres, ['Action']);
 });
 
+test('getShowDetails rejects an empty upstream show instead of returning destructive defaults', async () => {
+  stub({ data: { show: {} } });
+  await assert.rejects(() => allanime.getShowDetails('missing', 'sub'), /Incomplete show details/);
+});
+
 test('normalizeRelatedShows dedupes and cleans relations', () => {
   const relations = allanime.normalizeRelatedShows([
     { relation: 'sequel', showId: 'x' },

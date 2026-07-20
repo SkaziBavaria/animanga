@@ -7,7 +7,7 @@
     <title>Ani Web</title>
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="icon" href="/icon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="/styles.css?v=97">
+    <link rel="stylesheet" href="/styles.css">
   </head>
   <body>
     <div class="app-shell">
@@ -57,6 +57,40 @@
             <button class="browse-button" data-popular-range="7" type="button">Week</button>
             <button class="browse-button" data-popular-range="30" type="button">Month</button>
           </div>
+          <details id="genreFilter" class="genre-filter">
+            <summary id="genreFilterSummary">Filters · All</summary>
+            <div class="genre-filter-panel">
+              <label class="discover-filter-field discover-year-field" for="discoverYearFilter">
+                <span>Release year</span>
+                <input id="discoverYearFilter" type="number" inputmode="numeric" min="1917" max="2100" placeholder="Any year">
+              </label>
+              <div class="genre-options">
+                <label><input type="checkbox" value="Action">Action</label>
+                <label><input type="checkbox" value="Adventure">Adventure</label>
+                <label><input type="checkbox" value="Comedy">Comedy</label>
+                <label><input type="checkbox" value="Drama">Drama</label>
+                <label><input type="checkbox" value="Fantasy">Fantasy</label>
+                <label><input type="checkbox" value="Horror">Horror</label>
+                <label><input type="checkbox" value="Josei">Josei</label>
+                <label><input type="checkbox" value="Magic">Magic</label>
+                <label><input type="checkbox" value="Mystery">Mystery</label>
+                <label><input type="checkbox" value="Psychological">Psychological</label>
+                <label><input type="checkbox" value="Romance">Romance</label>
+                <label><input type="checkbox" value="Sci-Fi">Sci-Fi</label>
+                <label><input type="checkbox" value="Seinen">Seinen</label>
+                <label><input type="checkbox" value="Shoujo">Shoujo</label>
+                <label><input type="checkbox" value="Shounen">Shounen</label>
+                <label><input type="checkbox" value="Slice of Life">Slice of Life</label>
+                <label><input type="checkbox" value="Sports">Sports</label>
+                <label><input type="checkbox" value="Supernatural">Supernatural</label>
+                <label><input type="checkbox" value="Thriller">Thriller</label>
+              </div>
+              <div class="genre-filter-actions">
+                <button id="genreClearBtn" class="secondary small-button" type="button">Clear</button>
+                <button id="genreApplyBtn" class="primary small-button" type="button">Apply</button>
+              </div>
+            </div>
+          </details>
           <div class="section-head compact watch-head">
             <div class="watch-title">
               <h2>Watching</h2>
@@ -103,6 +137,40 @@
             </label>
             <button type="submit">Save</button>
           </form>
+
+          <section class="panel sync-panel" aria-labelledby="syncTitle">
+            <div class="section-head compact">
+              <div>
+                <h2 id="syncTitle">Google Drive sync</h2>
+                <p id="syncStatus" class="sync-status">Not configured</p>
+              </div>
+            </div>
+            <form id="syncForm" class="sync-form">
+              <label>
+                <span>Device name</span>
+                <input name="deviceName" type="text" autocomplete="off" placeholder="Phone or PC">
+              </label>
+              <label>
+                <span>OAuth Client ID</span>
+                <input name="clientId" type="text" autocomplete="off" placeholder="…apps.googleusercontent.com">
+              </label>
+              <label>
+                <span>OAuth Client Secret</span>
+                <input name="clientSecret" type="password" autocomplete="new-password" placeholder="Leave blank to keep saved secret">
+              </label>
+              <label>
+                <span>Authorized redirect URI</span>
+                <input name="callbackUrl" type="text" readonly>
+              </label>
+              <small class="sync-help">Add the redirect URI above to a Google Cloud Web OAuth client, then save and connect. Only library state, watched episodes, progress and settings are synced—not video files.</small>
+              <div class="sync-actions">
+                <button id="syncSaveBtn" type="submit">Save</button>
+                <button id="syncConnectBtn" class="secondary" type="button">Connect Google</button>
+                <button id="syncNowBtn" class="secondary" type="button">Sync now</button>
+                <button id="syncDisconnectBtn" class="danger" type="button">Disconnect</button>
+              </div>
+            </form>
+          </section>
 
           <details class="advanced-panel">
             <summary>Advanced</summary>
@@ -203,6 +271,6 @@
     </dialog>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
-    <script type="module" src="/js/app.js?v=97"></script>
+    <script type="module" src="/js/app.js"></script>
   </body>
 </html>

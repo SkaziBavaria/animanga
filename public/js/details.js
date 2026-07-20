@@ -2,7 +2,7 @@ import { api } from './api.js';
 import { els } from './dom.js';
 import { state } from './state.js';
 import { relatedSeasonSection } from './shows.js';
-import { escapeHtml, showInitials, stripDescription, thumbnailUrl } from './util.js';
+import { cacheStatusLabel, escapeHtml, showInitials, stripDescription, thumbnailUrl } from './util.js';
 
 export async function openDetails(show) {
   state.detailsRelations = [];
@@ -17,7 +17,7 @@ export async function openDetails(show) {
   state.detailsRelations = item.relations || [];
   const thumb = thumbnailUrl(item);
   const description = stripDescription(item.description) || 'No description available.';
-  const meta = [item.type, item.status, item.score ? `Score ${item.score}` : '']
+  const meta = [item.type, item.status, item.score ? `Score ${item.score}` : '', cacheStatusLabel(data)]
     .filter(Boolean)
     .join(' · ');
   els.detailsTitle.textContent = item.name || item.title || 'About';

@@ -9,6 +9,10 @@ export async function api(path, options = {}) {
     },
   });
   const json = await res.json().catch(() => ({}));
+  if (res.headers.get('x-ani-web-cache') === 'offline' && json && typeof json === 'object') {
+    json.offline = true;
+    json.offlineAgeSeconds = Number(res.headers.get('x-ani-web-cache-age')) || 0;
+  }
   if (!res.ok || json.error) {
     const detail = typeof json.details === 'string'
       ? json.details.replace(/\x1b\[[0-9;]*m/g, '').trim().split('\n').filter(Boolean).slice(-3).join(' · ')

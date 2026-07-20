@@ -12,7 +12,6 @@ let currentShow = null;
 let lastSavedAt = 0;
 let currentSkip = { op: null, ed: null };
 let introSkipped = false;
-let outroTriggered = false;
 let finishedMarked = false;
 let playerSeeking = false;
 let detachSkipTimes = null;
@@ -173,10 +172,6 @@ function handleSkipTimes() {
   }
 
   if (inEd) {
-    if (!outroTriggered) {
-      outroTriggered = true;
-      markEpisodeFinished();
-    }
     showSkipButton('Skip Outro ▶', () => {
       video.currentTime = Number.isFinite(ed.end) ? ed.end : video.duration;
       hideSkipButton();
@@ -218,10 +213,6 @@ function canPlayDirect(playback) {
 
 function playbackStreamUrl(playback) {
   return canPlayDirect(playback) ? playback.url : proxyStreamUrl(playback);
-}
-
-function trackStarted(show, episode) {
-  postBeacon('/api/mark', { id: show.id, episode, watched: true });
 }
 
 function fullscreenElement() {
@@ -457,7 +448,6 @@ function openBrowserPlayback(show, episode, playback) {
   lastSavedAt = 0;
   currentSkip = { op: null, ed: null };
   introSkipped = false;
-  outroTriggered = false;
   finishedMarked = false;
   hideSkipButton();
   updatePlayerNav();
@@ -492,7 +482,6 @@ function openBrowserPlayback(show, episode, playback) {
 
 function openMpvPlayback(show, episode, playback) {
   window.location.href = intentUrl(playback.url, 'android_mpv', playback.title);
-  if (state.settings.autoTrackPlayed !== false) trackStarted(show, episode);
 }
 
 export function openPlayback(show, episode, playback) {
