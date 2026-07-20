@@ -16,7 +16,7 @@ jobs:
       RUN_CONTRACT: '1'
       ANI_CLI_BIN: ani-cli
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v7
         with:
