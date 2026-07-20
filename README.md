@@ -19,7 +19,9 @@ curl -fsSL https://raw.githubusercontent.com/SkaziBavaria/ani-web/ani-web-docker
 ```
 
 Installern lagger projektet i `~/ani-web`, installerar Termux-beroenden,
-verifierar Node/SQLite och skapar kommandot `ani-web`. Starta sedan med:
+verifierar Node/SQLite och skapar kommandot `ani-web`. Den installerar samma
+pinnade ani-cli-bas som Docker och applicerar aktuella krypteringsvarden fran
+upstream `fix` innan skriptet ersatter `$PREFIX/bin/ani-cli`. Starta sedan med:
 
 ```sh
 ani-web
