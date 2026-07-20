@@ -105,6 +105,33 @@
           <div id="searchResults" class="show-list"></div>
         </section>
 
+        <section id="mangaView" class="view" aria-labelledby="mangaTitle">
+          <div class="section-head">
+            <div>
+              <h2 id="mangaTitle">Manga</h2>
+              <p class="section-subtitle">Your reading library and AllManga search</p>
+            </div>
+            <button id="mangaRefreshBtn" class="icon-button" type="button" title="Refresh manga library" aria-label="Refresh manga library">↻</button>
+          </div>
+          <div class="manga-switch" role="tablist" aria-label="Manga section">
+            <button class="manga-switch-button active" data-manga-panel="library" type="button" role="tab" aria-selected="true">Library <span id="mangaCount" class="counter">0</span></button>
+            <button class="manga-switch-button" data-manga-panel="discover" type="button" role="tab" aria-selected="false">Discover</button>
+          </div>
+          <div id="mangaLibraryPanel" class="manga-panel active">
+            <div id="mangaLibraryList" class="show-list"></div>
+          </div>
+          <div id="mangaDiscoverPanel" class="manga-panel" hidden>
+            <form id="mangaSearchForm" class="search-row">
+              <input id="mangaSearchInput" name="q" type="search" autocomplete="off" placeholder="Search manga">
+              <button type="submit">Search</button>
+            </form>
+            <div class="browse-row" aria-label="Browse manga">
+              <button id="mangaLatestBtn" class="browse-button" type="button">Latest updates</button>
+            </div>
+            <div id="mangaSearchResults" class="show-list"></div>
+          </div>
+        </section>
+
         <section id="settingsView" class="view" aria-labelledby="settingsTitle">
           <div class="section-head">
             <h2 id="settingsTitle">Settings</h2>
@@ -237,6 +264,7 @@
       <nav class="tabbar" aria-label="Primary navigation">
         <button class="tab active" data-view="libraryView" type="button">Library</button>
         <button class="tab" data-view="searchView" type="button">Discover</button>
+        <button class="tab" data-view="mangaView" type="button">Manga</button>
         <button class="tab" data-view="settingsView" type="button">Settings</button>
       </nav>
     </div>
@@ -265,6 +293,36 @@
         <button id="closeDetailsBtn" class="icon-button" type="button" title="Close" aria-label="Close">×</button>
       </div>
       <div id="detailsBody" class="details-body"></div>
+    </dialog>
+
+    <dialog id="mangaDialog" class="manga-dialog">
+      <div class="dialog-head">
+        <div>
+          <h2 id="mangaDialogTitle"></h2>
+          <p id="mangaDialogMeta"></p>
+        </div>
+        <button id="closeMangaDialogBtn" class="icon-button" type="button" title="Close" aria-label="Close">×</button>
+      </div>
+      <div id="mangaDialogBody" class="manga-dialog-body"></div>
+      <div id="chapterGrid" class="episode-list chapter-list"></div>
+    </dialog>
+
+    <dialog id="mangaReaderDialog" class="manga-reader-dialog">
+      <div class="manga-reader-head">
+        <div>
+          <h2 id="mangaReaderTitle">Reading</h2>
+          <p id="mangaReaderMeta"></p>
+        </div>
+        <div class="inline-actions">
+          <button id="mangaMarkReadBtn" class="small-button primary" type="button">Mark read</button>
+          <button id="closeMangaReaderBtn" class="icon-button" type="button" title="Close reader" aria-label="Close reader">×</button>
+        </div>
+      </div>
+      <div id="mangaReaderPages" class="manga-reader-pages"></div>
+      <div class="manga-reader-nav">
+        <button id="mangaPrevChapterBtn" class="secondary" type="button">Previous</button>
+        <button id="mangaNextChapterBtn" class="primary" type="button">Next chapter</button>
+      </div>
     </dialog>
 
     <dialog id="playerDialog">

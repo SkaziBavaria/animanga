@@ -31,6 +31,7 @@ const {
   mergeSyncBundles,
   updateShowWatched,
   savePositionAtomic,
+  updateMangaRead,
   createDatabaseBackup,
 } = require('../../lib/state');
 const { DATABASE_FILE, BACKUP_DIR } = require('../../lib/config');
@@ -120,6 +121,17 @@ test('progress cannot be recreated for an episode already marked watched', () =>
   const result = savePositionAtomic({ id: 'legacy', episode: '10', position: 300, duration: 1200 });
   assert.equal(result.cleared, true);
   assert.equal(readState().positions['legacy:10'], undefined);
+});
+
+test('manga tracking and per-chapter read state are syncable', () => {
+  const state = readState();
+  state.mangas.m1 = { id: 'm1', name: 'Story', tracked: true, chapters: ['1', '2'], readChapters: [] };
+  saveState(state);
+  updateMangaRead('m1', '1', true);
+  assert.deepEqual(readState().mangas.m1.readChapters, ['1']);
+  const records = syncBundle().records;
+  assert.equal(records.some((record) => record.kind === 'manga' && record.key === 'm1'), true);
+  assert.equal(records.some((record) => record.kind === 'manga_read' && record.key === 'm1:1'), true);
 });
 
 test('creates a consistent SQLite backup', async () => {

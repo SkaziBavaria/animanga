@@ -1,10 +1,11 @@
-const SHELL_CACHE = 'ani-web-shell-v24';
+const SHELL_CACHE = 'ani-web-shell-v25';
 const API_CACHE = 'ani-web-api-v2';
 const ASSETS = [
   '/', '/index.html', '/styles.css', '/manifest.webmanifest', '/icon.svg',
   '/js/app.js', '/js/api.js', '/js/aniskip.js', '/js/details.js', '/js/discover.js',
   '/js/dom.js', '/js/download-helpers.js', '/js/downloads.js', '/js/episodes.js',
   '/js/events.js', '/js/jobs.js', '/js/library.js', '/js/playback.js',
+  '/js/manga.js',
   '/js/player-gestures.js', '/js/progress.js', '/js/release-watches.js', '/js/shows.js',
   '/js/state.js', '/js/status.js', '/js/util.js',
   '/js/sync.js',

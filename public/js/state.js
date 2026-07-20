@@ -14,4 +14,9 @@ export const state = {
   activeShow: null,
   detailsRelations: [],
   discoverLoaded: false,
+  mangaLibrary: [],
+  mangaResults: [],
+  mangaPanel: 'library',
+  activeManga: null,
+  activeChapter: '',
 };

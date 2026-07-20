@@ -18,13 +18,16 @@ test.describe('Shell & navigation', () => {
     await expect(page.locator('#libraryCount')).toHaveText('1');
   });
 
-  test('navigates between the three tabs', async ({ page }) => {
+  test('navigates between the four tabs', async ({ page }) => {
     await page.click('.tab[data-view="searchView"]');
     await expect(page.locator('#searchView')).toHaveClass(/active/);
     await expect(page.locator('#libraryView')).not.toHaveClass(/active/);
 
     await page.click('.tab[data-view="settingsView"]');
     await expect(page.locator('#settingsView')).toHaveClass(/active/);
+
+    await page.click('.tab[data-view="mangaView"]');
+    await expect(page.locator('#mangaView')).toHaveClass(/active/);
 
     await page.click('.tab[data-view="libraryView"]');
     await expect(page.locator('#libraryView')).toHaveClass(/active/);
