@@ -129,6 +129,7 @@ test.describe('Resume playback from the library card', () => {
         episodeCount: 3,
         lastWatched: '3',
         latestEpisode: 3,
+        newCount: 0,
         watchedEpisodes: ['1', '2', '3'],
         episodes: ['1', '2', '3'],
       })],
