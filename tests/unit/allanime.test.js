@@ -20,7 +20,7 @@ test('showSummary maps an edge into a card', () => {
     _id: 'abc',
     name: 'Bleach',
     englishName: 'Bleach',
-    availableEpisodes: { sub: 366 },
+    availableEpisodes: { sub: 366, dub: 100, raw: 366 },
     thumbnail: 'thumb.jpg',
     relatedShows: [],
   }, 0, 'sub');
@@ -29,6 +29,7 @@ test('showSummary maps an edge into a card', () => {
   assert.equal(card.title, 'Bleach (366 episodes)');
   assert.equal(card.index, 1);
   assert.equal(card.mode, 'sub');
+  assert.deepEqual(card.episodeCounts, { sub: 366, dub: 100 });
 });
 
 test('searchAnime maps edges and drops entries without episodes', async () => {

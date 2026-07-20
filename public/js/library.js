@@ -76,6 +76,16 @@ export async function removeShow(show) {
   await loadLibrary(false);
 }
 
+export async function updateShowMode(show, mode) {
+  const data = await api(`/api/shows/${encodeURIComponent(show.id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ mode }),
+  });
+  Object.assign(show, data.show);
+  renderLibrary();
+  toast(`Using ${String(mode).toUpperCase()} for ${show.name || show.title}`);
+}
+
 export async function loadSettings() {
   state.settings = await api('/api/settings');
   for (const [key, value] of Object.entries(state.settings)) {

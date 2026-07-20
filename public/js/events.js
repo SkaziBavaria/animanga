@@ -10,7 +10,7 @@ import {
 } from './downloads.js';
 import { openEpisodes, playShow, bindEpisodeDialog, toggleEpisodeWatched } from './episodes.js';
 import { loadJobs, clearJobs } from './jobs.js';
-import { loadLibrary, renderLibrary, trackShow, removeShow } from './library.js';
+import { loadLibrary, renderLibrary, trackShow, removeShow, updateShowMode } from './library.js';
 import { bindPlayerDialog } from './playback.js';
 import {
   checkReleaseWatches,
@@ -59,6 +59,36 @@ function bindGlobalClicks() {
         if (action === 'episodes') await openEpisodes(show);
         if (action === 'details') await openDetails(show);
       });
+    }
+  });
+}
+
+function bindCardModeChanges() {
+  document.addEventListener('change', async (event) => {
+    const select = event.target.closest('.show-card select[data-action="mode"]');
+    if (!select) return;
+    const card = select.closest('.show-card');
+    const show = findShow(card);
+    const previous = show.mode || state.settings?.mode || 'sub';
+    const mode = select.value;
+    select.disabled = true;
+    try {
+      if (card.dataset.source === 'library') await updateShowMode(show, mode);
+      else {
+        show.mode = mode;
+        const count = Number(show.episodeCounts?.[mode] || 0);
+        if (count > 0) {
+          show.episodeCount = count;
+          show.latestEpisode = count;
+        }
+        toast(`Using ${mode.toUpperCase()} for ${show.name || show.title}`);
+      }
+    } catch (err) {
+      show.mode = previous;
+      select.value = previous;
+      toast(err.message);
+    } finally {
+      select.disabled = false;
     }
   });
 }
@@ -218,6 +248,7 @@ function bindForms() {
 
 export function bindEvents() {
   bindGlobalClicks();
+  bindCardModeChanges();
   bindEpisodeGrid();
   bindEpisodeDialog();
   bindDetailsDialog();

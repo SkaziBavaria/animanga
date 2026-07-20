@@ -36,6 +36,22 @@ function progressLabel(show, source) {
   return latest ? `Progress ${watched} / ${latest}` : `Progress ${watched}`;
 }
 
+function modeSelector(show) {
+  const current = show.mode || state.settings?.mode || 'sub';
+  const counts = show.episodeCounts || {};
+  const hasAvailability = Object.keys(counts).length > 0;
+  const options = ['sub', 'dub'].map((mode) => {
+    const count = Number(counts[mode] || 0);
+    const unavailable = hasAvailability && count <= 0;
+    return `<option value="${mode}"${mode === current ? ' selected' : ''}${unavailable ? ' disabled' : ''}>${mode.toUpperCase()}</option>`;
+  }).join('');
+  return `
+    <label class="card-mode" title="Playback version">
+      <select data-action="mode" aria-label="Playback version">${options}</select>
+    </label>
+  `;
+}
+
 function nextSeasonPill(show) {
   if (!show.hasNextSeason) return '';
   const next = show.nextSeason || {};
@@ -83,7 +99,7 @@ export function showCard(show, source) {
         <div class="show-title">${escapeHtml(show.name || show.title)}</div>
         <div class="show-meta">
           <span class="pill">${escapeHtml(progressLabel(show, source))}</span>
-          <span class="pill">${escapeHtml(show.mode || state.settings?.mode || 'sub')}</span>
+          ${modeSelector(show)}
           ${hasNews ? `<span class="pill hot">${show.newCount} new</span>` : ''}
           ${downloadedCount ? `<span class="pill downloaded">↓ ${downloadedCount} saved</span>` : ''}
           ${schedulePills.map((pill) => `<span class="pill schedule">${escapeHtml(pill)}</span>`).join('')}
@@ -161,17 +177,15 @@ export function relatedSeasonSection(relations = []) {
 
 export function findShow(card) {
   const id = card.dataset.id;
-  const fromLibrary = state.library.find((show) => show.id === id);
-  if (fromLibrary) return fromLibrary;
-  const fromSearch = state.searchResults.find((show) => show.id === id);
-  if (fromSearch) return fromSearch;
+  const primary = card.dataset.source === 'library' ? state.library : state.searchResults;
+  const secondary = card.dataset.source === 'library' ? state.searchResults : state.library;
+  const found = primary.find((show) => show.id === id) || secondary.find((show) => show.id === id);
+  if (found) return found;
   const title = card.querySelector('.show-title')?.textContent || '';
-  const episodeCount = Number((card.querySelector('.show-meta .pill:nth-child(2)')?.textContent || '').replace(/\D+/g, '')) || undefined;
   return {
     id,
     name: title,
     title,
-    episodeCount,
     mode: state.settings?.mode || 'sub',
   };
 }

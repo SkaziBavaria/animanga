@@ -4,10 +4,6 @@ import { formatCacheAge } from './util.js';
 
 let statusCache = null;
 
-export function getStatusCache() {
-  return statusCache;
-}
-
 export function isAndroid() {
   return /Android/i.test(navigator.userAgent);
 }

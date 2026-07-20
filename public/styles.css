@@ -219,6 +219,28 @@ h2 {
   font-size: 12px;
 }
 
+.card-mode select {
+  min-height: 27px;
+  padding: 3px 24px 3px 9px;
+  border: 1px solid color-mix(in srgb, var(--accent) 48%, var(--line));
+  border-radius: 999px;
+  color: var(--text);
+  background-color: color-mix(in srgb, var(--accent) 12%, var(--panel-2));
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.card-mode select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.card-mode select:disabled {
+  cursor: wait;
+  opacity: .7;
+}
+
 .pill {
   border: 1px solid var(--line);
   border-radius: 999px;

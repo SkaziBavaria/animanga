@@ -72,6 +72,31 @@ test.describe('Library filtering & sorting', () => {
 });
 
 test.describe('Resume playback from the library card', () => {
+  test('switches between sub and dub without losing shared progress', async ({ page }) => {
+    await installApiMocks(page, {
+      library: [makeShow({
+        id: 'a',
+        name: 'Alpha',
+        lastWatched: '2',
+        latestEpisode: 12,
+        watchedEpisodes: ['1', '2'],
+        episodeCounts: { sub: 12, dub: 12 },
+      })],
+      positions: {
+        'a:3': { showId: 'a', episode: '3', position: 400, duration: 1400, updatedAt: new Date().toISOString() },
+      },
+    });
+    await page.goto('/');
+
+    const card = page.locator('.show-card[data-id="a"]');
+    await expect(card.locator('button[data-action="play"]')).toHaveText('Resume ep 3');
+    const update = page.waitForRequest((request) => request.url().endsWith('/api/shows/a') && request.method() === 'PATCH');
+    await card.locator('select[data-action="mode"]').selectOption('dub');
+    expect((await update).postDataJSON()).toEqual({ mode: 'dub' });
+    await expect(card.locator('select[data-action="mode"]')).toHaveValue('dub');
+    await expect(card.locator('button[data-action="play"]')).toHaveText('Resume ep 3');
+  });
+
   test('shows "Resume" and targets the in-progress episode, not the next one', async ({ page }) => {
     await installApiMocks(page, {
       library: [makeShow({
