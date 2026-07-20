@@ -7,6 +7,7 @@ test.describe('Settings, command & logs', () => {
   test('configures GitHub as sync provider without a callback URL', async ({ page }) => {
     await installApiMocks(page);
     await page.goto('/');
+    await page.click('.tab[data-view="settingsView"]');
     await page.selectOption('#syncProvider', 'github');
     await expect(page.locator('#githubSyncForm')).toBeVisible();
     await expect(page.locator('#syncForm')).toBeHidden();
