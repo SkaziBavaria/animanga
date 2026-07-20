@@ -33,7 +33,7 @@ jobs:
           retention-days: 14
 
       - name: Scan image vulnerabilities
-        uses: anchore/scan-action@v6
+        uses: anchore/scan-action@v7
         with:
           image: ani-web:ci
           fail-build: false
