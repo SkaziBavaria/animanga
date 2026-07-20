@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { mergeShow, seedStateFromHistory } = require('../../lib/library');
+const { mergeShow, seedStateFromHistory, presentShow } = require('../../lib/library');
 
 test('mergeShow preserves useful metadata when a refresh returns empty fields', () => {
   const state = {
@@ -77,4 +77,17 @@ test('history import still seeds a show that is missing from the database', () =
 
   assert.deepEqual(state.shows['new-show'].watchedEpisodes, ['9']);
   assert.equal(state.shows['new-show'].lastWatched, '9');
+});
+
+test('presentShow lets sequel data override a stale false flag', () => {
+  const show = presentShow({
+    id: 'bleach-conflict',
+    name: 'BLEACH: Thousand-Year Blood War - The Conflict',
+    hasNextSeason: false,
+    relatedShows: [{ relation: 'sequel', showId: 'bleach-calamity' }],
+    nextSeason: { id: 'bleach-calamity', status: 'Not Yet Released' },
+    watchedEpisodes: [],
+  });
+  assert.equal(show.hasNextSeason, true);
+  assert.equal(show.nextSeason.status, 'Not Yet Released');
 });

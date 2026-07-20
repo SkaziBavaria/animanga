@@ -53,7 +53,7 @@ function modeSelector(show) {
 }
 
 function nextSeasonPill(show) {
-  if (!show.hasNextSeason) return '';
+  if (!show.hasNextSeason && !show.nextSeason) return '';
   const next = show.nextSeason || {};
   const status = String(next.status || '').toLowerCase();
   const episodeCount = Number(next.episodeCount || next.latestEpisode || 0);
