@@ -49,6 +49,17 @@ async function installApiMocks(page, overrides = {}) {
   const relations = overrides.relations || [];
   const localPlayback = overrides.localPlayback || null;
   const skipTimes = overrides.skipTimes || { op: null, ed: null };
+  let syncProvider = 'google';
+  let githubConfig = { clientId: '', deviceName: '', connected: false, deviceAuth: { status: 'idle' } };
+  const syncPayload = () => ({
+    provider: syncProvider,
+    clientId: '',
+    deviceName: '',
+    hasClientSecret: false,
+    connected: false,
+    callbackUrl: 'http://127.0.0.1/api/sync/google/callback',
+    github: githubConfig,
+  });
 
   const searchResult = (q) => ({
     id: 'search1',
@@ -91,6 +102,16 @@ async function installApiMocks(page, overrides = {}) {
     if (p === '/api/settings' && method === 'POST') return route.fulfill(jsonBody({ ...settings, ...body() }));
     if (p === '/api/progress' && method === 'GET') return route.fulfill(jsonBody({ positions }));
     if (p === '/api/progress' && method === 'POST') return route.fulfill(jsonBody({ ok: true }));
+    if (p === '/api/sync' && method === 'GET') return route.fulfill(jsonBody(syncPayload()));
+    if (p === '/api/sync/provider' && method === 'POST') {
+      syncProvider = body().provider;
+      return route.fulfill(jsonBody(syncPayload()));
+    }
+    if (p === '/api/sync/github/config' && method === 'POST') {
+      githubConfig = { ...githubConfig, ...body() };
+      syncProvider = 'github';
+      return route.fulfill(jsonBody(syncPayload()));
+    }
     if (p === '/api/library') return route.fulfill(jsonBody({ shows: library }));
     if (p === '/api/downloads' && method === 'GET') {
       return route.fulfill(jsonBody({ downloadDir: '/data/downloads', downloads }));

@@ -111,6 +111,24 @@ internet.
 Upprepa pa varje enhet. Anvand olika Device name men samma Google-konto och
 OAuth-klient. Tokens och Client Secret sparas endast i den lokala databasen.
 
+## GitHub-synk
+
+GitHub-synk fungerar utan domannamn, HTTPS eller OAuth-callback till ani-web.
+Varje installation skriver en egen JSON-fil i ett privat repository och samma
+post-for-post-merge som Google Drive anvands for offlineandringar och konflikter.
+
+1. Oppna GitHub Settings -> Developer settings -> OAuth Apps och skapa en OAuth App.
+2. Homepage URL kan vara adressen till din ani-web. Authorization callback URL
+   anvands inte av Device Flow och kan sattas till `http://127.0.0.1`.
+3. Oppna OAuth-appens installningar och aktivera **Device Flow**.
+4. Kopiera appens Client ID till ani-web Settings -> Cloud sync -> GitHub.
+5. Tryck Save och Connect GitHub, oppna GitHub-lanken och skriv in koden.
+
+Ani-web skapar automatiskt det privata repot `aniweb-sync-data`. GitHubs OAuth
+scope `repo` kravs for att skapa och skriva till privata repositories och ger
+darfor bredare repoatkomst an en fine-grained token. Token lagras endast i den
+lokala SQLite-databasen och visas aldrig via API:t.
+
 ## Installningar
 
 - `ANI_WEB_PORT=7832 npm start` byter port.

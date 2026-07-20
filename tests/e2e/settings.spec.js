@@ -4,6 +4,20 @@ const { test, expect } = require('@playwright/test');
 const { installApiMocks } = require('./fixtures');
 
 test.describe('Settings, command & logs', () => {
+  test('configures GitHub as sync provider without a callback URL', async ({ page }) => {
+    await installApiMocks(page);
+    await page.goto('/');
+    await page.selectOption('#syncProvider', 'github');
+    await expect(page.locator('#githubSyncForm')).toBeVisible();
+    await expect(page.locator('#syncForm')).toBeHidden();
+    await page.fill('#githubSyncForm input[name="deviceName"]', 'Laptop');
+    await page.fill('#githubSyncForm input[name="clientId"]', 'github-client-id');
+    const save = page.waitForRequest((request) => request.url().endsWith('/api/sync/github/config') && request.method() === 'POST');
+    await page.click('#githubSyncForm button[type="submit"]');
+    expect((await save).postDataJSON()).toEqual({ deviceName: 'Laptop', clientId: 'github-client-id' });
+    await expect(page.locator('#syncStatus')).toContainText('GitHub configured');
+  });
+
   test('loads existing settings into the form', async ({ page }) => {
     await installApiMocks(page, {
       settings: { mode: 'dub', quality: '720', skipIntro: true, autoTrackPlayed: false },

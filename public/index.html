@@ -141,10 +141,39 @@
           <section class="panel sync-panel" aria-labelledby="syncTitle">
             <div class="section-head compact">
               <div>
-                <h2 id="syncTitle">Google Drive sync</h2>
+                <h2 id="syncTitle">Cloud sync</h2>
                 <p id="syncStatus" class="sync-status">Not configured</p>
               </div>
             </div>
+            <label class="sync-provider-row">
+              <span>Sync provider</span>
+              <select id="syncProvider">
+                <option value="github">GitHub</option>
+                <option value="google">Google Drive</option>
+              </select>
+            </label>
+
+            <form id="githubSyncForm" class="sync-form" data-sync-provider="github">
+              <label>
+                <span>Device name</span>
+                <input name="deviceName" type="text" autocomplete="off" placeholder="Phone or PC">
+              </label>
+              <label>
+                <span>GitHub OAuth Client ID</span>
+                <input name="clientId" type="text" autocomplete="off" placeholder="OAuth App Client ID">
+              </label>
+              <small class="sync-help">Create a GitHub OAuth App with Device Flow enabled. No public callback or client secret is needed. Ani-web creates a private <code>aniweb-sync-data</code> repository. GitHub grants the app <code>repo</code> access so it can create and update that private repository.</small>
+              <div id="githubDeviceAuth" class="device-auth" hidden>
+                <span>Open <a id="githubDeviceUrl" href="https://github.com/login/device" target="_blank" rel="noreferrer">GitHub device login</a> and enter:</span>
+                <strong id="githubDeviceCode"></strong>
+              </div>
+              <div class="sync-actions">
+                <button type="submit">Save</button>
+                <button id="githubConnectBtn" class="secondary" type="button">Connect GitHub</button>
+                <button id="githubDisconnectBtn" class="danger" type="button">Disconnect</button>
+              </div>
+            </form>
+
             <form id="syncForm" class="sync-form">
               <label>
                 <span>Device name</span>
@@ -166,10 +195,13 @@
               <div class="sync-actions">
                 <button id="syncSaveBtn" type="submit">Save</button>
                 <button id="syncConnectBtn" class="secondary" type="button">Connect Google</button>
-                <button id="syncNowBtn" class="secondary" type="button">Sync now</button>
                 <button id="syncDisconnectBtn" class="danger" type="button">Disconnect</button>
               </div>
             </form>
+            <div class="sync-run-row">
+              <button id="syncNowBtn" class="secondary" type="button">Sync now</button>
+              <small>Syncs library, watched episodes, progress and settings—not video files.</small>
+            </div>
           </section>
 
           <details class="advanced-panel">

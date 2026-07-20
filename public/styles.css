@@ -574,6 +574,37 @@ select {
   gap: 12px;
 }
 
+.sync-form[hidden] {
+  display: none;
+}
+
+.sync-provider-row {
+  margin-bottom: 14px;
+}
+
+.device-auth {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 9%, var(--panel-2));
+}
+
+.device-auth[hidden] {
+  display: none;
+}
+
+.device-auth strong {
+  color: var(--accent);
+  font-size: 24px;
+  letter-spacing: .12em;
+}
+
+.device-auth a {
+  color: var(--accent);
+}
+
 .sync-status {
   margin: 3px 0 0;
   color: var(--muted);
@@ -593,6 +624,18 @@ select {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.sync-run-row {
+  display: grid;
+  gap: 7px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.sync-run-row small {
+  color: var(--muted);
 }
 
 .advanced-panel {
