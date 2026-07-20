@@ -11,6 +11,28 @@ skript kors aldrig direkt.
 
 ## Start (Termux)
 
+Ny installation direkt i Termux:
+
+```sh
+pkg install -y curl
+curl -fsSL https://raw.githubusercontent.com/SkaziBavaria/ani-web/ani-web-docker/scripts/install-termux.sh | sh
+```
+
+Installern lagger projektet i `~/ani-web`, installerar Termux-beroenden,
+verifierar Node/SQLite och skapar kommandot `ani-web`. Starta sedan med:
+
+```sh
+ani-web
+```
+
+For en annan installationsmapp eller branch kan installern koras med exempelvis:
+
+```sh
+ANI_WEB_INSTALL_DIR="$HOME/apps/ani-web" ANI_WEB_BRANCH=ani-web-docker sh scripts/install-termux.sh
+```
+
+Manuell start fran ett redan klonat repo fungerar fortfarande:
+
 ```sh
 cd ~/ani-web
 npm start
