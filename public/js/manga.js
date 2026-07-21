@@ -600,8 +600,11 @@ async function toggleMangaFullscreen() {
 }
 
 async function closeMangaReader() {
+  const manga = state.activeManga;
+  const chapter = state.activeChapter;
   if (els.mangaReaderDialog.classList.contains('manga-reader-fullscreen')) await exitMangaFullscreen();
   els.mangaReaderDialog.close();
+  if (manga && chapter) await markChapterRead(manga, chapter);
 }
 
 function readerChapter(delta) {
@@ -657,11 +660,11 @@ function confirmEarlierChapters(message) {
   });
 }
 
-async function toggleChapter(manga, chapter) {
-  const read = !(manga.readChapters || []).map(String).includes(String(chapter));
-  if (!read || !Number.isFinite(Number(chapter))) return setChapterRead(manga, chapter, read);
-
+async function markChapterRead(manga, chapter) {
   const readSet = new Set((manga.readChapters || []).map(String));
+  if (readSet.has(String(chapter))) return manga;
+  if (!Number.isFinite(Number(chapter))) return setChapterRead(manga, chapter, true);
+
   const target = Number(chapter);
   const unreadEarlier = (manga.chapters || [])
     .map(String)
@@ -673,6 +676,11 @@ async function toggleChapter(manga, chapter) {
     `${unreadEarlier.length} earlier unread ${noun} found. Mark everything through chapter ${chapter} as read?`,
   );
   return setChapterRead(manga, chapter, true, { markThrough });
+}
+
+async function toggleChapter(manga, chapter) {
+  const read = !(manga.readChapters || []).map(String).includes(String(chapter));
+  return read ? markChapterRead(manga, chapter) : setChapterRead(manga, chapter, false);
 }
 
 async function toggleChapterDownload(manga, chapter) {
@@ -797,6 +805,10 @@ export function bindMangaControls() {
   els.closeMangaReaderBtn.addEventListener('click', () => closeMangaReader().catch((err) => toast(err.message)));
   els.mangaReaderDialog.addEventListener('click', (event) => {
     if (event.target === els.mangaReaderDialog) closeMangaReader().catch((err) => toast(err.message));
+  });
+  els.mangaReaderDialog.addEventListener('cancel', (event) => {
+    event.preventDefault();
+    closeMangaReader().catch((err) => toast(err.message));
   });
   els.mangaReaderPages.addEventListener('click', toggleReaderControls);
   els.mangaReaderPages.addEventListener('scroll', () => {

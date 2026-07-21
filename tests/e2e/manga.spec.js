@@ -234,7 +234,7 @@ test.describe('Manga', () => {
     await expect(page.locator('#chapterGrid .chapter-row[data-chapter="2"]')).toHaveClass(/chapter-jump-highlight/);
   });
 
-  test('opens chapters in the built-in reader without marking them automatically', async ({ page }) => {
+  test('marks a chapter read when the built-in reader closes', async ({ page }) => {
     await page.click('#mangaLibraryList [data-action="manga-chapters"]');
     const pages = page.waitForRequest((item) => item.url().endsWith('/chapters/2/pages'));
     await page.click('#chapterGrid [data-chapter="2"] [data-action="chapter-open"]');
@@ -242,6 +242,12 @@ test.describe('Manga', () => {
     await expect(page.locator('#mangaReaderDialog')).toBeVisible();
     await expect(page.locator('#mangaReaderPages .manga-page')).toHaveCount(1);
     await expect(page.locator('#mangaDownloadChapterBtn')).toHaveText('↓');
+
+    const mark = page.waitForRequest((item) => item.url().endsWith('/api/manga/read') && item.method() === 'POST');
+    await page.click('#closeMangaReaderBtn');
+    expect((await mark).postDataJSON()).toMatchObject({ chapter: '2', read: true });
+    await expect(page.locator('#mangaLibraryList')).toContainText('Progress 2 / 3');
+    await expect(page.locator('#mangaLibraryList [data-action="manga-read"]')).toHaveText('Continue ch 3');
   });
 
   test('opens the manga reader fullscreen through the document root', async ({ page }) => {

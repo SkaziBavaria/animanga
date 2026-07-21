@@ -47,8 +47,14 @@ test.describe('Shell & navigation', () => {
     await expect(page.locator('#nextEpisodeBtn')).toBeVisible();
     await expect(page.locator('#playerVideo')).not.toHaveAttribute('controls');
 
+    await page.evaluate(() => {
+      const video = document.querySelector('#playerVideo');
+      Object.defineProperty(video, 'duration', { value: 100, configurable: true });
+      Object.defineProperty(video, 'currentTime', { value: 50, writable: true, configurable: true });
+    });
     await page.click('#closePlayerBtn');
     await expect(page.locator('#playerDialog')).toBeHidden();
+    await expect(page.locator('#libraryList .show-card button[data-action="play"]')).toHaveText('Resume ep 2');
   });
 
   test('keyboard and wheel shortcuts control the browser player', async ({ page }) => {

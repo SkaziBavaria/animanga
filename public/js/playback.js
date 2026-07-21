@@ -532,6 +532,7 @@ export function bindPlayerDialog() {
   });
   els.playerDialog.addEventListener('close', () => {
     persistProgress();
+    renderLibrary();
     els.playerVideo.pause();
     els.playerVideo.removeAttribute('src');
     els.playerVideo.load();
