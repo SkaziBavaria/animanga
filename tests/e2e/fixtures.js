@@ -29,6 +29,8 @@ const MANGA = {
   language: 'sub',
   chapterCount: 3,
   latestChapter: '3',
+  lastChapterDate: { year: 2026, month: 7, date: 20 },
+  chapterDates: { 1: { year: 2026, month: 7, date: 1 }, 3: { year: 2026, month: 7, date: 20 } },
   chapters: ['1', '2', '3'],
   readChapters: ['1'],
   newCount: 2,
@@ -147,6 +149,8 @@ async function installApiMocks(page, overrides = {}) {
     }
     if (p === '/api/manga/library' && method === 'GET') return route.fulfill(jsonBody({ mangas: mangaLibrary }));
     if (p === '/api/manga/search' && method === 'GET') return route.fulfill(jsonBody({ total: mangaResults.length, results: mangaResults }));
+    if (p === '/api/manga/popular' && method === 'GET') return route.fulfill(jsonBody({ total: mangaResults.length, results: mangaResults }));
+    if (p === '/api/manga/recommendations' && method === 'GET') return route.fulfill(jsonBody({ total: mangaResults.length, results: mangaResults }));
     if (p === '/api/manga/track' && method === 'POST') {
       const manga = { ...body(), tracked: true, chapters: body().chapters || ['1', '2', '3'], readChapters: body().readChapters || [] };
       mangaLibrary = [...mangaLibrary.filter((item) => item.id !== manga.id), manga];

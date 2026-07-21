@@ -17,6 +17,8 @@ test.describe('Manga', () => {
     await expect(page.locator('#mangaLibraryList .pill.hot')).toContainText('Read 1 / 3');
     await expect(page.locator('#mangaLibraryList [data-action="manga-read"]')).toHaveText('Continue ch 2');
     await expect(page.locator('#mangaLibraryList [data-action="manga-read"]')).toHaveClass(/play-action-continue/);
+    await expect(page.locator('#mangaLibraryList')).toContainText('2024–ongoing');
+    await expect(page.locator('#mangaLibraryList')).toContainText('Latest ch 3');
     await expect(page.locator('#mangaCount')).toHaveText('1');
   });
 
@@ -33,7 +35,7 @@ test.describe('Manga', () => {
 
   test('browses manga categories and applies multiple filters', async ({ page }) => {
     await page.click('.tab[data-section="discover"]');
-    const hotRequest = page.waitForRequest((item) => new URL(item.url()).searchParams.get('sort') === 'Trending' && !new URL(item.url()).searchParams.has('range'));
+    const hotRequest = page.waitForRequest((item) => new URL(item.url()).pathname === '/api/manga/popular' && new URL(item.url()).searchParams.get('range') === '1');
     await page.click('.manga-browse-button:has-text("Hot")');
     await hotRequest;
 
@@ -54,6 +56,8 @@ test.describe('Manga', () => {
     await page.click('#mangaLibraryList [data-action="manga-chapters"]');
     await expect(page.locator('#mangaDialog')).toBeVisible();
     await expect(page.locator('#chapterGrid .chapter-row')).toHaveCount(3);
+    await expect(page.locator('#chapterGrid article[data-chapter="1"]')).toContainText('Released');
+    await expect(page.locator('#chapterGrid article[data-chapter="2"]')).toContainText('Release date unavailable');
     const mark = page.waitForRequest((item) => item.url().endsWith('/api/manga/read') && item.method() === 'POST');
     await page.click('#chapterGrid [data-chapter="2"] [data-action="chapter-toggle"]');
     expect((await mark).postDataJSON()).toMatchObject({ id: 'manga1', chapter: '2', read: true });

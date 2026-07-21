@@ -23,7 +23,6 @@ export const state = {
   mangaGenres: [],
   mangaYear: null,
   mangaBrowseSort: 'Latest_Update',
-  mangaBrowseRange: 0,
   mangaDownloads: {},
   activeManga: null,
   activeChapter: '',

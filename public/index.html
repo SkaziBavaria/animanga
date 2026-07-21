@@ -125,11 +125,11 @@
             <button type="submit">Search</button>
           </form>
           <div class="browse-row" aria-label="Browse manga">
-            <button class="manga-browse-button" data-manga-sort="Recommendation" type="button">For you</button>
-            <button class="manga-browse-button" data-manga-sort="Popular" type="button">Popular</button>
-            <button class="manga-browse-button" data-manga-sort="Trending" type="button">Hot</button>
-            <button class="manga-browse-button" data-manga-sort="Trending" data-manga-range="7" type="button">Week</button>
-            <button class="manga-browse-button" data-manga-sort="Trending" data-manga-range="30" type="button">Month</button>
+            <button class="manga-browse-button" data-manga-recommended="1" type="button">For you</button>
+            <button class="manga-browse-button" data-manga-popular-range="0" type="button">Popular</button>
+            <button class="manga-browse-button" data-manga-popular-range="1" type="button">Hot</button>
+            <button class="manga-browse-button" data-manga-popular-range="7" type="button">Week</button>
+            <button class="manga-browse-button" data-manga-popular-range="30" type="button">Month</button>
             <button id="mangaLatestBtn" class="manga-browse-button active" data-manga-sort="Latest_Update" type="button">Latest</button>
           </div>
           <details id="mangaGenreFilter" class="genre-filter">

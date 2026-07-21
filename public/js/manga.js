@@ -28,12 +28,26 @@ function progressText(manga) {
   return `Read ${read} / ${total}`;
 }
 
-function mangaYearRange(manga) {
+function mangaLifecycle(manga) {
   const start = Number(manga.airedStart?.year || manga.airedStart || 0);
   const end = Number(manga.airedEnd?.year || manga.airedEnd || 0);
-  if (!start) return '';
-  if (end && end !== start) return `${start}–${end}`;
-  return String(manga.status || '').toLowerCase().includes('releas') ? `${start}–ongoing` : String(start);
+  const status = String(manga.status || '').trim();
+  const normalized = status.toLowerCase();
+  if (!start) return status || 'Status unknown';
+  if (normalized.includes('releas')) return `${start}–ongoing`;
+  if (normalized.includes('finish')) return `${start}${end && end !== start ? `–${end}` : ''} · Finished`;
+  return `${start} · ${status || 'Status unknown'}`;
+}
+
+function mangaDateLabel(value) {
+  if (!value) return '';
+  let date;
+  if (typeof value === 'object') {
+    if (!Number(value.year)) return '';
+    date = new Date(Date.UTC(Number(value.year), Math.max(0, Number(value.month || 1) - 1), Number(value.date || 1)));
+  } else date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric' }).format(date);
 }
 
 function relationLabel(value) {
@@ -51,7 +65,8 @@ function mangaCard(manga, source) {
   const cover = coverUrl(manga.thumbnail);
   const started = (manga.readChapters || []).length > 0;
   const canContinue = started && Number(manga.newCount) > 0;
-  const yearRange = mangaYearRange(manga);
+  const lifecycle = mangaLifecycle(manga);
+  const latestDate = mangaDateLabel(manga.lastChapterDate);
   const hasSequel = (manga.relations || []).some((item) => String(item.relation).toLowerCase().includes('sequel'));
   const primary = source === 'library'
     ? `<button class="primary play-action ${canContinue ? 'play-action-continue' : 'play-action-play'} manga-read-action" data-action="manga-read" data-chapter="${escapeHtml(chapter)}">${chapter ? `${canContinue ? 'Continue' : 'Read'} ch ${escapeHtml(chapter)}` : 'Chapters'}</button>`
@@ -66,8 +81,8 @@ function mangaCard(manga, source) {
         <div class="show-meta">
           <span class="pill${source === 'library' && canContinue ? ' hot' : ''}">${escapeHtml(source === 'library' ? progressText(manga) : `${manga.chapterCount || manga.latestChapter || '?'} chapters`)}</span>
           ${manga.downloadedChapters ? `<span class="pill downloaded">↓ ${escapeHtml(manga.downloadedChapters)} saved</span>` : ''}
-          ${manga.status ? `<span class="pill">${escapeHtml(manga.status)}</span>` : ''}
-          ${yearRange ? `<span class="pill schedule">${escapeHtml(yearRange)}</span>` : ''}
+          <span class="pill schedule">${escapeHtml(lifecycle)}</span>
+          ${manga.latestChapter ? `<span class="pill schedule">Latest ch ${escapeHtml(manga.latestChapter)}${latestDate ? ` · ${escapeHtml(latestDate)}` : ''}</span>` : ''}
           ${source !== 'library' && manga.score ? `<span class="pill">Score ${escapeHtml(manga.score)}</span>` : ''}
           ${hasSequel ? '<span class="pill sequel released">Sequel available</span>' : ''}
           ${manga.refreshError ? '<span class="pill danger">Refresh failed</span>' : ''}
@@ -117,11 +132,18 @@ export async function searchManga(query = '', options = {}) {
     q: query,
     sort: options.sort || state.mangaBrowseSort,
   });
-  const range = Number(options.range ?? state.mangaBrowseRange);
-  if (range) params.set('range', String(range));
   if (state.mangaYear) params.set('year', String(state.mangaYear));
   state.mangaGenres.forEach((genre) => params.append('genre', genre));
   const data = await api(`/api/manga/search?${params}`);
+  state.mangaResults = data.results || [];
+  renderMangaResults();
+}
+
+async function browseManga(button) {
+  let endpoint = '/api/manga/search?q=&sort=Latest_Update';
+  if (button.dataset.mangaRecommended) endpoint = '/api/manga/recommendations';
+  if (button.dataset.mangaPopularRange !== undefined) endpoint = `/api/manga/popular?range=${encodeURIComponent(button.dataset.mangaPopularRange)}`;
+  const data = await api(endpoint);
   state.mangaResults = data.results || [];
   renderMangaResults();
 }
@@ -148,10 +170,11 @@ async function removeManga(manga) {
 function chapterRow(manga, chapter) {
   const read = (manga.readChapters || []).map(String).includes(String(chapter));
   const downloaded = Boolean(state.mangaDownloads[String(chapter)]);
+  const released = mangaDateLabel(manga.chapterDates?.[String(chapter)]);
   return `
     <article class="episode-row-wrap chapter-row${read ? ' watched' : ''}" data-chapter="${escapeHtml(chapter)}">
       <button class="episode episode-play chapter-open${read ? ' watched' : ''}" data-action="chapter-open" data-chapter="${escapeHtml(chapter)}" type="button">
-        <span>Chapter ${escapeHtml(chapter)}</span><small>${read ? 'Read' : 'Open in reader'}</small>
+        <span>Chapter ${escapeHtml(chapter)}</span><small>${[read ? 'Read' : 'Open in reader', released ? `Released ${released}` : 'Release date unavailable'].join(' · ')}</small>
       </button>
       <button class="episode-action episode-watch" data-action="chapter-toggle" data-chapter="${escapeHtml(chapter)}" type="button" title="${read ? 'Mark unread' : 'Mark read'}" aria-label="${read ? 'Mark chapter unread' : 'Mark chapter read'}">${read ? '✓' : '👁'}</button>
       <button class="episode-action" data-action="chapter-download" data-chapter="${escapeHtml(chapter)}" type="button" title="${downloaded ? 'Remove offline chapter' : 'Download for offline reading'}" aria-label="${downloaded ? 'Remove downloaded chapter' : 'Download chapter'}">${downloaded ? '⬇✓' : '↓'}</button>
@@ -243,6 +266,7 @@ async function openMangaReader(manga, chapter) {
   if (!els.mangaReaderDialog.open) els.mangaReaderDialog.showModal();
   showReaderControls();
   const data = await api(`/api/manga/${encodeURIComponent(manga.id)}/chapters/${encodeURIComponent(chapter)}/pages`);
+  if (data.uploadDate) state.activeManga.chapterDates = { ...(state.activeManga.chapterDates || {}), [String(chapter)]: data.uploadDate };
   els.mangaReaderPages.innerHTML = data.pages.map((page) => {
     const src = page.local || String(page.url).startsWith('/')
       ? page.url
@@ -326,14 +350,12 @@ async function toggleChapterDownload(manga, chapter) {
 export function bindMangaControls() {
   document.querySelectorAll('.manga-browse-button').forEach((button) => button.addEventListener('click', () => {
     state.mangaBrowseSort = button.dataset.mangaSort || 'Latest_Update';
-    state.mangaBrowseRange = Number(button.dataset.mangaRange || 0);
     document.querySelectorAll('.manga-browse-button').forEach((item) => item.classList.toggle('active', item === button));
-    runAction(button, 'Loading…', () => searchManga('')).catch((err) => toast(err.message));
+    runAction(button, 'Loading…', () => browseManga(button)).catch((err) => toast(err.message));
   }));
   els.mangaSearchForm.addEventListener('submit', (event) => {
     event.preventDefault();
     state.mangaBrowseSort = 'Latest_Update';
-    state.mangaBrowseRange = 0;
     document.querySelectorAll('.manga-browse-button').forEach((button) => button.classList.toggle('active', button === els.mangaLatestBtn));
     searchManga(els.mangaSearchInput.value.trim()).catch((err) => toast(err.message));
   });
