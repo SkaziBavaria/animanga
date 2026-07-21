@@ -45,7 +45,24 @@ test.describe('Manga', () => {
     await pages;
     await expect(page.locator('#mangaReaderDialog')).toBeVisible();
     await expect(page.locator('#mangaReaderPages .manga-page')).toHaveCount(1);
-    await expect(page.locator('#mangaMarkReadBtn')).toHaveText('Mark read');
+    await expect(page.locator('#mangaDownloadChapterBtn')).toHaveText('↓');
+  });
+
+  test('marks the current chapter read when advancing', async ({ page }) => {
+    await page.click('#mangaLibraryList [data-action="manga-chapters"]');
+    await page.click('#chapterGrid [data-chapter="2"] [data-action="chapter-open"]');
+    const mark = page.waitForRequest((item) => item.url().endsWith('/api/manga/read') && item.method() === 'POST');
+    await page.click('#mangaNextChapterBtn');
+    expect((await mark).postDataJSON()).toMatchObject({ chapter: '2', read: true });
+    await expect(page.locator('#mangaReaderMeta')).toContainText('Chapter 3');
+  });
+
+  test('downloads a chapter for offline reading', async ({ page }) => {
+    await page.click('#mangaLibraryList [data-action="manga-chapters"]');
+    const download = page.waitForRequest((item) => item.url().endsWith('/chapters/2/download') && item.method() === 'POST');
+    await page.click('#chapterGrid [data-chapter="2"] [data-action="chapter-download"]');
+    await download;
+    await expect(page.locator('#chapterGrid [data-chapter="2"] [data-action="chapter-download"]')).toHaveText('⬇✓');
   });
 
   test('shows manga details without reusing the anime player', async ({ page }) => {

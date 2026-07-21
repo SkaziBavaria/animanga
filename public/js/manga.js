@@ -110,17 +110,27 @@ async function removeManga(manga) {
 
 function chapterRow(manga, chapter) {
   const read = (manga.readChapters || []).map(String).includes(String(chapter));
+  const downloaded = Boolean(state.mangaDownloads[String(chapter)]);
   return `
     <article class="episode-row-wrap chapter-row${read ? ' watched' : ''}" data-chapter="${escapeHtml(chapter)}">
       <button class="episode episode-play chapter-open${read ? ' watched' : ''}" data-action="chapter-open" data-chapter="${escapeHtml(chapter)}" type="button">
         <span>Chapter ${escapeHtml(chapter)}</span><small>${read ? 'Read' : 'Open in reader'}</small>
       </button>
       <button class="episode-action episode-watch" data-action="chapter-toggle" data-chapter="${escapeHtml(chapter)}" type="button" title="${read ? 'Mark unread' : 'Mark read'}" aria-label="${read ? 'Mark chapter unread' : 'Mark chapter read'}">${read ? '✓' : '👁'}</button>
+      <button class="episode-action" data-action="chapter-download" data-chapter="${escapeHtml(chapter)}" type="button" title="${downloaded ? 'Remove offline chapter' : 'Download for offline reading'}" aria-label="${downloaded ? 'Remove downloaded chapter' : 'Download chapter'}">${downloaded ? '⬇✓' : '↓'}</button>
     </article>`;
 }
 
+async function loadMangaDownloads(manga) {
+  const data = await api(`/api/manga/${encodeURIComponent(manga.id)}/downloads`);
+  state.mangaDownloads = Object.fromEntries((data.downloads || []).map((item) => [String(item.chapter), item]));
+}
+
 async function openMangaChapters(manga, requestedChapter = '') {
-  const data = await api(`/api/manga/${encodeURIComponent(manga.id)}/chapters`);
+  const [data] = await Promise.all([
+    api(`/api/manga/${encodeURIComponent(manga.id)}/chapters`),
+    loadMangaDownloads(manga),
+  ]);
   const details = data.manga;
   const index = state.mangaLibrary.findIndex((item) => item.id === manga.id);
   if (index >= 0) state.mangaLibrary[index] = { ...state.mangaLibrary[index], ...details };
@@ -156,13 +166,32 @@ async function openMangaReader(manga, chapter) {
   updateReaderControls();
   if (els.mangaDialog.open) els.mangaDialog.close();
   if (!els.mangaReaderDialog.open) els.mangaReaderDialog.showModal();
+  showReaderControls();
   const data = await api(`/api/manga/${encodeURIComponent(manga.id)}/chapters/${encodeURIComponent(chapter)}/pages`);
   els.mangaReaderPages.innerHTML = data.pages.map((page) => {
-    const src = `/api/proxy?url=${encodeURIComponent(page.url)}&referrer=${encodeURIComponent('https://allmanga.to/')}`;
+    const src = page.local || String(page.url).startsWith('/')
+      ? page.url
+      : `/api/proxy?url=${encodeURIComponent(page.url)}&referrer=${encodeURIComponent('https://allmanga.to/')}`;
     return `<figure class="manga-page"><img src="${escapeHtml(src)}" alt="Page ${page.number}" loading="lazy" decoding="async"><figcaption>Page ${page.number}</figcaption></figure>`;
   }).join('');
   if (data.notes) els.mangaReaderMeta.textContent = `Chapter ${chapter} · ${data.notes}`;
   els.mangaReaderPages.scrollTop = 0;
+}
+
+let readerControlsTimer;
+
+function showReaderControls(autoHide = true) {
+  clearTimeout(readerControlsTimer);
+  els.mangaReaderDialog.classList.remove('controls-hidden');
+  if (autoHide) readerControlsTimer = setTimeout(() => els.mangaReaderDialog.classList.add('controls-hidden'), 2200);
+}
+
+function toggleReaderControls() {
+  if (els.mangaReaderDialog.classList.contains('controls-hidden')) showReaderControls();
+  else {
+    clearTimeout(readerControlsTimer);
+    els.mangaReaderDialog.classList.add('controls-hidden');
+  }
 }
 
 function readerChapter(delta) {
@@ -172,21 +201,23 @@ function readerChapter(delta) {
 }
 
 function updateReaderControls() {
-  const read = (state.activeManga?.readChapters || []).map(String).includes(String(state.activeChapter));
-  els.mangaMarkReadBtn.textContent = read ? 'Mark unread' : 'Mark read';
-  els.mangaMarkReadBtn.classList.toggle('primary', !read);
-  els.mangaMarkReadBtn.classList.toggle('secondary', read);
+  const downloaded = Boolean(state.mangaDownloads[String(state.activeChapter)]);
+  els.mangaDownloadChapterBtn.textContent = downloaded ? '⬇✓' : '↓';
+  els.mangaDownloadChapterBtn.title = downloaded ? 'Remove offline chapter' : 'Download chapter';
   els.mangaPrevChapterBtn.disabled = !readerChapter(-1);
   els.mangaNextChapterBtn.disabled = !readerChapter(1);
 }
 
 async function changeReaderChapter(delta) {
   const chapter = readerChapter(delta);
-  if (chapter) await openMangaReader(state.activeManga, chapter);
+  if (!chapter) return;
+  if (delta > 0) await setChapterRead(state.activeManga, state.activeChapter, true);
+  await openMangaReader(state.activeManga, chapter);
 }
 
-async function toggleChapter(manga, chapter) {
-  const read = !(manga.readChapters || []).map(String).includes(String(chapter));
+async function setChapterRead(manga, chapter, read) {
+  const currentlyRead = (manga.readChapters || []).map(String).includes(String(chapter));
+  if (currentlyRead === read) return manga;
   const data = await api('/api/manga/read', {
     method: 'POST',
     body: JSON.stringify({ id: manga.id, chapter, read, manga: { name: manga.name, thumbnail: manga.thumbnail, language: manga.language } }),
@@ -196,6 +227,25 @@ async function toggleChapter(manga, chapter) {
   if (index >= 0) state.mangaLibrary[index] = { ...state.mangaLibrary[index], ...data.manga };
   els.chapterGrid.innerHTML = [...(manga.chapters || [])].sort((a, b) => compareChapters(b, a)).map((item) => chapterRow(state.activeManga, item)).join('');
   renderMangaLibrary();
+  return state.activeManga;
+}
+
+async function toggleChapter(manga, chapter) {
+  const read = !(manga.readChapters || []).map(String).includes(String(chapter));
+  return setChapterRead(manga, chapter, read);
+}
+
+async function toggleChapterDownload(manga, chapter) {
+  const downloaded = Boolean(state.mangaDownloads[String(chapter)]);
+  await api(`/api/manga/${encodeURIComponent(manga.id)}/chapters/${encodeURIComponent(chapter)}/download`, {
+    method: downloaded ? 'DELETE' : 'POST',
+  });
+  await loadMangaDownloads(manga);
+  updateReaderControls();
+  if (els.mangaDialog.open) {
+    els.chapterGrid.innerHTML = [...(manga.chapters || [])].sort((a, b) => compareChapters(b, a)).map((item) => chapterRow(state.activeManga || manga, item)).join('');
+  }
+  toast(downloaded ? 'Offline chapter removed' : 'Chapter downloaded for offline reading');
 }
 
 export function bindMangaControls() {
@@ -208,9 +258,16 @@ export function bindMangaControls() {
   els.mangaDialog.addEventListener('click', (event) => { if (event.target === els.mangaDialog) els.mangaDialog.close(); });
   els.closeMangaReaderBtn.addEventListener('click', () => els.mangaReaderDialog.close());
   els.mangaReaderDialog.addEventListener('click', (event) => { if (event.target === els.mangaReaderDialog) els.mangaReaderDialog.close(); });
-  els.mangaMarkReadBtn.addEventListener('click', async () => {
-    await runAction(els.mangaMarkReadBtn, '…', () => toggleChapter(state.activeManga, state.activeChapter));
-    updateReaderControls();
+  els.mangaReaderPages.addEventListener('click', toggleReaderControls);
+  els.mangaReaderPages.addEventListener('scroll', () => {
+    clearTimeout(readerControlsTimer);
+    els.mangaReaderDialog.classList.add('controls-hidden');
+  }, { passive: true });
+  els.mangaDownloadChapterBtn.addEventListener('click', () => runAction(els.mangaDownloadChapterBtn, '…', () => toggleChapterDownload(state.activeManga, state.activeChapter)));
+  els.mangaFullscreenBtn.addEventListener('click', async () => {
+    if (document.fullscreenElement) await document.exitFullscreen();
+    else await els.mangaReaderDialog.requestFullscreen();
+    showReaderControls();
   });
   els.mangaPrevChapterBtn.addEventListener('click', () => changeReaderChapter(-1).catch((err) => toast(err.message)));
   els.mangaNextChapterBtn.addEventListener('click', () => changeReaderChapter(1).catch((err) => toast(err.message)));
@@ -237,6 +294,7 @@ export function bindMangaControls() {
     try {
       if (button.dataset.action === 'chapter-open') await openMangaReader(state.activeManga, button.dataset.chapter);
       if (button.dataset.action === 'chapter-toggle') await runAction(button, '…', () => toggleChapter(state.activeManga, button.dataset.chapter));
+      if (button.dataset.action === 'chapter-download') await runAction(button, '…', () => toggleChapterDownload(state.activeManga, button.dataset.chapter));
     } catch (err) { toast(err.message); }
   });
 }

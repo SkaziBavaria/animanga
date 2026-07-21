@@ -68,7 +68,7 @@ export function renderDownloads() {
   const downloads = Object.values(state.downloads || {})
     .filter((item) => item.status !== 'deleted')
     .sort((a, b) => String(b.updatedAt || b.startedAt || '').localeCompare(String(a.updatedAt || a.startedAt || '')));
-  els.downloadsList.innerHTML = downloads.length ? downloads.map((item) => {
+  const animeCards = downloads.map((item) => {
     const size = item.file?.size ? `${Math.round(item.file.size / 1024 / 1024)} MB` : '';
     const meta = [item.status, `Episode ${item.episode}`, size, item.file?.filename].filter(Boolean).join(' · ');
     return `
@@ -80,7 +80,18 @@ export function renderDownloads() {
         <button class="small-button danger" data-action="delete-download" type="button" ${isDownloadBusy(item.status) ? 'disabled' : ''}>Delete</button>
       </article>
     `;
-  }).join('') : '<div class="empty">No downloads.</div>';
+  });
+  const mangaCards = (state.offlineMangaDownloads || []).map((item) => `
+    <article class="download-card downloaded" data-kind="manga" data-manga-id="${escapeHtml(item.mangaId)}" data-chapter="${escapeHtml(item.chapter)}">
+      <div>
+        <strong>${escapeHtml(item.mangaName)}</strong>
+        <span>Downloaded · Chapter ${escapeHtml(item.chapter)} · ${escapeHtml(item.pages)} pages</span>
+      </div>
+      <button class="small-button danger" data-action="delete-download" type="button">Delete</button>
+    </article>
+  `);
+  const cards = [...animeCards, ...mangaCards];
+  els.downloadsList.innerHTML = cards.length ? cards.join('') : '<div class="empty">No downloads.</div>';
 }
 
 function scheduleDownloadsPoll() {
@@ -102,6 +113,7 @@ async function refreshDownloadViews() {
 export async function loadDownloads() {
   const data = await api('/api/downloads');
   state.downloads = data.downloads || {};
+  state.offlineMangaDownloads = data.mangaDownloads || [];
   await refreshDownloadViews();
   scheduleDownloadsPoll();
 }
@@ -121,6 +133,14 @@ export function bindDownloadControls() {
     const card = button.closest('.download-card');
     if (!card) return;
     try {
+      if (card.dataset.kind === 'manga') {
+        const ok = window.confirm(`Delete downloaded chapter ${card.dataset.chapter}?`);
+        if (!ok) return;
+        await withBusy(button, 'Deleting...', () => api(`/api/manga/${encodeURIComponent(card.dataset.mangaId)}/chapters/${encodeURIComponent(card.dataset.chapter)}/download`, { method: 'DELETE' }));
+        toast('Downloaded chapter deleted');
+        await loadDownloads();
+        return;
+      }
       await withBusy(button, 'Deleting...', () => deleteDownload(card.dataset.showId, card.dataset.episode));
     } catch (err) {
       toast(err.message);

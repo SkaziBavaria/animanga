@@ -208,18 +208,32 @@ h2 {
 }
 
 .manga-reader-dialog {
-  width: min(980px, 100vw);
+  width: 100vw;
   height: 100dvh;
   max-height: 100dvh;
+  max-width: none;
   padding: 0;
+  border: 0;
   border-radius: 0;
   overflow: hidden;
+  background: #050607;
+}
+
+.manga-reader-dialog::backdrop {
+  background: #050607;
+}
+
+.manga-reader-dialog:fullscreen {
+  width: 100vw;
+  height: 100vh;
 }
 
 .manga-reader-head {
-  position: sticky;
+  position: absolute;
+  left: 0;
+  right: 0;
   top: 0;
-  z-index: 2;
+  z-index: 4;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
@@ -228,6 +242,7 @@ h2 {
   background: color-mix(in srgb, var(--panel) 92%, transparent);
   border-bottom: 1px solid var(--line);
   backdrop-filter: blur(14px);
+  transition: opacity .2s ease, transform .2s ease;
 }
 
 .manga-reader-head h2,
@@ -244,14 +259,14 @@ h2 {
 }
 
 .manga-reader-pages {
-  height: calc(100dvh - 126px);
+  height: 100dvh;
   overflow-y: auto;
   overscroll-behavior: contain;
   background: #08090b;
 }
 
 .manga-page {
-  width: min(100%, 900px);
+  width: min(100%, 1100px);
   margin: 0 auto;
 }
 
@@ -272,12 +287,33 @@ h2 {
 }
 
 .manga-reader-nav {
+  position: absolute;
+  z-index: 4;
+  left: 50%;
+  bottom: max(10px, env(safe-area-inset-bottom));
+  width: min(420px, calc(100vw - 24px));
+  transform: translateX(-50%);
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
-  padding: 8px 12px max(8px, env(safe-area-inset-bottom));
-  border-top: 1px solid var(--line);
-  background: var(--panel);
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--panel) 90%, transparent);
+  backdrop-filter: blur(14px);
+  transition: opacity .2s ease, transform .2s ease;
+}
+
+.manga-reader-dialog.controls-hidden .manga-reader-head {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-100%);
+}
+
+.manga-reader-dialog.controls-hidden .manga-reader-nav {
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, calc(100% + 24px));
 }
 
 .chapter-row.watched {

@@ -8,6 +8,7 @@ export const state = {
   discoverGenres: [],
   discoverYear: null,
   downloads: {},
+  offlineMangaDownloads: [],
   positions: {},
   libraryFilter: 'all',
   librarySort: 'new',
@@ -18,6 +19,7 @@ export const state = {
   activeSection: 'library',
   mangaLibrary: [],
   mangaResults: [],
+  mangaDownloads: {},
   activeManga: null,
   activeChapter: '',
 };

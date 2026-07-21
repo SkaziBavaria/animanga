@@ -69,6 +69,7 @@ async function installApiMocks(page, overrides = {}) {
   const skipTimes = overrides.skipTimes || { op: null, ed: null };
   let mangaLibrary = overrides.mangaLibrary || [MANGA];
   const mangaResults = overrides.mangaResults || [MANGA];
+  let mangaDownloads = overrides.mangaDownloads || [];
   let syncProvider = 'google';
   let githubConfig = { clientId: '', deviceName: '', connected: false, deviceAuth: { status: 'idle' } };
   const syncPayload = () => ({
@@ -150,7 +151,13 @@ async function installApiMocks(page, overrides = {}) {
     }
     if (/^\/api\/manga\/[^/]+\/details$/.test(p)) return route.fulfill(jsonBody({ manga: MANGA }));
     if (/^\/api\/manga\/[^/]+\/chapters$/.test(p)) return route.fulfill(jsonBody({ manga: MANGA, chapters: MANGA.chapters }));
-    if (/^\/api\/manga\/[^/]+\/chapters\/[^/]+\/reader$/.test(p)) return route.fulfill(jsonBody({ url: 'https://allmanga.to/read/manga1/story/chapter-2-sub' }));
+    if (/^\/api\/manga\/[^/]+\/downloads$/.test(p)) return route.fulfill(jsonBody({ downloads: mangaDownloads }));
+    if (/^\/api\/manga\/[^/]+\/chapters\/[^/]+\/download$/.test(p)) {
+      const chapter = decodeURIComponent(p.split('/').at(-2));
+      if (method === 'DELETE') mangaDownloads = mangaDownloads.filter((item) => String(item.chapter) !== chapter);
+      else mangaDownloads = [...mangaDownloads.filter((item) => String(item.chapter) !== chapter), { chapter, pages: 1 }];
+      return route.fulfill(jsonBody(method === 'DELETE' ? { deleted: true } : { download: { chapter, pages: 1, status: 'done' } }));
+    }
     if (/^\/api\/manga\/[^/]+\/chapters\/[^/]+\/pages$/.test(p)) {
       return route.fulfill(jsonBody({ pages: [{ number: 1, url: 'https://images.example/page-1.webp' }], notes: 'Chapter title' }));
     }
@@ -160,7 +167,7 @@ async function installApiMocks(page, overrides = {}) {
     }
     if (p === '/api/library') return route.fulfill(jsonBody({ shows: library }));
     if (p === '/api/downloads' && method === 'GET') {
-      return route.fulfill(jsonBody({ downloadDir: '/data/downloads', downloads }));
+      return route.fulfill(jsonBody({ downloadDir: '/data/downloads', downloads, mangaDownloads }));
     }
     if (p === '/api/release-watches' && method === 'GET') return route.fulfill(jsonBody({ watches: releaseWatches }));
     if (p === '/api/release-watches/check') return route.fulfill(jsonBody({ watches: releaseWatches, found: [] }));
