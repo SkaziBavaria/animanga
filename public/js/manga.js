@@ -32,7 +32,7 @@ function progressText(manga) {
   const chapters = [...(manga.chapters || [])].map(String).sort(compareChapters);
   const lastRead = manga.lastRead || readChapters.at(-1) || '';
   const latest = manga.latestChapter || chapters.at(-1) || manga.chapterCount || '?';
-  return lastRead ? `Read through ch ${lastRead} / ${latest}` : `Read 0 / ${latest}`;
+  return `Progress ${lastRead || 0} / ${latest}`;
 }
 
 function mangaLifecycle(manga) {
@@ -63,14 +63,14 @@ function mangaDate(value) {
 
 function mangaDateLabel(value) {
   const date = mangaDate(value);
-  return date ? new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric' }).format(date) : '';
+  return date ? new Intl.DateTimeFormat('en', { year: 'numeric', month: 'short', day: 'numeric' }).format(date) : '';
 }
 
 function mangaRelativeDate(value) {
   const date = mangaDate(value);
   if (!date) return '';
   const days = Math.max(0, Math.floor((Date.now() - date.getTime()) / 86_400_000));
-  const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: 'always' });
+  const formatter = new Intl.RelativeTimeFormat('en', { numeric: 'always' });
   if (days < 30) return formatter.format(-days, 'day');
   const months = Math.floor(days / 30);
   if (months < 12) return formatter.format(-months, 'month');
@@ -86,9 +86,9 @@ function mangaRecentlyUpdated(value) {
 
 function mangaOriginLabel(value) {
   const origin = String(value || '').trim().toUpperCase();
-  if (['JP', 'JPN', 'JAPAN'].includes(origin)) return 'Japanese';
-  if (['KR', 'KOR', 'KOREA', 'SOUTH KOREA'].includes(origin)) return 'Korean';
-  if (['CN', 'CHN', 'CHINA'].includes(origin)) return 'Chinese';
+  if (['JP', 'JPN', 'JAPAN'].includes(origin)) return 'JP';
+  if (['KR', 'KOR', 'KOREA', 'SOUTH KOREA'].includes(origin)) return 'KR';
+  if (['CN', 'CHN', 'CHINA'].includes(origin)) return 'CN';
   return '';
 }
 
@@ -300,36 +300,6 @@ function jumpToChapter() {
   row.scrollIntoView({ behavior: 'smooth', block: 'center' });
   row.classList.add('chapter-jump-highlight');
   setTimeout(() => row.classList.remove('chapter-jump-highlight'), 1800);
-}
-
-async function markChaptersReadThrough() {
-  const manga = state.activeManga;
-  const target = chapterTarget();
-  const targetValue = Number(target);
-  if (!manga || !target || !Number.isFinite(targetValue)) return toast('Enter a valid chapter number');
-  const chapters = (manga.chapters || []).map(String);
-  const throughTarget = chapters.filter((chapter) => Number.isFinite(Number(chapter)) && Number(chapter) <= targetValue);
-  if (!throughTarget.length) return toast(`No chapters found through ${target}`);
-  const read = new Set((manga.readChapters || []).map(String));
-  const unreadCount = throughTarget.filter((chapter) => !read.has(chapter)).length;
-  if (!unreadCount) return toast(`All chapters through ${target} are already read`);
-  if (!confirm(`Mark ${unreadCount} chapter${unreadCount === 1 ? '' : 's'} through chapter ${target} as read?`)) return;
-  const data = await api('/api/manga/read-through', {
-    method: 'POST',
-    body: JSON.stringify({
-      id: manga.id,
-      chapter: target,
-      chapters,
-      manga: { name: manga.name, thumbnail: manga.thumbnail, language: manga.language },
-    }),
-  });
-  state.activeManga = { ...manga, ...data.manga, chapters };
-  const index = state.mangaLibrary.findIndex((item) => item.id === manga.id);
-  if (index >= 0) state.mangaLibrary[index] = { ...state.mangaLibrary[index], ...state.activeManga };
-  renderChapterGrid(state.activeManga);
-  renderMangaLibrary();
-  const marked = Number(data.marked) || unreadCount;
-  toast(`${marked} chapter${marked === 1 ? '' : 's'} marked read`);
 }
 
 async function loadMangaDownloads(manga) {
@@ -673,6 +643,17 @@ async function setChapterRead(manga, chapter, read, { markThrough = false } = {}
   return state.activeManga;
 }
 
+function confirmEarlierChapters(message) {
+  els.mangaReadConfirmMessage.textContent = message;
+  els.mangaReadConfirmDialog.returnValue = 'no';
+  return new Promise((resolve) => {
+    els.mangaReadConfirmDialog.addEventListener('close', () => {
+      resolve(els.mangaReadConfirmDialog.returnValue === 'yes');
+    }, { once: true });
+    els.mangaReadConfirmDialog.showModal();
+  });
+}
+
 async function toggleChapter(manga, chapter) {
   const read = !(manga.readChapters || []).map(String).includes(String(chapter));
   if (!read || !Number.isFinite(Number(chapter))) return setChapterRead(manga, chapter, read);
@@ -685,7 +666,7 @@ async function toggleChapter(manga, chapter) {
   if (!unreadEarlier.length) return setChapterRead(manga, chapter, true);
 
   const noun = unreadEarlier.length === 1 ? 'chapter' : 'chapters';
-  const markThrough = confirm(
+  const markThrough = await confirmEarlierChapters(
     `${unreadEarlier.length} earlier unread ${noun} found. Mark everything through chapter ${chapter} as read?`,
   );
   return setChapterRead(manga, chapter, true, { markThrough });
@@ -769,7 +750,6 @@ export function bindMangaControls() {
       jumpToChapter();
     }
   });
-  els.mangaMarkThroughBtn.addEventListener('click', () => runAction(els.mangaMarkThroughBtn, 'Marking…', markChaptersReadThrough));
   els.mangaDownloadToggleBtn.addEventListener('click', () => {
     setMangaDownloadPanelOpen(els.mangaDownloadPanel.hidden);
   });

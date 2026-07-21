@@ -353,7 +353,6 @@
       <div id="mangaChapterTools" class="chapter-toolbar" hidden>
         <input id="mangaChapterTarget" type="text" inputmode="decimal" autocomplete="off" placeholder="Chapter e.g. 1100" aria-label="Chapter number">
         <button id="mangaChapterJumpBtn" class="secondary" type="button">Jump</button>
-        <button id="mangaMarkThroughBtn" class="secondary" type="button">Mark read through</button>
       </div>
       <div id="mangaDownloadTools" class="chapter-download-tools" hidden>
         <div class="chapter-download-summary">
@@ -377,6 +376,17 @@
         </div>
       </div>
       <div id="chapterGrid" class="episode-list chapter-list"></div>
+    </dialog>
+
+    <dialog id="mangaReadConfirmDialog" class="compact-confirm-dialog" aria-labelledby="mangaReadConfirmTitle">
+      <form method="dialog">
+        <h2 id="mangaReadConfirmTitle">Mark earlier chapters?</h2>
+        <p id="mangaReadConfirmMessage"></p>
+        <div class="compact-confirm-actions">
+          <button class="secondary" type="submit" value="no" autofocus>No</button>
+          <button class="primary" type="submit" value="yes">Yes</button>
+        </div>
+      </form>
     </dialog>
 
     <dialog id="mangaReaderDialog" class="manga-reader-dialog">

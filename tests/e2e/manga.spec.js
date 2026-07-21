@@ -4,6 +4,8 @@ const { test, expect } = require('@playwright/test');
 const { installApiMocks, MANGA } = require('./fixtures');
 
 test.describe('Manga', () => {
+  test.use({ locale: 'sv-SE' });
+
   test.beforeEach(async ({ page }) => {
     await installApiMocks(page);
     await page.goto('/');
@@ -13,9 +15,9 @@ test.describe('Manga', () => {
   test('renders a separate manga library with reading progress', async ({ page }) => {
     await expect(page.locator('#mangaLibraryList .manga-card')).toHaveCount(1);
     await expect(page.locator('#mangaLibraryList')).toContainText('Manga Test Story');
-    await expect(page.locator('#mangaLibraryList')).toContainText('Read through ch 1 / 3');
-    await expect(page.locator('#mangaLibraryList .pill.hot', { hasText: 'Read through ch 1 / 3' })).toBeVisible();
-    await expect(page.locator('#mangaLibraryList')).toContainText('Japanese');
+    await expect(page.locator('#mangaLibraryList')).toContainText('Progress 1 / 3');
+    await expect(page.locator('#mangaLibraryList .pill.hot', { hasText: 'Progress 1 / 3' })).toBeVisible();
+    await expect(page.locator('#mangaLibraryList')).toContainText('JP');
     await expect(page.locator('#mangaLibraryList [data-action="manga-read"]')).toHaveText('Continue ch 2');
     await expect(page.locator('#mangaLibraryList [data-action="manga-read"]')).toHaveClass(/play-action-continue/);
     await expect(page.locator('#mangaLibraryList')).toContainText('Ongoing since 2024');
@@ -45,10 +47,10 @@ test.describe('Manga', () => {
     await expect(page.locator('#mangaLibraryList')).not.toContainText('Status unknown');
     await expect(page.locator('#mangaLibraryList')).not.toContainText('2020');
     await expect(page.locator('#mangaLibraryList')).toContainText('Recently updated');
-    await expect(page.locator('#mangaLibraryList')).toContainText('Ch 3');
+    await expect(page.locator('#mangaLibraryList')).toContainText('Ch 3 · 0 days ago');
   });
 
-  test('labels Japanese, Korean and Chinese manga origins', async ({ page }) => {
+  test('labels manga origins with compact country codes', async ({ page }) => {
     const mangas = [
       { ...MANGA, id: 'jp', name: 'Japanese Story', countryOfOrigin: 'JP' },
       { ...MANGA, id: 'kr', name: 'Korean Story', countryOfOrigin: 'KR' },
@@ -61,9 +63,9 @@ test.describe('Manga', () => {
     }));
     await page.reload();
 
-    await expect(page.locator('.manga-card[data-manga-id="jp"]')).toContainText('Japanese');
-    await expect(page.locator('.manga-card[data-manga-id="kr"]')).toContainText('Korean');
-    await expect(page.locator('.manga-card[data-manga-id="cn"]')).toContainText('Chinese');
+    await expect(page.locator('.manga-card[data-manga-id="jp"] .show-meta').getByText('JP', { exact: true })).toBeVisible();
+    await expect(page.locator('.manga-card[data-manga-id="kr"] .show-meta').getByText('KR', { exact: true })).toBeVisible();
+    await expect(page.locator('.manga-card[data-manga-id="cn"] .show-meta').getByText('CN', { exact: true })).toBeVisible();
   });
 
   test('switches a tracked manga between translated and raw chapters', async ({ page }) => {
@@ -74,7 +76,7 @@ test.describe('Manga', () => {
     expect((await request).postDataJSON()).toEqual({ language: 'raw' });
 
     await expect(page.locator('#mangaLibraryList .manga-card[data-manga-id="manga1"] select[data-action="manga-language"]')).toHaveValue('raw');
-    await expect(page.locator('#mangaLibraryList .manga-card[data-manga-id="manga1"]')).toContainText('Read through ch 1 / 2');
+    await expect(page.locator('#mangaLibraryList .manga-card[data-manga-id="manga1"]')).toContainText('Progress 1 / 2');
     const chaptersRequest = page.waitForRequest((item) => {
       const url = new URL(item.url());
       return url.pathname === '/api/manga/manga1/chapters' && url.searchParams.get('language') === 'raw';
@@ -121,7 +123,7 @@ test.describe('Manga', () => {
     }));
     await page.reload();
 
-    await expect(page.locator('#mangaLibraryList')).toContainText('Read through ch 276 / 277');
+    await expect(page.locator('#mangaLibraryList')).toContainText('Progress 276 / 277');
     await expect(page.locator('#mangaLibraryList')).not.toContainText('Read 5 / 6');
     await expect(page.locator('#mangaLibraryList [data-action="manga-read"]')).toHaveText('Continue ch 277');
   });
@@ -189,12 +191,13 @@ test.describe('Manga', () => {
     await expect(page.locator('#chapterGrid article[data-chapter="2"] .episode-state').first()).toHaveText('Up next');
     await expect(page.locator('#chapterGrid article[data-chapter="1"]')).toContainText('Released');
     await expect(page.locator('#chapterGrid article[data-chapter="2"]')).toContainText('Release date unavailable');
-    page.once('dialog', async (dialog) => {
-      expect(dialog.message()).toContain('1 earlier unread chapter found');
-      await dialog.accept();
-    });
     const mark = page.waitForRequest((item) => item.url().endsWith('/api/manga/read-through') && item.method() === 'POST');
     await page.click('#chapterGrid [data-chapter="3"] [data-action="chapter-toggle"]');
+    await expect(page.locator('#mangaReadConfirmDialog')).toBeVisible();
+    await expect(page.locator('#mangaReadConfirmMessage')).toContainText('1 earlier unread chapter found');
+    await expect(page.locator('#mangaReadConfirmDialog button[value="no"]')).toHaveText('No');
+    await expect(page.locator('#mangaReadConfirmDialog button[value="yes"]')).toHaveText('Yes');
+    await page.click('#mangaReadConfirmDialog button[value="yes"]');
     expect((await mark).postDataJSON()).toMatchObject({ id: 'manga1', chapter: '3', chapters: ['1', '2', '3'] });
     await expect(page.locator('#chapterGrid .chapter-row[data-chapter="2"]')).toHaveClass(/watched/);
     await expect(page.locator('#chapterGrid .chapter-row[data-chapter="3"]')).toHaveClass(/watched/);
@@ -212,33 +215,23 @@ test.describe('Manga', () => {
 
   test('marks only the selected chapter when the earlier-chapter prompt is declined', async ({ page }) => {
     await page.click('#mangaLibraryList [data-action="manga-chapters"]');
-    page.once('dialog', async (dialog) => {
-      expect(dialog.message()).toContain('1 earlier unread chapter found');
-      await dialog.dismiss();
-    });
     const mark = page.waitForRequest((item) => item.url().endsWith('/api/manga/read') && item.method() === 'POST');
     await page.click('#chapterGrid [data-chapter="3"] [data-action="chapter-toggle"]');
+    await expect(page.locator('#mangaReadConfirmDialog')).toBeVisible();
+    await page.click('#mangaReadConfirmDialog button[value="no"]');
     expect((await mark).postDataJSON()).toMatchObject({ chapter: '3', read: true });
 
     await expect(page.locator('#chapterGrid .chapter-row[data-chapter="2"]')).not.toHaveClass(/watched/);
     await expect(page.locator('#chapterGrid .chapter-row[data-chapter="3"]')).toHaveClass(/watched/);
   });
 
-  test('jumps to a chapter and marks every available chapter through it read', async ({ page }) => {
+  test('keeps chapter jump without the old mark-read-through action', async ({ page }) => {
     await page.click('#mangaLibraryList [data-action="manga-chapters"]');
     await expect(page.locator('#mangaChapterTools')).toBeVisible();
+    await expect(page.locator('#mangaMarkThroughBtn')).toHaveCount(0);
     await page.fill('#mangaChapterTarget', '2');
     await page.click('#mangaChapterJumpBtn');
     await expect(page.locator('#chapterGrid .chapter-row[data-chapter="2"]')).toHaveClass(/chapter-jump-highlight/);
-
-    page.once('dialog', (dialog) => dialog.accept());
-    const request = page.waitForRequest((item) => item.url().endsWith('/api/manga/read-through') && item.method() === 'POST');
-    await page.click('#mangaMarkThroughBtn');
-    expect((await request).postDataJSON()).toMatchObject({ id: 'manga1', chapter: '2', chapters: ['1', '2', '3'] });
-
-    await expect(page.locator('#chapterGrid .chapter-row[data-chapter="2"]')).toHaveClass(/watched/);
-    await expect(page.locator('#mangaLibraryList [data-action="manga-read"]')).toHaveText('Continue ch 3');
-    await expect(page.locator('#toast')).toContainText('1 chapter marked read');
   });
 
   test('opens chapters in the built-in reader without marking them automatically', async ({ page }) => {
