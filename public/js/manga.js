@@ -1,7 +1,7 @@
 import { api, toast, runAction } from './api.js';
 import { els } from './dom.js';
 import { state } from './state.js';
-import { escapeHtml } from './util.js';
+import { escapeHtml, stripDescription } from './util.js';
 
 function compareChapters(a, b) {
   return Number(a) - Number(b) || String(a).localeCompare(String(b));
@@ -28,12 +28,33 @@ function progressText(manga) {
   return `Read ${read} / ${total}`;
 }
 
+function mangaYearRange(manga) {
+  const start = Number(manga.airedStart?.year || manga.airedStart || 0);
+  const end = Number(manga.airedEnd?.year || manga.airedEnd || 0);
+  if (!start) return '';
+  if (end && end !== start) return `${start}–${end}`;
+  return String(manga.status || '').toLowerCase().includes('releas') ? `${start}–ongoing` : String(start);
+}
+
+function relationLabel(value) {
+  const relation = String(value || '').toLowerCase().replace(/[:_-]+/g, ' ').trim();
+  if (relation === 'sequel') return 'Sequel';
+  if (relation === 'prequel' || relation === 'preserialization') return 'Prequel';
+  if (relation === 'side story') return 'Side story';
+  if (relation === 'spin off') return 'Spin-off';
+  return relation ? relation.replace(/^./, (char) => char.toUpperCase()) : 'Related';
+}
+
 function mangaCard(manga, source) {
   const tracked = state.mangaLibrary.some((item) => item.id === manga.id && item.tracked !== false);
   const chapter = nextChapter(manga);
   const cover = coverUrl(manga.thumbnail);
+  const started = (manga.readChapters || []).length > 0;
+  const canContinue = started && Number(manga.newCount) > 0;
+  const yearRange = mangaYearRange(manga);
+  const hasSequel = (manga.relations || []).some((item) => String(item.relation).toLowerCase().includes('sequel'));
   const primary = source === 'library'
-    ? `<button class="primary manga-read-action" data-action="manga-read" data-chapter="${escapeHtml(chapter)}">${chapter ? `Read ch ${escapeHtml(chapter)}` : 'Chapters'}</button>`
+    ? `<button class="primary play-action ${canContinue ? 'play-action-continue' : 'play-action-play'} manga-read-action" data-action="manga-read" data-chapter="${escapeHtml(chapter)}">${chapter ? `${canContinue ? 'Continue' : 'Read'} ch ${escapeHtml(chapter)}` : 'Chapters'}</button>`
     : tracked
       ? '<button class="tracked" data-action="manga-tracked" disabled>In library</button>'
       : '<button class="primary" data-action="manga-track">Add to library</button>';
@@ -43,9 +64,12 @@ function mangaCard(manga, source) {
       <div class="show-main">
         <div class="show-title">${escapeHtml(manga.name || manga.title)}</div>
         <div class="show-meta">
-          <span class="pill">${escapeHtml(source === 'library' ? progressText(manga) : `${manga.chapterCount || manga.latestChapter || '?'} chapters`)}</span>
+          <span class="pill${source === 'library' && canContinue ? ' hot' : ''}">${escapeHtml(source === 'library' ? progressText(manga) : `${manga.chapterCount || manga.latestChapter || '?'} chapters`)}</span>
+          ${manga.downloadedChapters ? `<span class="pill downloaded">↓ ${escapeHtml(manga.downloadedChapters)} saved</span>` : ''}
           ${manga.status ? `<span class="pill">${escapeHtml(manga.status)}</span>` : ''}
-          ${manga.countryOfOrigin ? `<span class="pill">${escapeHtml(manga.countryOfOrigin)}</span>` : ''}
+          ${yearRange ? `<span class="pill schedule">${escapeHtml(yearRange)}</span>` : ''}
+          ${source !== 'library' && manga.score ? `<span class="pill">Score ${escapeHtml(manga.score)}</span>` : ''}
+          ${hasSequel ? '<span class="pill sequel released">Sequel available</span>' : ''}
           ${manga.refreshError ? '<span class="pill danger">Refresh failed</span>' : ''}
         </div>
       </div>
@@ -147,13 +171,53 @@ async function openMangaAbout(manga) {
   const data = await api(`/api/manga/${encodeURIComponent(manga.id)}/details`);
   const details = data.manga;
   state.activeManga = details;
+  state.mangaRelations = details.relations || [];
+  const libraryIndex = state.mangaLibrary.findIndex((item) => item.id === details.id);
+  if (libraryIndex >= 0) {
+    state.mangaLibrary[libraryIndex] = { ...state.mangaLibrary[libraryIndex], ...details };
+    renderMangaLibrary();
+  }
   els.mangaDialogTitle.textContent = details.name;
-  els.mangaDialogMeta.textContent = [details.type, details.status, details.authors?.join(', ')].filter(Boolean).join(' / ');
+  els.mangaDialogMeta.textContent = [details.type, details.status, details.score ? `Score ${details.score}` : '', details.authors?.join(', ')].filter(Boolean).join(' · ');
+  const thumb = coverUrl(details.thumbnail || details.thumbnails?.[0]);
+  const description = stripDescription(details.description) || 'No synopsis available.';
   els.mangaDialogBody.innerHTML = `
-    ${details.description ? `<p>${escapeHtml(details.description)}</p>` : '<p>No synopsis available.</p>'}
-    ${details.genres?.length ? `<div class="show-meta">${details.genres.map((genre) => `<span class="pill">${escapeHtml(genre)}</span>`).join('')}</div>` : ''}`;
+    <div class="details-layout">
+      ${thumb ? `<img class="details-cover" src="${escapeHtml(thumb)}" alt="" loading="lazy" decoding="async">` : '<div class="details-cover placeholder" aria-hidden="true">?</div>'}
+      <div class="details-copy">
+        <p>${escapeHtml(description)}</p>
+        <div class="details-pills">${(details.genres || []).map((genre) => `<span class="pill">${escapeHtml(genre)}</span>`).join('')}</div>
+      </div>
+    </div>
+    ${mangaRelatedSection(details.relations || [])}`;
   els.chapterGrid.innerHTML = '';
   els.mangaDialog.showModal();
+}
+
+function mangaRelatedSection(relations) {
+  if (!relations.length) return '';
+  return `
+    <section class="related-section" aria-label="Related manga">
+      <h3>Related manga</h3>
+      <div class="related-list">
+        ${relations.map((item) => {
+          const tracked = state.mangaLibrary.some((manga) => manga.id === item.id && manga.tracked !== false);
+          const thumb = coverUrl(item.thumbnail);
+          return `<article class="related-item" data-related-manga-id="${escapeHtml(item.id)}">
+            ${thumb ? `<img class="related-thumb" src="${escapeHtml(thumb)}" alt="" loading="lazy" decoding="async">` : '<div class="related-thumb placeholder" aria-hidden="true">?</div>'}
+            <div class="related-main">
+              <span class="pill hot">${escapeHtml(relationLabel(item.relation))}</span>
+              <strong>${escapeHtml(item.name || 'Related manga')}</strong>
+              <span>${escapeHtml([item.status, item.chapterCount ? `${item.chapterCount} chapters` : ''].filter(Boolean).join(' · '))}</span>
+            </div>
+            <div class="related-actions">
+              <button class="secondary small-button" data-action="manga-related-about" type="button">About</button>
+              ${tracked ? '<button class="tracked small-button" type="button" disabled>In library</button>' : '<button class="secondary small-button" data-action="manga-related-track" type="button">Add to library</button>'}
+            </div>
+          </article>`;
+        }).join('')}
+      </div>
+    </section>`;
 }
 
 async function openMangaReader(manga, chapter) {
@@ -256,6 +320,20 @@ export function bindMangaControls() {
   });
   els.closeMangaDialogBtn.addEventListener('click', () => els.mangaDialog.close());
   els.mangaDialog.addEventListener('click', (event) => { if (event.target === els.mangaDialog) els.mangaDialog.close(); });
+  els.mangaDialogBody.addEventListener('click', async (event) => {
+    const button = event.target.closest('button[data-action]');
+    const card = button?.closest('[data-related-manga-id]');
+    const related = state.mangaRelations.find((item) => item.id === card?.dataset.relatedMangaId);
+    if (!button || !related) return;
+    await runAction(button, '…', async () => {
+      if (button.dataset.action === 'manga-related-about') await openMangaAbout(related);
+      if (button.dataset.action === 'manga-related-track') {
+        await trackManga(related);
+        button.textContent = 'In library';
+        button.disabled = true;
+      }
+    });
+  });
   els.closeMangaReaderBtn.addEventListener('click', () => els.mangaReaderDialog.close());
   els.mangaReaderDialog.addEventListener('click', (event) => { if (event.target === els.mangaReaderDialog) els.mangaReaderDialog.close(); });
   els.mangaReaderPages.addEventListener('click', toggleReaderControls);

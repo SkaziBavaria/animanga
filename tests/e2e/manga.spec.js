@@ -14,6 +14,9 @@ test.describe('Manga', () => {
     await expect(page.locator('#mangaLibraryList .manga-card')).toHaveCount(1);
     await expect(page.locator('#mangaLibraryList')).toContainText('Manga Test Story');
     await expect(page.locator('#mangaLibraryList')).toContainText('Read 1 / 3');
+    await expect(page.locator('#mangaLibraryList .pill.hot')).toContainText('Read 1 / 3');
+    await expect(page.locator('#mangaLibraryList [data-action="manga-read"]')).toHaveText('Continue ch 2');
+    await expect(page.locator('#mangaLibraryList [data-action="manga-read"]')).toHaveClass(/play-action-continue/);
     await expect(page.locator('#mangaCount')).toHaveText('1');
   });
 
@@ -69,6 +72,9 @@ test.describe('Manga', () => {
     await page.click('#mangaLibraryList [data-action="manga-about"]');
     await expect(page.locator('#mangaDialog')).toBeVisible();
     await expect(page.locator('#mangaDialogBody')).toContainText('A manga synopsis');
+    await expect(page.locator('#mangaDialogBody .details-cover')).toHaveAttribute('src', /api\/proxy/);
+    await expect(page.locator('#mangaDialogBody .related-item')).toContainText('Manga Test Sequel');
+    await expect(page.locator('#mangaDialogBody .related-item .pill.hot')).toHaveText('Sequel');
     await expect(page.locator('#playerDialog')).toBeHidden();
   });
 });

@@ -49,3 +49,47 @@ test('getMangaDetails sorts chapters and exposes manga metadata', async () => {
   assert.equal(manga.latestChapter, '3');
   assert.deepEqual(manga.authors, ['Author']);
 });
+
+test('getMangaDetails resolves related manga metadata in one follow-up query', async () => {
+  setRawFetcher(async (query) => query.includes('r0: manga') ? {
+    data: {
+      r0: {
+        _id: 'm2',
+        name: 'The Sequel',
+        thumbnail: 'mcovers/sequel.webp',
+        availableChapters: { sub: 4 },
+        status: 'Releasing',
+      },
+    },
+  } : {
+    data: {
+      manga: {
+        _id: 'm1',
+        name: 'Story',
+        availableChaptersDetail: { sub: ['1'] },
+        relatedMangas: [{ relation: 'sequel', mangaId: 'm2' }],
+      },
+    },
+  });
+  const manga = await getMangaDetails('m1');
+  assert.deepEqual(manga.relations, [{
+    id: 'm2',
+    name: 'The Sequel',
+    sourceName: 'The Sequel',
+    englishName: '',
+    nativeName: '',
+    thumbnail: 'https://aln.youtube-anime.com/mcovers/sequel.webp',
+    language: 'sub',
+    chapterCount: 4,
+    latestChapter: null,
+    lastChapterDate: null,
+    score: null,
+    type: 'Manga',
+    status: 'Releasing',
+    airedStart: null,
+    season: null,
+    countryOfOrigin: '',
+    title: 'The Sequel (4 chapters)',
+    relation: 'sequel',
+  }]);
+});

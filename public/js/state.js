@@ -19,6 +19,7 @@ export const state = {
   activeSection: 'library',
   mangaLibrary: [],
   mangaResults: [],
+  mangaRelations: [],
   mangaDownloads: {},
   activeManga: null,
   activeChapter: '',
