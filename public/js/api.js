@@ -22,11 +22,33 @@ export async function api(path, options = {}) {
   return json;
 }
 
+function raiseToast() {
+  if (typeof els.toast.showPopover !== 'function') return;
+  try {
+    if (els.toast.matches(':popover-open')) els.toast.hidePopover();
+    els.toast.showPopover();
+  } catch {}
+}
+
 export function toast(message) {
-  els.toast.textContent = message;
-  els.toast.classList.add('show');
   clearTimeout(toast.timer);
-  toast.timer = setTimeout(() => els.toast.classList.remove('show'), 2600);
+  clearTimeout(toast.hideTimer);
+  els.toast.textContent = message;
+  raiseToast();
+  els.toast.classList.add('show');
+  // Reinsert the toast after any dialog opened in the same task so it stays
+  // above both anime and manga overlays in the browser's top layer.
+  queueMicrotask(() => {
+    if (els.toast.classList.contains('show')) raiseToast();
+  });
+  toast.timer = setTimeout(() => {
+    els.toast.classList.remove('show');
+    toast.hideTimer = setTimeout(() => {
+      try {
+        if (els.toast.matches(':popover-open')) els.toast.hidePopover();
+      } catch {}
+    }, 200);
+  }, 2600);
 }
 
 export async function withBusy(button, label, task) {

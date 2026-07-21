@@ -1149,10 +1149,33 @@ dialog::backdrop {
   display: grid;
   gap: 8px;
   margin-bottom: 12px;
+}
+
+.chapter-download-tools[hidden],
+.chapter-download-panel[hidden],
+.chapter-download-range[hidden] {
+  display: none;
+}
+
+.chapter-download-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.chapter-download-panel {
+  display: grid;
+  gap: 10px;
   padding: 10px;
   border: 1px solid var(--line);
   border-radius: 7px;
   background: rgba(255, 255, 255, .025);
+}
+
+.chapter-download-label {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .chapter-download-range,
@@ -1161,6 +1184,12 @@ dialog::backdrop {
   align-items: end;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.chapter-download-actions .manga-download-quick[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
 .chapter-download-range label {
@@ -1172,9 +1201,21 @@ dialog::backdrop {
 }
 
 .chapter-download-status {
-  min-height: 18px;
+  flex: 1;
+  display: grid;
+  gap: 3px;
   color: var(--muted);
   font-size: 12px;
+}
+
+.chapter-download-status:empty {
+  display: none;
+}
+
+.chapter-download-status progress {
+  width: min(240px, 100%);
+  height: 4px;
+  accent-color: var(--accent);
 }
 
 .chapter-row.chapter-jump-highlight {
@@ -1385,9 +1426,13 @@ dialog::backdrop {
 
 .toast {
   position: fixed;
+  top: auto;
   left: 14px;
   right: 14px;
   bottom: calc(86px + env(safe-area-inset-bottom));
+  width: auto;
+  max-width: none;
+  margin: 0;
   padding: 12px 14px;
   border: 1px solid var(--line);
   border-radius: 8px;

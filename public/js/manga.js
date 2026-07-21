@@ -28,12 +28,11 @@ function nextChapter(manga) {
 }
 
 function progressText(manga) {
-  const readSet = new Set((manga.readChapters || []).map(String));
-  const read = manga.chapters?.length
-    ? manga.chapters.filter((chapter) => readSet.has(String(chapter))).length
-    : readSet.size;
-  const total = manga.chapters?.length || manga.chapterCount || manga.latestChapter || '?';
-  return `Read ${read} / ${total}`;
+  const readChapters = [...(manga.readChapters || [])].map(String).sort(compareChapters);
+  const chapters = [...(manga.chapters || [])].map(String).sort(compareChapters);
+  const lastRead = manga.lastRead || readChapters.at(-1) || '';
+  const latest = manga.latestChapter || chapters.at(-1) || manga.chapterCount || '?';
+  return lastRead ? `Read through ch ${lastRead} / ${latest}` : `Read 0 / ${latest}`;
 }
 
 function mangaLifecycle(manga) {
@@ -350,13 +349,19 @@ function downloadableChapters(manga = state.activeManga) {
 function setQuickDownloadRange(count) {
   const chapters = downloadableChapters().filter((chapter) => !state.mangaDownloads[chapter]);
   if (!chapters.length) return toast('Every chapter is already downloaded');
-  const requestedStart = Number(els.mangaDownloadFrom.value || nextChapter(state.activeManga));
+  const requestedStart = Number(nextChapter(state.activeManga));
   const startIndex = chapters.findIndex((chapter) => Number(chapter) >= requestedStart);
   if (startIndex < 0) return toast('No chapters available from that point');
   const selected = chapters.slice(startIndex, startIndex + count);
   if (!selected.length) return toast('No chapters available from that point');
   els.mangaDownloadFrom.value = selected[0];
   els.mangaDownloadTo.value = selected.at(-1);
+  els.mangaDownloadCustomRange.hidden = true;
+  els.mangaDownloadCustomBtn.setAttribute('aria-expanded', 'false');
+  document.querySelectorAll('.manga-download-quick').forEach((button) => {
+    button.setAttribute('aria-pressed', String(Number(button.dataset.count) === count));
+  });
+  updateMangaDownloadSelection();
 }
 
 function selectedDownloadChapters() {
@@ -368,28 +373,40 @@ function selectedDownloadChapters() {
     .filter((chapter) => !state.mangaDownloads[chapter]);
 }
 
+function updateMangaDownloadSelection() {
+  const count = selectedDownloadChapters().length;
+  els.mangaDownloadRangeBtn.textContent = count
+    ? `Download ${count} chapter${count === 1 ? '' : 's'}`
+    : 'Choose chapters';
+  els.mangaDownloadRangeBtn.disabled = !count || mangaDownloadJobActive(state.mangaDownloadJob);
+}
+
+function setMangaDownloadPanelOpen(open) {
+  els.mangaDownloadPanel.hidden = !open;
+  els.mangaDownloadToggleBtn.setAttribute('aria-expanded', String(open));
+}
+
 function mangaDownloadJobActive(job) {
   return ['queued', 'running', 'cancelling'].includes(job?.status);
 }
 
 function renderMangaDownloadJob(job) {
   const active = mangaDownloadJobActive(job);
-  els.mangaDownloadRangeBtn.disabled = active;
+  els.mangaDownloadToggleBtn.disabled = active;
   els.mangaCancelDownloadBtn.hidden = !active;
+  updateMangaDownloadSelection();
   if (!job) {
-    els.mangaDownloadStatus.textContent = 'Choose up to 50 chapters.';
+    els.mangaDownloadStatus.textContent = '';
     return;
   }
   const processed = Number(job.completed || 0) + Number(job.failed || 0) + Number(job.cancelled || 0);
   if (active) {
-    els.mangaDownloadStatus.textContent = `${job.status === 'queued' ? 'Queued' : 'Downloading'} ${processed} / ${job.total}${job.skipped ? ` · ${job.skipped} already saved` : ''}`;
+    setMangaDownloadPanelOpen(false);
+    const label = job.status === 'queued' ? 'Queued' : `Downloading ${processed} of ${job.total}`;
+    els.mangaDownloadStatus.innerHTML = `<span>${label}</span><progress max="${Number(job.total) || 1}" value="${processed}"></progress>`;
     return;
   }
-  const labels = [`${job.completed || 0} downloaded`];
-  if (job.skipped) labels.push(`${job.skipped} already saved`);
-  if (job.failed) labels.push(`${job.failed} failed`);
-  if (job.cancelled) labels.push(`${job.cancelled} cancelled`);
-  els.mangaDownloadStatus.textContent = labels.join(' · ');
+  els.mangaDownloadStatus.textContent = job.failed ? `${job.failed} chapter${job.failed === 1 ? '' : 's'} failed` : '';
 }
 
 async function refreshMangaDownloadsAfterBatch(manga) {
@@ -411,7 +428,11 @@ function scheduleMangaDownloadPoll(manga) {
       state.mangaDownloadJob = (data.jobs || []).find(mangaDownloadJobActive) || data.jobs?.[0] || null;
       renderMangaDownloadJob(state.mangaDownloadJob);
       if (mangaDownloadJobActive(state.mangaDownloadJob)) scheduleMangaDownloadPoll(manga);
-      else if (wasActive) await refreshMangaDownloadsAfterBatch(manga);
+      else if (wasActive) {
+        const completed = Number(state.mangaDownloadJob?.completed || 0);
+        if (completed) toast(`${completed} chapter${completed === 1 ? '' : 's'} downloaded`);
+        await refreshMangaDownloadsAfterBatch(manga);
+      }
     } catch {}
   }, 800);
 }
@@ -437,7 +458,6 @@ async function startMangaDownloadRange() {
   state.mangaDownloadJob = data.job;
   renderMangaDownloadJob(data.job);
   scheduleMangaDownloadPoll(manga);
-  toast(`${chapters.length} chapter${chapters.length === 1 ? '' : 's'} queued`);
 }
 
 async function cancelMangaDownloadRange() {
@@ -469,6 +489,9 @@ async function openMangaChapters(manga, requestedChapter = '') {
   els.mangaDownloadTools.hidden = false;
   els.mangaChapterTarget.value = '';
   els.mangaDownloadFrom.value = nextChapter(details);
+  setMangaDownloadPanelOpen(false);
+  els.mangaDownloadCustomRange.hidden = true;
+  els.mangaDownloadCustomBtn.setAttribute('aria-expanded', 'false');
   setQuickDownloadRange(10);
   renderChapterGrid(details);
   els.mangaDialog.showModal();
@@ -629,12 +652,18 @@ async function changeReaderChapter(delta) {
   await openMangaReader(state.activeManga, chapter);
 }
 
-async function setChapterRead(manga, chapter, read) {
+async function setChapterRead(manga, chapter, read, { markThrough = false } = {}) {
   const currentlyRead = (manga.readChapters || []).map(String).includes(String(chapter));
   if (currentlyRead === read) return manga;
-  const data = await api('/api/manga/read', {
+  const shouldMarkThrough = read && markThrough && Number.isFinite(Number(chapter));
+  const data = await api(shouldMarkThrough ? '/api/manga/read-through' : '/api/manga/read', {
     method: 'POST',
-    body: JSON.stringify({ id: manga.id, chapter, read, manga: { name: manga.name, thumbnail: manga.thumbnail, language: manga.language } }),
+    body: JSON.stringify({
+      id: manga.id,
+      chapter,
+      ...(shouldMarkThrough ? { chapters: manga.chapters || [] } : { read }),
+      manga: { name: manga.name, thumbnail: manga.thumbnail, language: manga.language },
+    }),
   });
   state.activeManga = { ...manga, ...data.manga };
   const index = state.mangaLibrary.findIndex((item) => item.id === manga.id);
@@ -646,7 +675,20 @@ async function setChapterRead(manga, chapter, read) {
 
 async function toggleChapter(manga, chapter) {
   const read = !(manga.readChapters || []).map(String).includes(String(chapter));
-  return setChapterRead(manga, chapter, read);
+  if (!read || !Number.isFinite(Number(chapter))) return setChapterRead(manga, chapter, read);
+
+  const readSet = new Set((manga.readChapters || []).map(String));
+  const target = Number(chapter);
+  const unreadEarlier = (manga.chapters || [])
+    .map(String)
+    .filter((item) => Number.isFinite(Number(item)) && Number(item) < target && !readSet.has(item));
+  if (!unreadEarlier.length) return setChapterRead(manga, chapter, true);
+
+  const noun = unreadEarlier.length === 1 ? 'chapter' : 'chapters';
+  const markThrough = confirm(
+    `${unreadEarlier.length} earlier unread ${noun} found. Mark everything through chapter ${chapter} as read?`,
+  );
+  return setChapterRead(manga, chapter, true, { markThrough });
 }
 
 async function toggleChapterDownload(manga, chapter) {
@@ -728,8 +770,24 @@ export function bindMangaControls() {
     }
   });
   els.mangaMarkThroughBtn.addEventListener('click', () => runAction(els.mangaMarkThroughBtn, 'Marking…', markChaptersReadThrough));
+  els.mangaDownloadToggleBtn.addEventListener('click', () => {
+    setMangaDownloadPanelOpen(els.mangaDownloadPanel.hidden);
+  });
   document.querySelectorAll('.manga-download-quick').forEach((button) => {
     button.addEventListener('click', () => setQuickDownloadRange(Number(button.dataset.count)));
+  });
+  els.mangaDownloadCustomBtn.addEventListener('click', () => {
+    const open = els.mangaDownloadCustomRange.hidden;
+    els.mangaDownloadCustomRange.hidden = !open;
+    els.mangaDownloadCustomBtn.setAttribute('aria-expanded', String(open));
+    if (open) {
+      document.querySelectorAll('.manga-download-quick').forEach((button) => button.setAttribute('aria-pressed', 'false'));
+      els.mangaDownloadFrom.focus();
+    }
+    updateMangaDownloadSelection();
+  });
+  [els.mangaDownloadFrom, els.mangaDownloadTo].forEach((input) => {
+    input.addEventListener('input', updateMangaDownloadSelection);
   });
   els.mangaDownloadRangeBtn.addEventListener('click', () => {
     runAction(els.mangaDownloadRangeBtn, 'Queueing…', startMangaDownloadRange)

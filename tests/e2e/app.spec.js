@@ -38,6 +38,8 @@ test.describe('Shell & navigation', () => {
   test('opens and closes the browser player', async ({ page }) => {
     await page.click('#libraryList .show-card button[data-action="play"]');
     await expect(page.locator('#playerDialog')).toBeVisible();
+    await expect(page.locator('#toast')).toContainText('Opening player');
+    await expect.poll(() => page.locator('#toast').evaluate((element) => element.matches(':popover-open'))).toBe(true);
     await expect(page.locator('#fullscreenBtn')).toHaveCount(0);
     await expect(page.locator('#videoControls')).toBeVisible();
     await expect(page.locator('#playerFullscreenBtn')).toBeVisible();
@@ -56,6 +58,7 @@ test.describe('Shell & navigation', () => {
     await page.evaluate(() => {
       const video = document.querySelector('#playerVideo');
       window.__playerPaused = true;
+      video.onerror = null;
       Object.defineProperty(video, 'duration', { value: 100, configurable: true });
       Object.defineProperty(video, 'currentTime', { value: 50, writable: true, configurable: true });
       Object.defineProperty(video, 'paused', {
@@ -89,11 +92,21 @@ test.describe('Shell & navigation', () => {
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.wheel(0, -100);
     await expect.poll(() => page.evaluate(() => Math.round(document.querySelector('#playerVideo').volume * 100))).toBe(100);
+    await expect.poll(() => page.evaluate(() => document.activeElement?.id)).toBe('playerStage');
 
     await page.keyboard.press('Space');
     await expect.poll(() => page.evaluate(() => window.__playerPaused)).toBe(false);
     await page.keyboard.press('Space');
     await expect.poll(() => page.evaluate(() => window.__playerPaused)).toBe(true);
+
+    await page.evaluate(() => {
+      document.dispatchEvent(new KeyboardEvent('keydown', {
+        key: 'Unidentified',
+        code: 'Space',
+        bubbles: true,
+      }));
+    });
+    await expect.poll(() => page.evaluate(() => window.__playerPaused)).toBe(false);
   });
 
   test('shows a toast when a downloaded episode plays locally', async ({ page }) => {

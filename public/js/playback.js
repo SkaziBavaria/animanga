@@ -651,6 +651,7 @@ export function bindPlayerDialog() {
   els.playerStage?.addEventListener('wheel', (event) => {
     if (!currentContext || event.ctrlKey) return;
     event.preventDefault();
+    if (!isPlayerControlTarget(event.target)) focusPlayerStage();
     adjustPlayerVolume(event.deltaY < 0 ? 0.05 : -0.05);
   }, { passive: false });
   const handleGestureTap = () => {
@@ -667,7 +668,7 @@ export function bindPlayerDialog() {
     const tag = document.activeElement?.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON') return;
 
-    if (event.key === ' ' || event.key === 'Spacebar') {
+    if (event.code === 'Space' || event.key === ' ' || event.key === 'Spacebar') {
       event.preventDefault();
       togglePlayback();
       showVideoControlsTemporarily();

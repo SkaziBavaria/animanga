@@ -13,8 +13,8 @@ test.describe('Manga', () => {
   test('renders a separate manga library with reading progress', async ({ page }) => {
     await expect(page.locator('#mangaLibraryList .manga-card')).toHaveCount(1);
     await expect(page.locator('#mangaLibraryList')).toContainText('Manga Test Story');
-    await expect(page.locator('#mangaLibraryList')).toContainText('Read 1 / 3');
-    await expect(page.locator('#mangaLibraryList .pill.hot', { hasText: 'Read 1 / 3' })).toBeVisible();
+    await expect(page.locator('#mangaLibraryList')).toContainText('Read through ch 1 / 3');
+    await expect(page.locator('#mangaLibraryList .pill.hot', { hasText: 'Read through ch 1 / 3' })).toBeVisible();
     await expect(page.locator('#mangaLibraryList')).toContainText('Japanese');
     await expect(page.locator('#mangaLibraryList [data-action="manga-read"]')).toHaveText('Continue ch 2');
     await expect(page.locator('#mangaLibraryList [data-action="manga-read"]')).toHaveClass(/play-action-continue/);
@@ -74,7 +74,7 @@ test.describe('Manga', () => {
     expect((await request).postDataJSON()).toEqual({ language: 'raw' });
 
     await expect(page.locator('#mangaLibraryList .manga-card[data-manga-id="manga1"] select[data-action="manga-language"]')).toHaveValue('raw');
-    await expect(page.locator('#mangaLibraryList .manga-card[data-manga-id="manga1"]')).toContainText('Read 1 / 2');
+    await expect(page.locator('#mangaLibraryList .manga-card[data-manga-id="manga1"]')).toContainText('Read through ch 1 / 2');
     const chaptersRequest = page.waitForRequest((item) => {
       const url = new URL(item.url());
       return url.pathname === '/api/manga/manga1/chapters' && url.searchParams.get('language') === 'raw';
@@ -102,6 +102,28 @@ test.describe('Manga', () => {
     await page.reload();
 
     await expect(page.locator('#mangaLibraryList [data-action="manga-read"]')).toHaveText('Continue ch 4');
+  });
+
+  test('shows chapter progress instead of counting decimal chapter entries', async ({ page }) => {
+    const manga = {
+      ...MANGA,
+      chapters: ['274', '274.5', '275', '275.5', '276', '277'],
+      chapterCount: 6,
+      latestChapter: '277',
+      readChapters: ['274', '274.5', '275', '275.5', '276'],
+      lastRead: '276',
+      newCount: 1,
+    };
+    await page.route('**/api/manga/library', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ mangas: [manga] }),
+    }));
+    await page.reload();
+
+    await expect(page.locator('#mangaLibraryList')).toContainText('Read through ch 276 / 277');
+    await expect(page.locator('#mangaLibraryList')).not.toContainText('Read 5 / 6');
+    await expect(page.locator('#mangaLibraryList [data-action="manga-read"]')).toHaveText('Continue ch 277');
   });
 
   test('searches manga and keeps anime discover separate', async ({ page }) => {
@@ -156,7 +178,7 @@ test.describe('Manga', () => {
     await expect(page.locator('#mangaGenreFilterSummary')).toContainText('Fantasy, Seinen, 2024');
   });
 
-  test('opens chapters and toggles read state explicitly', async ({ page }) => {
+  test('offers to mark earlier unread chapters and unmarks only the selected chapter', async ({ page }) => {
     await page.click('#mangaLibraryList [data-action="manga-chapters"]');
     await expect(page.locator('#mangaDialog')).toBeVisible();
     await expect(page.locator('#chapterGrid .chapter-row')).toHaveCount(3);
@@ -167,11 +189,39 @@ test.describe('Manga', () => {
     await expect(page.locator('#chapterGrid article[data-chapter="2"] .episode-state').first()).toHaveText('Up next');
     await expect(page.locator('#chapterGrid article[data-chapter="1"]')).toContainText('Released');
     await expect(page.locator('#chapterGrid article[data-chapter="2"]')).toContainText('Release date unavailable');
-    const mark = page.waitForRequest((item) => item.url().endsWith('/api/manga/read') && item.method() === 'POST');
-    await page.click('#chapterGrid [data-chapter="2"] [data-action="chapter-toggle"]');
-    expect((await mark).postDataJSON()).toMatchObject({ id: 'manga1', chapter: '2', read: true });
+    page.once('dialog', async (dialog) => {
+      expect(dialog.message()).toContain('1 earlier unread chapter found');
+      await dialog.accept();
+    });
+    const mark = page.waitForRequest((item) => item.url().endsWith('/api/manga/read-through') && item.method() === 'POST');
+    await page.click('#chapterGrid [data-chapter="3"] [data-action="chapter-toggle"]');
+    expect((await mark).postDataJSON()).toMatchObject({ id: 'manga1', chapter: '3', chapters: ['1', '2', '3'] });
     await expect(page.locator('#chapterGrid .chapter-row[data-chapter="2"]')).toHaveClass(/watched/);
-    await expect(page.locator('#chapterGrid .chapter-row[data-chapter="2"] .episode-watch')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#chapterGrid .chapter-row[data-chapter="3"]')).toHaveClass(/watched/);
+
+    const unmark = page.waitForRequest((item) => item.url().endsWith('/api/manga/read') && item.method() === 'POST');
+    await page.click('#chapterGrid [data-chapter="3"] [data-action="chapter-toggle"]');
+    expect((await unmark).postDataJSON()).toMatchObject({ id: 'manga1', chapter: '3', read: false });
+    await expect(page.locator('#chapterGrid .chapter-row[data-chapter="2"]')).toHaveClass(/watched/);
+    await expect(page.locator('#chapterGrid .chapter-row[data-chapter="3"]')).not.toHaveClass(/watched/);
+
+    const markWithoutPrompt = page.waitForRequest((item) => item.url().endsWith('/api/manga/read') && item.method() === 'POST');
+    await page.click('#chapterGrid [data-chapter="3"] [data-action="chapter-toggle"]');
+    expect((await markWithoutPrompt).postDataJSON()).toMatchObject({ chapter: '3', read: true });
+  });
+
+  test('marks only the selected chapter when the earlier-chapter prompt is declined', async ({ page }) => {
+    await page.click('#mangaLibraryList [data-action="manga-chapters"]');
+    page.once('dialog', async (dialog) => {
+      expect(dialog.message()).toContain('1 earlier unread chapter found');
+      await dialog.dismiss();
+    });
+    const mark = page.waitForRequest((item) => item.url().endsWith('/api/manga/read') && item.method() === 'POST');
+    await page.click('#chapterGrid [data-chapter="3"] [data-action="chapter-toggle"]');
+    expect((await mark).postDataJSON()).toMatchObject({ chapter: '3', read: true });
+
+    await expect(page.locator('#chapterGrid .chapter-row[data-chapter="2"]')).not.toHaveClass(/watched/);
+    await expect(page.locator('#chapterGrid .chapter-row[data-chapter="3"]')).toHaveClass(/watched/);
   });
 
   test('jumps to a chapter and marks every available chapter through it read', async ({ page }) => {
@@ -239,16 +289,30 @@ test.describe('Manga', () => {
   test('queues a limited chapter range for offline reading', async ({ page }) => {
     await page.click('#mangaLibraryList [data-action="manga-chapters"]');
     await expect(page.locator('#mangaDownloadTools')).toBeVisible();
+    await expect(page.locator('#mangaDownloadPanel')).toBeHidden();
+    await expect(page.locator('#mangaDownloadCustomRange')).toBeHidden();
+
+    await page.click('#mangaDownloadToggleBtn');
+    await expect(page.locator('#mangaDownloadPanel')).toBeVisible();
     await expect(page.locator('#mangaDownloadFrom')).toHaveValue('2');
     await expect(page.locator('#mangaDownloadTo')).toHaveValue('3');
+    await expect(page.locator('.manga-download-quick[data-count="10"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#mangaDownloadRangeBtn')).toHaveText('Download 2 chapters');
+
+    await page.click('#mangaDownloadCustomBtn');
+    await expect(page.locator('#mangaDownloadCustomRange')).toBeVisible();
+    await page.fill('#mangaDownloadFrom', '3');
+    await expect(page.locator('#mangaDownloadRangeBtn')).toHaveText('Download 1 chapter');
+    await page.click('.manga-download-quick[data-count="10"]');
+    await expect(page.locator('#mangaDownloadCustomRange')).toBeHidden();
 
     page.once('dialog', (dialog) => dialog.accept());
     const request = page.waitForRequest((item) => item.url().endsWith('/chapters/download-batch') && item.method() === 'POST');
     await page.click('#mangaDownloadRangeBtn');
     expect((await request).postDataJSON()).toEqual({ chapters: ['2', '3'] });
-    await expect(page.locator('#toast')).toContainText('2 chapters queued');
-
-    await expect(page.locator('#mangaDownloadStatus')).toContainText('2 downloaded');
+    await expect(page.locator('#mangaDownloadPanel')).toBeHidden();
+    await expect(page.locator('#mangaDownloadStatus progress')).toBeVisible();
+    await expect(page.locator('#toast')).toContainText('2 chapters downloaded');
     await expect(page.locator('#chapterGrid [data-chapter="2"] [data-action="chapter-download"]')).toHaveClass(/downloaded/);
     await expect(page.locator('#chapterGrid [data-chapter="3"] [data-action="chapter-download"]')).toHaveClass(/downloaded/);
   });
