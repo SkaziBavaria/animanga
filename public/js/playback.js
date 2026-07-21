@@ -70,7 +70,7 @@ async function playAdjacent(dir) {
 }
 
 function persistProgress() {
-  if (!currentContext) return;
+  if (!currentContext || finishedMarked) return;
   const video = els.playerVideo;
   if (!video || !Number.isFinite(video.currentTime)) return;
   saveProgress(currentContext.showId, currentContext.episode, video.currentTime, video.duration);
@@ -138,14 +138,27 @@ function markEpisodeFinished() {
   if (Number.isFinite(duration) && duration > 0) saveProgress(showId, episode, duration, duration);
   if (state.settings.autoTrackPlayed === false) return;
   postBeacon('/api/mark', { id: showId, episode, watched: true });
-  if (currentShow) {
-    currentShow.lastWatched = episode;
-    currentShow.watchedEpisodes = Array.from(new Set([...(currentShow.watchedEpisodes || []), episode]));
-  }
+  const libraryShow = state.library.find((show) => show.id === showId);
+  [...new Set([currentShow, state.activeShow, libraryShow].filter(Boolean))].forEach((show) => {
+    show.lastWatched = episode;
+    show.watchedEpisodes = Array.from(new Set([...(show.watchedEpisodes || []), episode]));
+  });
   renderLibrary();
   if (state.activeShow && state.activeShow.id === showId) {
     import('./episodes.js').then(({ renderEpisodeGrid }) => renderEpisodeGrid(state.activeShow)).catch(() => {});
   }
+}
+
+function shouldMarkFinishedOnClose() {
+  const video = els.playerVideo;
+  const duration = Number(video?.duration);
+  const currentTime = Number(video?.currentTime);
+  if (!Number.isFinite(duration) || duration <= 0 || !Number.isFinite(currentTime)) return false;
+  if (duration - currentTime <= 15 || currentTime / duration >= 0.95) return true;
+
+  const outroStart = Number(currentSkip.ed?.start);
+  const credibleOutro = Number.isFinite(outroStart) && outroStart >= duration * 0.75;
+  return credibleOutro && currentTime >= outroStart;
 }
 
 function handleSkipTimes() {
@@ -531,7 +544,8 @@ export function bindPlayerDialog() {
     els.playerDialog.close();
   });
   els.playerDialog.addEventListener('close', () => {
-    persistProgress();
+    if (shouldMarkFinishedOnClose()) markEpisodeFinished();
+    else persistProgress();
     renderLibrary();
     els.playerVideo.pause();
     els.playerVideo.removeAttribute('src');

@@ -81,9 +81,9 @@ test.describe('Episodes dialog', () => {
     await expect(page.locator('#episodeGrid .episode-play[data-episode="2"]')).toHaveClass(/watched/);
   });
 
-  test('does not mark the episode done from an early outro timestamp', async ({ page }) => {
+  test('does not mark the episode done when closing at an early outro timestamp', async ({ page }) => {
     await installApiMocks(page, {
-      skipTimes: { op: null, ed: { start: 2, end: 4 } },
+      skipTimes: { op: null, ed: { start: 20, end: 40 } },
     });
     await page.goto('/');
     await page.click('#libraryList .show-card button[data-action="episodes"]');
@@ -93,8 +93,9 @@ test.describe('Episodes dialog', () => {
 
     await page.evaluate(() => {
       const video = document.querySelector('#playerVideo');
-      Object.defineProperty(video, 'duration', { value: 10, configurable: true });
-      Object.defineProperty(video, 'currentTime', { value: 3, writable: true, configurable: true });
+      video.onerror = null;
+      Object.defineProperty(video, 'duration', { value: 100, configurable: true });
+      Object.defineProperty(video, 'currentTime', { value: 30, writable: true, configurable: true });
       video.dispatchEvent(new Event('loadedmetadata'));
     });
 
@@ -106,10 +107,37 @@ test.describe('Episodes dialog', () => {
     await expect(page.locator('#skipButton')).toContainText('Skip Outro');
     await expect(page.locator('#episodeGrid .episode-play[data-episode="2"]')).not.toHaveClass(/watched/);
 
+    await page.click('#closePlayerBtn');
+    await expect(page.locator('#episodeGrid .episode-play[data-episode="2"]')).not.toHaveClass(/watched/);
+    await expect(page.locator('#libraryList .show-card button[data-action="play"]')).toHaveText('Resume ep 2');
+  });
+
+  test('marks the episode done when closing after a real outro starts', async ({ page }) => {
+    await installApiMocks(page, {
+      skipTimes: { op: null, ed: { start: 90, end: 100 } },
+    });
+    await page.goto('/');
+    await page.click('#libraryList .show-card button[data-action="episodes"]');
+    await page.click('#episodeGrid .episode-play[data-episode="2"]');
+    await expect(page.locator('#playerDialog')).toBeVisible();
+
+    await page.evaluate(() => {
+      const video = document.querySelector('#playerVideo');
+      video.onerror = null;
+      Object.defineProperty(video, 'duration', { value: 100, configurable: true });
+      Object.defineProperty(video, 'currentTime', { value: 92, writable: true, configurable: true });
+      video.dispatchEvent(new Event('loadedmetadata'));
+    });
+    await expect.poll(() => page.evaluate(() => {
+      document.querySelector('#playerVideo').dispatchEvent(new Event('timeupdate'));
+      return document.querySelector('#skipButton').hidden;
+    })).toBe(false);
+
     const mark = page.waitForRequest((req) => req.url().endsWith('/api/mark') && req.method() === 'POST');
-    await page.evaluate(() => document.querySelector('#playerVideo').dispatchEvent(new Event('ended')));
-    await mark;
+    await page.click('#closePlayerBtn');
+    expect((await mark).postDataJSON()).toMatchObject({ episode: '2', watched: true });
     await expect(page.locator('#episodeGrid .episode-play[data-episode="2"]')).toHaveClass(/watched/);
+    await expect(page.locator('#libraryList .show-card button[data-action="play"]')).toHaveText('Continue ep 3');
   });
 
   test('retries skip lookup after the video duration becomes available', async ({ page }) => {
