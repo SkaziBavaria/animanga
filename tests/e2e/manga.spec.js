@@ -23,12 +23,31 @@ test.describe('Manga', () => {
   test('searches manga and keeps anime discover separate', async ({ page }) => {
     await page.click('.tab[data-section="discover"]');
     await page.fill('#mangaSearchInput', 'Test Story');
-    const request = page.waitForRequest((item) => item.url().includes('/api/manga/search?q=Test%20Story'));
+    const request = page.waitForRequest((item) => new URL(item.url()).pathname === '/api/manga/search' && new URL(item.url()).searchParams.get('q') === 'Test Story');
     await page.click('#mangaSearchForm button[type="submit"]');
     await request;
     await expect(page.locator('#mangaSearchResults .manga-card')).toHaveCount(1);
     await expect(page.locator('#mangaDiscoverView')).toHaveClass(/active/);
     await expect(page.locator('#searchView')).not.toHaveClass(/active/);
+  });
+
+  test('browses manga categories and applies multiple filters', async ({ page }) => {
+    await page.click('.tab[data-section="discover"]');
+    const hotRequest = page.waitForRequest((item) => new URL(item.url()).searchParams.get('sort') === 'Trending' && !new URL(item.url()).searchParams.has('range'));
+    await page.click('.manga-browse-button:has-text("Hot")');
+    await hotRequest;
+
+    await page.click('#mangaGenreFilter summary');
+    await page.check('#mangaGenreFilter input[value="Fantasy"]');
+    await page.check('#mangaGenreFilter input[value="Seinen"]');
+    await page.fill('#mangaYearFilter', '2024');
+    const filterRequest = page.waitForRequest((item) => {
+      const url = new URL(item.url());
+      return url.searchParams.getAll('genre').join(',') === 'Fantasy,Seinen' && url.searchParams.get('year') === '2024';
+    });
+    await page.click('#mangaGenreApplyBtn');
+    await filterRequest;
+    await expect(page.locator('#mangaGenreFilterSummary')).toContainText('Fantasy, Seinen, 2024');
   });
 
   test('opens chapters and toggles read state explicitly', async ({ page }) => {

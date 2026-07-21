@@ -7,6 +7,7 @@ const { searchManga, getMangaDetails, setRawFetcher } = require('../../lib/allma
 test.afterEach(() => setRawFetcher());
 
 test('searchManga maps AllManga results and normalizes cover urls', async () => {
+  let receivedVariables;
   setRawFetcher(async (_query, variables) => ({
     data: {
       mangas: {
@@ -21,13 +22,24 @@ test('searchManga maps AllManga results and normalizes cover urls', async () => 
         }],
       },
     },
-    variables,
+    variables: (receivedVariables = variables),
   }));
-  const result = await searchManga('English', { language: 'sub' });
+  const result = await searchManga('English', { language: 'sub', sortBy: 'Trending', genres: ['Fantasy', 'Seinen'], year: 2024 });
   assert.equal(result.total, 1);
   assert.equal(result.results[0].name, 'English name');
   assert.equal(result.results[0].chapterCount, 12);
   assert.equal(result.results[0].thumbnail, 'https://aln.youtube-anime.com/mcovers/one.webp');
+  assert.deepEqual(receivedVariables.search, {
+    allowAdult: false,
+    allowUnknown: false,
+    sortBy: 'Trending',
+    sortDirection: 'DSC',
+    isManga: true,
+    query: 'English',
+    genres: ['Fantasy', 'Seinen'],
+    includeGenres: true,
+    year: 2024,
+  });
 });
 
 test('getMangaDetails sorts chapters and exposes manga metadata', async () => {

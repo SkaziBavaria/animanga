@@ -112,10 +112,23 @@ export async function loadMangaLibrary(refresh = false) {
   }
 }
 
-export async function searchManga(query = '') {
-  const data = await api(`/api/manga/search?q=${encodeURIComponent(query)}`);
+export async function searchManga(query = '', options = {}) {
+  const params = new URLSearchParams({
+    q: query,
+    sort: options.sort || state.mangaBrowseSort,
+  });
+  const range = Number(options.range ?? state.mangaBrowseRange);
+  if (range) params.set('range', String(range));
+  if (state.mangaYear) params.set('year', String(state.mangaYear));
+  state.mangaGenres.forEach((genre) => params.append('genre', genre));
+  const data = await api(`/api/manga/search?${params}`);
   state.mangaResults = data.results || [];
   renderMangaResults();
+}
+
+function updateMangaFilterSummary() {
+  const values = [...state.mangaGenres, state.mangaYear].filter(Boolean);
+  els.mangaGenreFilterSummary.textContent = values.length ? `Filters · ${values.join(', ')}` : 'Filters · All';
 }
 
 async function trackManga(manga) {
@@ -182,12 +195,10 @@ async function openMangaAbout(manga) {
   const thumb = coverUrl(details.thumbnail || details.thumbnails?.[0]);
   const description = stripDescription(details.description) || 'No synopsis available.';
   els.mangaDialogBody.innerHTML = `
-    <div class="details-layout">
+    <div class="manga-details-layout">
       ${thumb ? `<img class="details-cover" src="${escapeHtml(thumb)}" alt="" loading="lazy" decoding="async">` : '<div class="details-cover placeholder" aria-hidden="true">?</div>'}
-      <div class="details-copy">
-        <p>${escapeHtml(description)}</p>
-        <div class="details-pills">${(details.genres || []).map((genre) => `<span class="pill">${escapeHtml(genre)}</span>`).join('')}</div>
-      </div>
+      <p>${escapeHtml(description)}</p>
+      <div class="details-pills">${(details.genres || []).map((genre) => `<span class="pill">${escapeHtml(genre)}</span>`).join('')}</div>
     </div>
     ${mangaRelatedSection(details.relations || [])}`;
   els.chapterGrid.innerHTML = '';
@@ -313,9 +324,34 @@ async function toggleChapterDownload(manga, chapter) {
 }
 
 export function bindMangaControls() {
-  els.mangaLatestBtn.addEventListener('click', () => searchManga('').catch((err) => toast(err.message)));
+  document.querySelectorAll('.manga-browse-button').forEach((button) => button.addEventListener('click', () => {
+    state.mangaBrowseSort = button.dataset.mangaSort || 'Latest_Update';
+    state.mangaBrowseRange = Number(button.dataset.mangaRange || 0);
+    document.querySelectorAll('.manga-browse-button').forEach((item) => item.classList.toggle('active', item === button));
+    runAction(button, 'Loading…', () => searchManga('')).catch((err) => toast(err.message));
+  }));
   els.mangaSearchForm.addEventListener('submit', (event) => {
     event.preventDefault();
+    state.mangaBrowseSort = 'Latest_Update';
+    state.mangaBrowseRange = 0;
+    document.querySelectorAll('.manga-browse-button').forEach((button) => button.classList.toggle('active', button === els.mangaLatestBtn));
+    searchManga(els.mangaSearchInput.value.trim()).catch((err) => toast(err.message));
+  });
+  els.mangaGenreApplyBtn.addEventListener('click', () => {
+    state.mangaGenres = Array.from(els.mangaGenreFilter.querySelectorAll('input[type="checkbox"]:checked')).map((input) => input.value);
+    const year = Number(els.mangaYearFilter.value);
+    state.mangaYear = Number.isInteger(year) && year >= 1900 && year <= 2100 ? year : null;
+    updateMangaFilterSummary();
+    els.mangaGenreFilter.open = false;
+    searchManga(els.mangaSearchInput.value.trim()).catch((err) => toast(err.message));
+  });
+  els.mangaGenreClearBtn.addEventListener('click', () => {
+    els.mangaGenreFilter.querySelectorAll('input[type="checkbox"]').forEach((input) => { input.checked = false; });
+    els.mangaYearFilter.value = '';
+    state.mangaGenres = [];
+    state.mangaYear = null;
+    updateMangaFilterSummary();
+    els.mangaGenreFilter.open = false;
     searchManga(els.mangaSearchInput.value.trim()).catch((err) => toast(err.message));
   });
   els.closeMangaDialogBtn.addEventListener('click', () => els.mangaDialog.close());

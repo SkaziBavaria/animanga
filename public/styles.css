@@ -207,6 +207,26 @@ h2 {
   white-space: pre-line;
 }
 
+.manga-details-layout {
+  display: flow-root;
+}
+
+.manga-details-layout .details-cover {
+  float: left;
+  margin: 0 14px 8px 0;
+}
+
+.manga-details-layout p {
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.55;
+  white-space: pre-line;
+}
+
+.manga-details-layout .details-pills {
+  padding-top: 12px;
+}
+
 .manga-reader-dialog {
   width: 100vw;
   height: 100dvh;
@@ -595,7 +615,8 @@ h2 {
   display: none;
 }
 
-.browse-button {
+.browse-button,
+.manga-browse-button {
   flex: 0 0 auto;
   min-height: 38px;
   min-width: 74px;
@@ -604,7 +625,8 @@ h2 {
   white-space: nowrap;
 }
 
-.browse-button.active {
+.browse-button.active,
+.manga-browse-button.active {
   color: #071310;
   background: var(--accent-2);
   font-weight: 800;

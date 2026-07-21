@@ -125,8 +125,46 @@
             <button type="submit">Search</button>
           </form>
           <div class="browse-row" aria-label="Browse manga">
-            <button id="mangaLatestBtn" class="browse-button" type="button">Latest updates</button>
+            <button class="manga-browse-button" data-manga-sort="Recommendation" type="button">For you</button>
+            <button class="manga-browse-button" data-manga-sort="Popular" type="button">Popular</button>
+            <button class="manga-browse-button" data-manga-sort="Trending" type="button">Hot</button>
+            <button class="manga-browse-button" data-manga-sort="Trending" data-manga-range="7" type="button">Week</button>
+            <button class="manga-browse-button" data-manga-sort="Trending" data-manga-range="30" type="button">Month</button>
+            <button id="mangaLatestBtn" class="manga-browse-button active" data-manga-sort="Latest_Update" type="button">Latest</button>
           </div>
+          <details id="mangaGenreFilter" class="genre-filter">
+            <summary id="mangaGenreFilterSummary">Filters · All</summary>
+            <div class="genre-filter-panel">
+              <label class="discover-filter-field discover-year-field" for="mangaYearFilter">
+                <span>Release year</span>
+                <input id="mangaYearFilter" type="number" inputmode="numeric" min="1900" max="2100" placeholder="Any year">
+              </label>
+              <div class="genre-options">
+                <label><input type="checkbox" value="Action">Action</label>
+                <label><input type="checkbox" value="Adventure">Adventure</label>
+                <label><input type="checkbox" value="Comedy">Comedy</label>
+                <label><input type="checkbox" value="Drama">Drama</label>
+                <label><input type="checkbox" value="Fantasy">Fantasy</label>
+                <label><input type="checkbox" value="Horror">Horror</label>
+                <label><input type="checkbox" value="Josei">Josei</label>
+                <label><input type="checkbox" value="Mystery">Mystery</label>
+                <label><input type="checkbox" value="Psychological">Psychological</label>
+                <label><input type="checkbox" value="Romance">Romance</label>
+                <label><input type="checkbox" value="Sci-Fi">Sci-Fi</label>
+                <label><input type="checkbox" value="Seinen">Seinen</label>
+                <label><input type="checkbox" value="Shoujo">Shoujo</label>
+                <label><input type="checkbox" value="Shounen">Shounen</label>
+                <label><input type="checkbox" value="Slice of Life">Slice of Life</label>
+                <label><input type="checkbox" value="Sports">Sports</label>
+                <label><input type="checkbox" value="Supernatural">Supernatural</label>
+                <label><input type="checkbox" value="Thriller">Thriller</label>
+              </div>
+              <div class="genre-filter-actions">
+                <button id="mangaGenreClearBtn" class="secondary small-button" type="button">Clear</button>
+                <button id="mangaGenreApplyBtn" class="primary small-button" type="button">Apply</button>
+              </div>
+            </div>
+          </details>
           <div id="mangaSearchResults" class="show-list"></div>
         </section>
 
