@@ -165,6 +165,17 @@
               </div>
             </div>
           </details>
+          <div class="section-head compact watch-head">
+            <div class="watch-title">
+              <h2>Watching</h2>
+              <span id="mangaReleaseWatchesCount" class="counter">0</span>
+            </div>
+            <div class="inline-actions">
+              <button id="mangaReleaseWatchesCheckBtn" class="small-button" type="button">Check</button>
+              <button id="mangaReleaseWatchesToggleBtn" class="small-button" type="button">Show</button>
+            </div>
+          </div>
+          <div id="mangaReleaseWatchesList" class="watch-list" hidden></div>
           <div id="mangaSearchResults" class="show-list"></div>
         </section>
 
@@ -339,6 +350,25 @@
         <button id="closeMangaDialogBtn" class="icon-button" type="button" title="Close" aria-label="Close">×</button>
       </div>
       <div id="mangaDialogBody" class="manga-dialog-body"></div>
+      <div id="mangaChapterTools" class="chapter-toolbar" hidden>
+        <input id="mangaChapterTarget" type="text" inputmode="decimal" autocomplete="off" placeholder="Chapter e.g. 1100" aria-label="Chapter number">
+        <button id="mangaChapterJumpBtn" class="secondary" type="button">Jump</button>
+        <button id="mangaMarkThroughBtn" class="secondary" type="button">Mark read through</button>
+      </div>
+      <div id="mangaDownloadTools" class="chapter-download-tools" hidden>
+        <div class="chapter-download-range">
+          <label>From <input id="mangaDownloadFrom" type="text" inputmode="decimal" autocomplete="off" aria-label="First chapter to download"></label>
+          <label>To <input id="mangaDownloadTo" type="text" inputmode="decimal" autocomplete="off" aria-label="Last chapter to download"></label>
+        </div>
+        <div class="chapter-download-actions">
+          <button class="small-button secondary manga-download-quick" data-count="5" type="button">Next 5</button>
+          <button class="small-button secondary manga-download-quick" data-count="10" type="button">Next 10</button>
+          <button class="small-button secondary manga-download-quick" data-count="25" type="button">Next 25</button>
+          <button id="mangaDownloadRangeBtn" class="small-button primary" type="button">Download range</button>
+          <button id="mangaCancelDownloadBtn" class="small-button danger" type="button" hidden>Cancel</button>
+        </div>
+        <div id="mangaDownloadStatus" class="chapter-download-status" aria-live="polite"></div>
+      </div>
       <div id="chapterGrid" class="episode-list chapter-list"></div>
     </dialog>
 

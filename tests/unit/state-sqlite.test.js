@@ -32,6 +32,7 @@ const {
   updateShowWatched,
   savePositionAtomic,
   updateMangaRead,
+  updateMangaReadBatch,
   createDatabaseBackup,
 } = require('../../lib/state');
 const { DATABASE_FILE, BACKUP_DIR } = require('../../lib/config');
@@ -132,6 +133,23 @@ test('manga tracking and per-chapter read state are syncable', () => {
   const records = syncBundle().records;
   assert.equal(records.some((record) => record.kind === 'manga' && record.key === 'm1'), true);
   assert.equal(records.some((record) => record.kind === 'manga_read' && record.key === 'm1:1'), true);
+});
+
+test('marks multiple manga chapters read in one atomic update', () => {
+  const manga = updateMangaReadBatch('m1', ['1', '1.5', '2'], true);
+  assert.deepEqual(manga.readChapters, ['1', '1.5', '2']);
+  assert.deepEqual(readState().mangas.m1.readChapters, ['1', '1.5', '2']);
+  const records = syncBundle().records;
+  assert.equal(records.some((record) => record.kind === 'manga_read' && record.key === 'm1:1.5'), true);
+  assert.equal(records.some((record) => record.kind === 'manga_read' && record.key === 'm1:2'), true);
+});
+
+test('persists manga release watches separately from anime watches', () => {
+  const state = readState();
+  state.mangaReleaseWatches.mw1 = { id: 'mw1', query: 'Future Story', language: 'sub', status: 'watching' };
+  saveState(state);
+  assert.equal(readState().mangaReleaseWatches.mw1.query, 'Future Story');
+  assert.equal(readState().releaseWatches.mw1, undefined);
 });
 
 test('creates a consistent SQLite backup', async () => {

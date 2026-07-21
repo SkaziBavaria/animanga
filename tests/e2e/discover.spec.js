@@ -7,7 +7,7 @@ test.describe('Discover: search & browse', () => {
   test('searches and renders result cards', async ({ page }) => {
     await installApiMocks(page);
     await page.goto('/');
-    await page.click('.tab[data-view="searchView"]');
+    await page.click('.tab[data-section="discover"]');
     await page.fill('#searchInput', 'naruto');
     await page.click('#searchForm button[type="submit"]');
 
@@ -18,7 +18,7 @@ test.describe('Discover: search & browse', () => {
   test('tracks a show from search results', async ({ page }) => {
     await installApiMocks(page);
     await page.goto('/');
-    await page.click('.tab[data-view="searchView"]');
+    await page.click('.tab[data-section="discover"]');
     await page.fill('#searchInput', 'bleach');
     await page.click('#searchForm button[type="submit"]');
 
@@ -31,7 +31,7 @@ test.describe('Discover: search & browse', () => {
   test('shows the watch-release action when search has no results', async ({ page }) => {
     await installApiMocks(page, { searchResults: [] });
     await page.goto('/');
-    await page.click('.tab[data-view="searchView"]');
+    await page.click('.tab[data-section="discover"]');
     await page.fill('#searchInput', 'nonexistent-title');
     await page.click('#searchForm button[type="submit"]');
 
@@ -47,7 +47,7 @@ test.describe('Discover: search & browse', () => {
   test('browses popular titles', async ({ page }) => {
     await installApiMocks(page);
     await page.goto('/');
-    await page.click('.tab[data-view="searchView"]');
+    await page.click('.tab[data-section="discover"]');
     await page.click('.browse-button[data-popular-range="0"]');
     await expect(page.locator('#searchResults .show-card')).toHaveCount(1);
     await expect(page.locator('.browse-button[data-popular-range="0"]')).toHaveClass(/active/);
@@ -56,7 +56,7 @@ test.describe('Discover: search & browse', () => {
   test('browses recommendations', async ({ page }) => {
     await installApiMocks(page);
     await page.goto('/');
-    await page.click('.tab[data-view="searchView"]');
+    await page.click('.tab[data-section="discover"]');
     await page.click('.browse-button[data-recommended="1"]');
     await expect(page.locator('#searchResults .show-card')).toHaveCount(1);
   });
@@ -64,7 +64,7 @@ test.describe('Discover: search & browse', () => {
   test('filters discover results by multiple genres', async ({ page }) => {
     await installApiMocks(page);
     await page.goto('/');
-    await page.click('.tab[data-view="searchView"]');
+    await page.click('.tab[data-section="discover"]');
 
     const request = page.waitForRequest((req) => {
       const url = new URL(req.url());

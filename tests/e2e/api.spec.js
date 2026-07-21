@@ -31,11 +31,11 @@ test.describe('Backend API', () => {
 
   test('persists playback progress', async ({ request }) => {
     await request.post('/api/progress', {
-      data: { id: SHOW_ID, episode: '1', position: 100, duration: 1400 },
+      data: { id: SHOW_ID, episode: 'progress-test', position: 100, duration: 1400 },
     });
     const body = await (await request.get('/api/progress')).json();
-    expect(body.positions[`${SHOW_ID}:1`]).toBeTruthy();
-    expect(body.positions[`${SHOW_ID}:1`].position).toBe(100);
+    expect(body.positions[`${SHOW_ID}:progress-test`]).toBeTruthy();
+    expect(body.positions[`${SHOW_ID}:progress-test`].position).toBe(100);
   });
 
   test('tracks, marks and untracks a show', async ({ request }) => {
@@ -57,6 +57,20 @@ test.describe('Backend API', () => {
 
     library = await (await request.get('/api/library')).json();
     expect(library.shows.some((s) => s.id === SHOW_ID)).toBe(false);
+  });
+
+  test('creates, lists and removes a manga release watch', async ({ request }) => {
+    const created = await (await request.post('/api/manga/release-watches', {
+      data: { query: 'E2E Future Manga', language: 'sub' },
+    })).json();
+    expect(created.watch.query).toBe('E2E Future Manga');
+    expect(created.watch.language).toBe('sub');
+
+    const listed = await (await request.get('/api/manga/release-watches')).json();
+    expect(listed.watches.some((watch) => watch.id === created.watch.id)).toBe(true);
+
+    const removed = await request.delete(`/api/manga/release-watches/${created.watch.id}`);
+    expect(removed.ok()).toBeTruthy();
   });
 
   test('returns downloads and jobs collections', async ({ request }) => {

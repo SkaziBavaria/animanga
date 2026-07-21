@@ -8,6 +8,7 @@ import { loadProgress } from './progress.js';
 import { loadStatus } from './status.js';
 import { bindSyncControls, loadSyncConfig, startAutoSync } from './sync.js';
 import { bindMangaControls, loadMangaLibrary } from './manga.js';
+import { bindMangaReleaseWatches, checkMangaReleaseWatches, loadMangaReleaseWatches } from './manga-release-watches.js';
 import { switchMediaMode } from './discover.js';
 import { state } from './state.js';
 
@@ -18,6 +19,7 @@ if ('serviceWorker' in navigator) {
 bindEvents();
 bindSyncControls();
 bindMangaControls();
+bindMangaReleaseWatches();
 switchMediaMode(state.mediaMode);
 startAutoSync();
 
@@ -29,7 +31,9 @@ startAutoSync();
     await loadMangaLibrary(false);
     await loadDownloads();
     await loadReleaseWatches();
+    await loadMangaReleaseWatches();
     checkReleaseWatches({ silent: true }).catch(() => {});
+    checkMangaReleaseWatches({ silent: true }).catch(() => {});
     await loadJobs();
     if (new URLSearchParams(window.location.search).get('sync') === 'connected') {
       toast('Google Drive connected');

@@ -27,6 +27,12 @@ const MANGA = {
   title: 'Manga Test Story (3 chapters)',
   thumbnail: 'https://images.example/manga-cover.webp',
   language: 'sub',
+  chapterCounts: { sub: 3, raw: 2 },
+  latestChapters: { sub: '3', raw: '2' },
+  lastChapterDates: {
+    sub: { year: 2026, month: 7, date: 20 },
+    raw: { year: 2026, month: 7, date: 19 },
+  },
   chapterCount: 3,
   latestChapter: '3',
   lastChapterDate: { year: 2026, month: 7, date: 20 },
@@ -77,6 +83,7 @@ async function installApiMocks(page, overrides = {}) {
   const downloads = overrides.downloads || {};
   const positions = overrides.positions || {};
   const releaseWatches = overrides.releaseWatches || [];
+  let mangaReleaseWatches = overrides.mangaReleaseWatches || [];
   const jobs = overrides.jobs || [];
   const relations = overrides.relations || [];
   const localPlayback = overrides.localPlayback || null;
@@ -84,6 +91,7 @@ async function installApiMocks(page, overrides = {}) {
   let mangaLibrary = overrides.mangaLibrary || [MANGA];
   const mangaResults = overrides.mangaResults || [MANGA];
   let mangaDownloads = overrides.mangaDownloads || [];
+  let mangaDownloadJobs = [];
   let syncProvider = 'google';
   let githubConfig = { clientId: '', deviceName: '', connected: false, deviceAuth: { status: 'idle' } };
   const syncPayload = () => ({
@@ -151,6 +159,29 @@ async function installApiMocks(page, overrides = {}) {
     if (p === '/api/manga/search' && method === 'GET') return route.fulfill(jsonBody({ total: mangaResults.length, results: mangaResults }));
     if (p === '/api/manga/popular' && method === 'GET') return route.fulfill(jsonBody({ total: mangaResults.length, results: mangaResults }));
     if (p === '/api/manga/recommendations' && method === 'GET') return route.fulfill(jsonBody({ total: mangaResults.length, results: mangaResults }));
+    if (p === '/api/manga/release-watches' && method === 'GET') return route.fulfill(jsonBody({ watches: mangaReleaseWatches }));
+    if (p === '/api/manga/release-watches' && method === 'POST') {
+      const data = body();
+      const watch = {
+        id: `manga-watch-${mangaReleaseWatches.length + 1}`,
+        query: data.query,
+        language: data.language || 'sub',
+        status: 'watching',
+        createdAt: new Date().toISOString(),
+      };
+      mangaReleaseWatches = [...mangaReleaseWatches, watch];
+      return route.fulfill(jsonBody({ watch }));
+    }
+    if (p === '/api/manga/release-watches/check' && method === 'POST') {
+      return route.fulfill(jsonBody({
+        watches: mangaReleaseWatches,
+        found: mangaReleaseWatches.filter((watch) => watch.status === 'found'),
+      }));
+    }
+    if (/^\/api\/manga\/release-watches\/[^/]+$/.test(p) && method === 'DELETE') {
+      mangaReleaseWatches = mangaReleaseWatches.filter((watch) => watch.id !== decodeURIComponent(p.split('/').pop()));
+      return route.fulfill(jsonBody({ ok: true }));
+    }
     if (p === '/api/manga/track' && method === 'POST') {
       const manga = { ...body(), tracked: true, chapters: body().chapters || ['1', '2', '3'], readChapters: body().readChapters || [] };
       mangaLibrary = [...mangaLibrary.filter((item) => item.id !== manga.id), manga];
@@ -165,9 +196,85 @@ async function installApiMocks(page, overrides = {}) {
       mangaLibrary = mangaLibrary.map((item) => item.id === manga.id ? manga : item);
       return route.fulfill(jsonBody({ manga }));
     }
-    if (/^\/api\/manga\/[^/]+\/details$/.test(p)) return route.fulfill(jsonBody({ manga: MANGA }));
-    if (/^\/api\/manga\/[^/]+\/chapters$/.test(p)) return route.fulfill(jsonBody({ manga: MANGA, chapters: MANGA.chapters }));
+    if (p === '/api/manga/read-through' && method === 'POST') {
+      const data = body();
+      const current = mangaLibrary.find((item) => item.id === data.id) || MANGA;
+      const read = new Set((current.readChapters || []).map(String));
+      const target = Number(data.chapter);
+      const selected = (data.chapters || current.chapters || [])
+        .map(String)
+        .filter((chapter) => Number.isFinite(Number(chapter)) && Number(chapter) <= target);
+      const marked = selected.filter((chapter) => !read.has(chapter)).length;
+      selected.forEach((chapter) => read.add(chapter));
+      const readChapters = [...read].sort((a, b) => Number(a) - Number(b));
+      const manga = { ...current, readChapters, lastRead: readChapters.at(-1) || '' };
+      mangaLibrary = mangaLibrary.map((item) => item.id === manga.id ? manga : item);
+      return route.fulfill(jsonBody({ manga, marked }));
+    }
+    if (/^\/api\/manga\/[^/]+\/details$/.test(p)) {
+      const language = url.searchParams.get('language') === 'raw' ? 'raw' : 'sub';
+      const chapters = language === 'raw' ? ['1', '2'] : MANGA.chapters;
+      return route.fulfill(jsonBody({
+        manga: {
+          ...MANGA,
+          language,
+          chapters,
+          chapterCount: MANGA.chapterCounts[language],
+          latestChapter: MANGA.latestChapters[language],
+          lastChapterDate: MANGA.lastChapterDates[language],
+        },
+      }));
+    }
+    if (/^\/api\/manga\/[^/]+\/chapters$/.test(p)) {
+      const language = url.searchParams.get('language') === 'raw' ? 'raw' : 'sub';
+      const chapters = language === 'raw' ? ['1', '2'] : MANGA.chapters;
+      return route.fulfill(jsonBody({
+        manga: {
+          ...MANGA,
+          language,
+          chapters,
+          chapterCount: MANGA.chapterCounts[language],
+          latestChapter: MANGA.latestChapters[language],
+          lastChapterDate: MANGA.lastChapterDates[language],
+        },
+        chapters,
+      }));
+    }
     if (/^\/api\/manga\/[^/]+\/downloads$/.test(p)) return route.fulfill(jsonBody({ downloads: mangaDownloads }));
+    if (/^\/api\/manga\/[^/]+\/chapters\/download-batch$/.test(p) && method === 'POST') {
+      const chapters = body().chapters || [];
+      const job = {
+        id: `manga-download-${mangaDownloadJobs.length + 1}`,
+        type: 'manga-download-batch',
+        mangaId: p.split('/')[3],
+        status: 'queued',
+        chapters,
+        total: chapters.length,
+        completed: 0,
+        failed: 0,
+        cancelled: 0,
+        skipped: 0,
+      };
+      mangaDownloadJobs = [job, ...mangaDownloadJobs];
+      return route.fulfill(jsonBody({ job }, 202));
+    }
+    if (/^\/api\/manga\/[^/]+\/download-jobs$/.test(p) && method === 'GET') {
+      mangaDownloadJobs = mangaDownloadJobs.map((job) => {
+        if (!['queued', 'running'].includes(job.status)) return job;
+        job.chapters.forEach((chapter) => {
+          if (!mangaDownloads.some((item) => String(item.chapter) === String(chapter))) {
+            mangaDownloads.push({ chapter: String(chapter), pages: 1 });
+          }
+        });
+        return { ...job, status: 'done', completed: job.total };
+      });
+      return route.fulfill(jsonBody({ jobs: mangaDownloadJobs }));
+    }
+    if (/^\/api\/manga\/[^/]+\/download-jobs\/[^/]+$/.test(p) && method === 'DELETE') {
+      const id = p.split('/').pop();
+      mangaDownloadJobs = mangaDownloadJobs.map((job) => job.id === id ? { ...job, status: 'cancelled', cancelled: job.total - job.completed } : job);
+      return route.fulfill(jsonBody({ job: mangaDownloadJobs.find((job) => job.id === id) }));
+    }
     if (/^\/api\/manga\/[^/]+\/chapters\/[^/]+\/download$/.test(p)) {
       const chapter = decodeURIComponent(p.split('/').at(-2));
       if (method === 'DELETE') mangaDownloads = mangaDownloads.filter((item) => String(item.chapter) !== chapter);
@@ -180,6 +287,22 @@ async function installApiMocks(page, overrides = {}) {
     if (/^\/api\/manga\/[^/]+$/.test(p) && method === 'DELETE') {
       mangaLibrary = mangaLibrary.filter((item) => item.id !== p.split('/').pop());
       return route.fulfill(jsonBody({ manga: { ...MANGA, tracked: false } }));
+    }
+    if (/^\/api\/manga\/[^/]+$/.test(p) && method === 'PATCH') {
+      const id = p.split('/').pop();
+      const language = body().language === 'raw' ? 'raw' : 'sub';
+      const current = mangaLibrary.find((item) => item.id === id) || MANGA;
+      const chapters = language === 'raw' ? ['1', '2'] : MANGA.chapters;
+      const manga = {
+        ...current,
+        language,
+        chapters,
+        chapterCount: MANGA.chapterCounts[language],
+        latestChapter: MANGA.latestChapters[language],
+        lastChapterDate: MANGA.lastChapterDates[language],
+      };
+      mangaLibrary = mangaLibrary.map((item) => item.id === id ? manga : item);
+      return route.fulfill(jsonBody({ manga }));
     }
     if (p === '/api/library') return route.fulfill(jsonBody({ shows: library }));
     if (p === '/api/downloads' && method === 'GET') {

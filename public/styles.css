@@ -243,9 +243,21 @@ h2 {
   background: #050607;
 }
 
-.manga-reader-dialog:fullscreen {
+.manga-reader-dialog.manga-reader-fullscreen,
+html:fullscreen #mangaReaderDialog.manga-reader-fullscreen,
+html:-webkit-full-screen #mangaReaderDialog.manga-reader-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  display: block;
   width: 100vw;
   height: 100vh;
+  max-width: none;
+  max-height: none;
+}
+
+body.manga-reader-fullscreen-active .app-shell {
+  visibility: hidden;
 }
 
 .manga-reader-head {
@@ -1126,6 +1138,50 @@ dialog::backdrop {
   margin-bottom: 10px;
 }
 
+.chapter-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.chapter-download-tools {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, .025);
+}
+
+.chapter-download-range,
+.chapter-download-actions {
+  display: flex;
+  align-items: end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.chapter-download-range label {
+  flex: 1 1 150px;
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.chapter-download-status {
+  min-height: 18px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.chapter-row.chapter-jump-highlight {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
 .episode-list {
   display: grid;
   gap: 4px;
@@ -1397,12 +1453,14 @@ dialog::backdrop {
   }
 }
 
-#showDialog {
+#showDialog,
+#mangaDialog {
   width: min(820px, calc(100vw - 22px));
 }
 
 @media (max-width: 600px) {
-  #showDialog {
+  #showDialog,
+  #mangaDialog {
     width: calc(100vw - 12px);
     max-height: calc(100dvh - 12px);
     padding: 12px;
@@ -1410,6 +1468,18 @@ dialog::backdrop {
 
   .episode-toolbar {
     grid-template-columns: 1fr;
+  }
+
+  .chapter-toolbar {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .chapter-toolbar input {
+    grid-column: 1 / -1;
+  }
+
+  .chapter-download-actions .small-button {
+    flex: 1 1 calc(33.333% - 8px);
   }
 
   .episode-row {

@@ -1,7 +1,7 @@
 import { api, toast, runAction } from './api.js';
 import { els } from './dom.js';
 import { state } from './state.js';
-import { escapeHtml, stripDescription } from './util.js';
+import { escapeHtml, nextEpisode, stripDescription } from './util.js';
 
 function compareChapters(a, b) {
   return Number(a) - Number(b) || String(a).localeCompare(String(b));
@@ -17,13 +17,21 @@ function initials(manga) {
 }
 
 function nextChapter(manga) {
-  const read = new Set((manga.readChapters || []).map(String));
   const chapters = [...(manga.chapters || [])].map(String).sort(compareChapters);
-  return chapters.find((chapter) => !read.has(chapter)) || manga.latestChapter || chapters.at(-1) || '';
+  return nextEpisode({
+    episodes: chapters,
+    watchedEpisodes: manga.readChapters,
+    lastWatched: manga.lastRead,
+    latestEpisode: manga.latestChapter,
+    episodeCount: manga.chapterCount,
+  }) || manga.latestChapter || chapters.at(-1) || '';
 }
 
 function progressText(manga) {
-  const read = (manga.readChapters || []).length;
+  const readSet = new Set((manga.readChapters || []).map(String));
+  const read = manga.chapters?.length
+    ? manga.chapters.filter((chapter) => readSet.has(String(chapter))).length
+    : readSet.size;
   const total = manga.chapters?.length || manga.chapterCount || manga.latestChapter || '?';
   return `Read ${read} / ${total}`;
 }
@@ -31,23 +39,75 @@ function progressText(manga) {
 function mangaLifecycle(manga) {
   const start = Number(manga.airedStart?.year || manga.airedStart || 0);
   const end = Number(manga.airedEnd?.year || manga.airedEnd || 0);
-  const status = String(manga.status || '').trim();
-  const normalized = status.toLowerCase();
-  if (!start) return status || 'Status unknown';
-  if (normalized.includes('releas')) return `${start}–ongoing`;
-  if (normalized.includes('finish')) return `${start}${end && end !== start ? `–${end}` : ''} · Finished`;
-  return `${start} · ${status || 'Status unknown'}`;
+  const status = String(manga.status || '').trim().toLowerCase();
+  if (status.includes('releas') || status.includes('ongoing') || status.includes('publish')) {
+    return start ? `Ongoing since ${start}` : 'Ongoing';
+  }
+  if (status.includes('finish') || status.includes('complete')) {
+    const years = start ? `${start}${end && end !== start ? `–${end}` : ''} · ` : '';
+    return `${years}Finished`;
+  }
+  if (status.includes('hiatus')) return start ? `Hiatus · since ${start}` : 'Hiatus';
+  if (status.includes('cancel') || status.includes('discontinu')) return 'Cancelled';
+  return '';
+}
+
+function mangaDate(value) {
+  if (!value) return null;
+  let date;
+  if (typeof value === 'object') {
+    if (!Number(value.year)) return null;
+    date = new Date(Date.UTC(Number(value.year), Math.max(0, Number(value.month || 1) - 1), Number(value.date || 1)));
+  } else date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 function mangaDateLabel(value) {
-  if (!value) return '';
-  let date;
-  if (typeof value === 'object') {
-    if (!Number(value.year)) return '';
-    date = new Date(Date.UTC(Number(value.year), Math.max(0, Number(value.month || 1) - 1), Number(value.date || 1)));
-  } else date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric' }).format(date);
+  const date = mangaDate(value);
+  return date ? new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric' }).format(date) : '';
+}
+
+function mangaRelativeDate(value) {
+  const date = mangaDate(value);
+  if (!date) return '';
+  const days = Math.max(0, Math.floor((Date.now() - date.getTime()) / 86_400_000));
+  const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: 'always' });
+  if (days < 30) return formatter.format(-days, 'day');
+  const months = Math.floor(days / 30);
+  if (months < 12) return formatter.format(-months, 'month');
+  return formatter.format(-Math.floor(days / 365), 'year');
+}
+
+function mangaRecentlyUpdated(value) {
+  const date = mangaDate(value);
+  if (!date) return false;
+  const age = Date.now() - date.getTime();
+  return age >= 0 && age <= 90 * 86_400_000;
+}
+
+function mangaOriginLabel(value) {
+  const origin = String(value || '').trim().toUpperCase();
+  if (['JP', 'JPN', 'JAPAN'].includes(origin)) return 'Japanese';
+  if (['KR', 'KOR', 'KOREA', 'SOUTH KOREA'].includes(origin)) return 'Korean';
+  if (['CN', 'CHN', 'CHINA'].includes(origin)) return 'Chinese';
+  return '';
+}
+
+function mangaLanguageSelector(manga) {
+  const current = manga.language === 'raw' ? 'raw' : 'sub';
+  const counts = manga.chapterCounts || {};
+  const hasAvailability = Object.values(counts).some((count) => Number(count) > 0);
+  const options = [
+    ['sub', 'Translated'],
+    ['raw', 'Raw'],
+  ].map(([language, label]) => {
+    const unavailable = hasAvailability && Number(counts[language] || 0) <= 0;
+    return `<option value="${language}"${language === current ? ' selected' : ''}${unavailable ? ' disabled' : ''}>${label}</option>`;
+  }).join('');
+  return `
+    <label class="card-mode" title="Reading version">
+      <select data-action="manga-language" aria-label="Reading version">${options}</select>
+    </label>`;
 }
 
 function relationLabel(value) {
@@ -66,7 +126,9 @@ function mangaCard(manga, source) {
   const started = (manga.readChapters || []).length > 0;
   const canContinue = started && Number(manga.newCount) > 0;
   const lifecycle = mangaLifecycle(manga);
-  const latestDate = mangaDateLabel(manga.lastChapterDate);
+  const latestDate = mangaRelativeDate(manga.lastChapterDate);
+  const recentlyUpdated = mangaRecentlyUpdated(manga.lastChapterDate);
+  const origin = mangaOriginLabel(manga.countryOfOrigin);
   const hasSequel = (manga.relations || []).some((item) => String(item.relation).toLowerCase().includes('sequel'));
   const primary = source === 'library'
     ? `<button class="primary play-action ${canContinue ? 'play-action-continue' : 'play-action-play'} manga-read-action" data-action="manga-read" data-chapter="${escapeHtml(chapter)}">${chapter ? `${canContinue ? 'Continue' : 'Read'} ch ${escapeHtml(chapter)}` : 'Chapters'}</button>`
@@ -80,9 +142,12 @@ function mangaCard(manga, source) {
         <div class="show-title">${escapeHtml(manga.name || manga.title)}</div>
         <div class="show-meta">
           <span class="pill${source === 'library' && canContinue ? ' hot' : ''}">${escapeHtml(source === 'library' ? progressText(manga) : `${manga.chapterCount || manga.latestChapter || '?'} chapters`)}</span>
+          ${origin ? `<span class="pill">${escapeHtml(origin)}</span>` : ''}
+          ${mangaLanguageSelector(manga)}
           ${manga.downloadedChapters ? `<span class="pill downloaded">↓ ${escapeHtml(manga.downloadedChapters)} saved</span>` : ''}
-          <span class="pill schedule">${escapeHtml(lifecycle)}</span>
-          ${manga.latestChapter ? `<span class="pill schedule">Latest ch ${escapeHtml(manga.latestChapter)}${latestDate ? ` · ${escapeHtml(latestDate)}` : ''}</span>` : ''}
+          ${lifecycle ? `<span class="pill schedule">${escapeHtml(lifecycle)}</span>` : ''}
+          ${recentlyUpdated ? '<span class="pill hot">Recently updated</span>' : ''}
+          ${manga.latestChapter ? `<span class="pill schedule">Ch ${escapeHtml(manga.latestChapter)}${latestDate ? ` · ${escapeHtml(latestDate)}` : ''}</span>` : ''}
           ${source !== 'library' && manga.score ? `<span class="pill">Score ${escapeHtml(manga.score)}</span>` : ''}
           ${hasSequel ? '<span class="pill sequel released">Sequel available</span>' : ''}
           ${manga.refreshError ? '<span class="pill danger">Refresh failed</span>' : ''}
@@ -109,10 +174,10 @@ export function renderMangaLibrary() {
     : '<div class="empty empty-action"><span>Your manga library is empty.</span><button class="small-button secondary" data-action="manga-open-discover" type="button">Find manga</button></div>';
 }
 
-function renderMangaResults() {
+function renderMangaResults(emptyHtml = '<div class="empty">No manga found.</div>') {
   els.mangaSearchResults.innerHTML = state.mangaResults.length
     ? state.mangaResults.map((manga) => mangaCard(manga, 'search')).join('')
-    : '<div class="empty">No manga found.</div>';
+    : emptyHtml;
 }
 
 export async function loadMangaLibrary(refresh = false) {
@@ -136,7 +201,11 @@ export async function searchManga(query = '', options = {}) {
   state.mangaGenres.forEach((genre) => params.append('genre', genre));
   const data = await api(`/api/manga/search?${params}`);
   state.mangaResults = data.results || [];
-  renderMangaResults();
+  state.lastMangaSearchQuery = query;
+  const emptyHtml = query
+    ? `<div class="empty empty-action"><span>No manga found.</span><button class="small-button secondary" data-action="manga-watch-release" data-query="${escapeHtml(query)}" type="button">Watch release</button></div>`
+    : '<div class="empty">No manga found.</div>';
+  renderMangaResults(emptyHtml);
 }
 
 async function browseManga(button) {
@@ -153,11 +222,22 @@ function updateMangaFilterSummary() {
   els.mangaGenreFilterSummary.textContent = values.length ? `Filters · ${values.join(', ')}` : 'Filters · All';
 }
 
-async function trackManga(manga) {
+export async function trackManga(manga) {
   await api('/api/manga/track', { method: 'POST', body: JSON.stringify(manga) });
   await loadMangaLibrary();
   renderMangaResults();
   toast('Manga added to library');
+}
+
+async function updateMangaLanguage(manga, language) {
+  const data = await api(`/api/manga/${encodeURIComponent(manga.id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ language }),
+  });
+  Object.assign(manga, data.manga);
+  await loadMangaLibrary();
+  renderMangaResults();
+  toast(`Using ${language === 'raw' ? 'Raw' : 'Translated'} for ${manga.name || manga.title}`);
 }
 
 async function removeManga(manga) {
@@ -168,17 +248,89 @@ async function removeManga(manga) {
 }
 
 function chapterRow(manga, chapter) {
-  const read = (manga.readChapters || []).map(String).includes(String(chapter));
-  const downloaded = Boolean(state.mangaDownloads[String(chapter)]);
-  const released = mangaDateLabel(manga.chapterDates?.[String(chapter)]);
+  const chapterText = String(chapter);
+  const read = (manga.readChapters || []).map(String).includes(chapterText);
+  const downloaded = Boolean(state.mangaDownloads[chapterText]);
+  const upNext = !read && chapterText === String(nextChapter(manga));
+  const released = mangaDateLabel(manga.chapterDates?.[chapterText]);
+  const classes = ['episode', 'episode-play', 'chapter-open'];
+  if (read) classes.push('watched');
+  if (upNext) classes.push('next');
+  const stateLabels = [read ? 'Read' : upNext ? 'Up next' : 'Open in reader'];
+  if (downloaded) stateLabels.push('Downloaded');
   return `
-    <article class="episode-row-wrap chapter-row${read ? ' watched' : ''}" data-chapter="${escapeHtml(chapter)}">
-      <button class="episode episode-play chapter-open${read ? ' watched' : ''}" data-action="chapter-open" data-chapter="${escapeHtml(chapter)}" type="button">
-        <span>Chapter ${escapeHtml(chapter)}</span><small>${[read ? 'Read' : 'Open in reader', released ? `Released ${released}` : 'Release date unavailable'].join(' · ')}</small>
-      </button>
-      <button class="episode-action episode-watch" data-action="chapter-toggle" data-chapter="${escapeHtml(chapter)}" type="button" title="${read ? 'Mark unread' : 'Mark read'}" aria-label="${read ? 'Mark chapter unread' : 'Mark chapter read'}">${read ? '✓' : '👁'}</button>
-      <button class="episode-action" data-action="chapter-download" data-chapter="${escapeHtml(chapter)}" type="button" title="${downloaded ? 'Remove offline chapter' : 'Download for offline reading'}" aria-label="${downloaded ? 'Remove downloaded chapter' : 'Download chapter'}">${downloaded ? '⬇✓' : '↓'}</button>
+    <article class="episode-row-wrap chapter-row${read ? ' watched' : ''}${downloaded ? ' has-download downloaded' : ''}" data-chapter="${escapeHtml(chapterText)}">
+      <div class="episode-row">
+        <div class="episode-number" aria-hidden="true">${escapeHtml(chapterText)}</div>
+        <button class="${classes.join(' ')}" data-action="chapter-open" data-chapter="${escapeHtml(chapterText)}" type="button">
+          <span class="episode-name">Chapter ${escapeHtml(chapterText)}</span>
+          <small class="episode-state">${escapeHtml(stateLabels.join(' · '))}</small>
+          <small class="episode-state episode-release">${escapeHtml(released ? `Released ${released}` : 'Release date unavailable')}</small>
+        </button>
+        <div class="episode-actions">
+          <button class="episode-action episode-watch${read ? ' active' : ''}" data-action="chapter-toggle" data-chapter="${escapeHtml(chapterText)}" type="button" title="${read ? 'Mark unread' : 'Mark read'}" aria-label="${read ? `Mark chapter ${escapeHtml(chapterText)} unread` : `Mark chapter ${escapeHtml(chapterText)} read`}" aria-pressed="${read}">
+            <span class="watch-icon" aria-hidden="true">${read ? '✓' : '👁'}</span>
+          </button>
+          <button class="episode-action episode-download${downloaded ? ' downloaded' : ''}" data-action="chapter-download" data-chapter="${escapeHtml(chapterText)}" type="button" title="${downloaded ? 'Remove offline chapter' : 'Download for offline reading'}" aria-label="${downloaded ? `Remove downloaded chapter ${escapeHtml(chapterText)}` : `Download chapter ${escapeHtml(chapterText)}`}">
+            <span class="download-icon" aria-hidden="true">${downloaded ? '✓' : '↓'}</span>
+          </button>
+        </div>
+      </div>
+      <div class="episode-view-progress${read ? ' complete' : ''}" role="progressbar" aria-label="Chapter ${escapeHtml(chapterText)} read progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${read ? '100' : '0'}" aria-valuetext="${read ? 'Read' : 'Unread'}">
+        <span style="width:${read ? '100' : '0'}%"></span>
+      </div>
     </article>`;
+}
+
+function renderChapterGrid(manga) {
+  els.chapterGrid.innerHTML = [...(manga.chapters || [])]
+    .sort((a, b) => compareChapters(b, a))
+    .map((chapter) => chapterRow(manga, chapter))
+    .join('');
+}
+
+function chapterTarget() {
+  return String(els.mangaChapterTarget.value || '').trim();
+}
+
+function jumpToChapter() {
+  const target = chapterTarget();
+  const row = [...els.chapterGrid.querySelectorAll('.chapter-row')]
+    .find((item) => item.dataset.chapter === target);
+  if (!row) return toast(`Chapter ${target || '?'} is not in this list`);
+  row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  row.classList.add('chapter-jump-highlight');
+  setTimeout(() => row.classList.remove('chapter-jump-highlight'), 1800);
+}
+
+async function markChaptersReadThrough() {
+  const manga = state.activeManga;
+  const target = chapterTarget();
+  const targetValue = Number(target);
+  if (!manga || !target || !Number.isFinite(targetValue)) return toast('Enter a valid chapter number');
+  const chapters = (manga.chapters || []).map(String);
+  const throughTarget = chapters.filter((chapter) => Number.isFinite(Number(chapter)) && Number(chapter) <= targetValue);
+  if (!throughTarget.length) return toast(`No chapters found through ${target}`);
+  const read = new Set((manga.readChapters || []).map(String));
+  const unreadCount = throughTarget.filter((chapter) => !read.has(chapter)).length;
+  if (!unreadCount) return toast(`All chapters through ${target} are already read`);
+  if (!confirm(`Mark ${unreadCount} chapter${unreadCount === 1 ? '' : 's'} through chapter ${target} as read?`)) return;
+  const data = await api('/api/manga/read-through', {
+    method: 'POST',
+    body: JSON.stringify({
+      id: manga.id,
+      chapter: target,
+      chapters,
+      manga: { name: manga.name, thumbnail: manga.thumbnail, language: manga.language },
+    }),
+  });
+  state.activeManga = { ...manga, ...data.manga, chapters };
+  const index = state.mangaLibrary.findIndex((item) => item.id === manga.id);
+  if (index >= 0) state.mangaLibrary[index] = { ...state.mangaLibrary[index], ...state.activeManga };
+  renderChapterGrid(state.activeManga);
+  renderMangaLibrary();
+  const marked = Number(data.marked) || unreadCount;
+  toast(`${marked} chapter${marked === 1 ? '' : 's'} marked read`);
 }
 
 async function loadMangaDownloads(manga) {
@@ -186,25 +338,147 @@ async function loadMangaDownloads(manga) {
   state.mangaDownloads = Object.fromEntries((data.downloads || []).map((item) => [String(item.chapter), item]));
 }
 
+let mangaDownloadPollTimer;
+
+function downloadableChapters(manga = state.activeManga) {
+  return [...(manga?.chapters || [])]
+    .map(String)
+    .filter((chapter) => Number.isFinite(Number(chapter)))
+    .sort(compareChapters);
+}
+
+function setQuickDownloadRange(count) {
+  const chapters = downloadableChapters().filter((chapter) => !state.mangaDownloads[chapter]);
+  if (!chapters.length) return toast('Every chapter is already downloaded');
+  const requestedStart = Number(els.mangaDownloadFrom.value || nextChapter(state.activeManga));
+  const startIndex = chapters.findIndex((chapter) => Number(chapter) >= requestedStart);
+  if (startIndex < 0) return toast('No chapters available from that point');
+  const selected = chapters.slice(startIndex, startIndex + count);
+  if (!selected.length) return toast('No chapters available from that point');
+  els.mangaDownloadFrom.value = selected[0];
+  els.mangaDownloadTo.value = selected.at(-1);
+}
+
+function selectedDownloadChapters() {
+  const from = Number(els.mangaDownloadFrom.value);
+  const to = Number(els.mangaDownloadTo.value);
+  if (!Number.isFinite(from) || !Number.isFinite(to) || from > to) return [];
+  return downloadableChapters()
+    .filter((chapter) => Number(chapter) >= from && Number(chapter) <= to)
+    .filter((chapter) => !state.mangaDownloads[chapter]);
+}
+
+function mangaDownloadJobActive(job) {
+  return ['queued', 'running', 'cancelling'].includes(job?.status);
+}
+
+function renderMangaDownloadJob(job) {
+  const active = mangaDownloadJobActive(job);
+  els.mangaDownloadRangeBtn.disabled = active;
+  els.mangaCancelDownloadBtn.hidden = !active;
+  if (!job) {
+    els.mangaDownloadStatus.textContent = 'Choose up to 50 chapters.';
+    return;
+  }
+  const processed = Number(job.completed || 0) + Number(job.failed || 0) + Number(job.cancelled || 0);
+  if (active) {
+    els.mangaDownloadStatus.textContent = `${job.status === 'queued' ? 'Queued' : 'Downloading'} ${processed} / ${job.total}${job.skipped ? ` · ${job.skipped} already saved` : ''}`;
+    return;
+  }
+  const labels = [`${job.completed || 0} downloaded`];
+  if (job.skipped) labels.push(`${job.skipped} already saved`);
+  if (job.failed) labels.push(`${job.failed} failed`);
+  if (job.cancelled) labels.push(`${job.cancelled} cancelled`);
+  els.mangaDownloadStatus.textContent = labels.join(' · ');
+}
+
+async function refreshMangaDownloadsAfterBatch(manga) {
+  await loadMangaDownloads(manga);
+  const index = state.mangaLibrary.findIndex((item) => item.id === manga.id);
+  if (index >= 0) state.mangaLibrary[index].downloadedChapters = Object.keys(state.mangaDownloads).length;
+  if (state.activeManga?.id === manga.id) renderChapterGrid(state.activeManga);
+  renderMangaLibrary();
+  updateReaderControls();
+}
+
+function scheduleMangaDownloadPoll(manga) {
+  clearTimeout(mangaDownloadPollTimer);
+  if (!mangaDownloadJobActive(state.mangaDownloadJob)) return;
+  mangaDownloadPollTimer = setTimeout(async () => {
+    try {
+      const wasActive = mangaDownloadJobActive(state.mangaDownloadJob);
+      const data = await api(`/api/manga/${encodeURIComponent(manga.id)}/download-jobs`);
+      state.mangaDownloadJob = (data.jobs || []).find(mangaDownloadJobActive) || data.jobs?.[0] || null;
+      renderMangaDownloadJob(state.mangaDownloadJob);
+      if (mangaDownloadJobActive(state.mangaDownloadJob)) scheduleMangaDownloadPoll(manga);
+      else if (wasActive) await refreshMangaDownloadsAfterBatch(manga);
+    } catch {}
+  }, 800);
+}
+
+async function loadMangaDownloadJobs(manga) {
+  clearTimeout(mangaDownloadPollTimer);
+  const data = await api(`/api/manga/${encodeURIComponent(manga.id)}/download-jobs`);
+  state.mangaDownloadJob = (data.jobs || []).find(mangaDownloadJobActive) || data.jobs?.[0] || null;
+  renderMangaDownloadJob(state.mangaDownloadJob);
+  scheduleMangaDownloadPoll(manga);
+}
+
+async function startMangaDownloadRange() {
+  const manga = state.activeManga;
+  const chapters = selectedDownloadChapters();
+  if (!chapters.length) return toast('Choose a valid range with chapters not already downloaded');
+  if (chapters.length > 50) return toast('Select at most 50 chapters per batch');
+  if (!confirm(`Download ${chapters.length} chapter${chapters.length === 1 ? '' : 's'} for offline reading?`)) return;
+  const data = await api(`/api/manga/${encodeURIComponent(manga.id)}/chapters/download-batch`, {
+    method: 'POST',
+    body: JSON.stringify({ chapters }),
+  });
+  state.mangaDownloadJob = data.job;
+  renderMangaDownloadJob(data.job);
+  scheduleMangaDownloadPoll(manga);
+  toast(`${chapters.length} chapter${chapters.length === 1 ? '' : 's'} queued`);
+}
+
+async function cancelMangaDownloadRange() {
+  const manga = state.activeManga;
+  const job = state.mangaDownloadJob;
+  if (!manga || !mangaDownloadJobActive(job)) return;
+  const data = await api(`/api/manga/${encodeURIComponent(manga.id)}/download-jobs/${encodeURIComponent(job.id)}`, {
+    method: 'DELETE',
+  });
+  state.mangaDownloadJob = data.job;
+  renderMangaDownloadJob(data.job);
+  scheduleMangaDownloadPoll(manga);
+}
+
 async function openMangaChapters(manga, requestedChapter = '') {
+  const language = manga.language === 'raw' ? 'raw' : 'sub';
   const [data] = await Promise.all([
-    api(`/api/manga/${encodeURIComponent(manga.id)}/chapters`),
+    api(`/api/manga/${encodeURIComponent(manga.id)}/chapters?language=${language}`),
     loadMangaDownloads(manga),
   ]);
-  const details = data.manga;
+  const details = { ...data.manga, chapters: data.chapters };
   const index = state.mangaLibrary.findIndex((item) => item.id === manga.id);
   if (index >= 0) state.mangaLibrary[index] = { ...state.mangaLibrary[index], ...details };
   state.activeManga = details;
   els.mangaDialogTitle.textContent = details.name;
   els.mangaDialogMeta.textContent = `${data.chapters.length} chapters / ${details.status || 'Status unknown'}`;
   els.mangaDialogBody.innerHTML = '';
-  els.chapterGrid.innerHTML = [...data.chapters].sort((a, b) => compareChapters(b, a)).map((chapter) => chapterRow(details, chapter)).join('');
+  els.mangaChapterTools.hidden = false;
+  els.mangaDownloadTools.hidden = false;
+  els.mangaChapterTarget.value = '';
+  els.mangaDownloadFrom.value = nextChapter(details);
+  setQuickDownloadRange(10);
+  renderChapterGrid(details);
   els.mangaDialog.showModal();
+  await loadMangaDownloadJobs(details);
   if (requestedChapter) await openMangaReader(details, requestedChapter);
 }
 
 async function openMangaAbout(manga) {
-  const data = await api(`/api/manga/${encodeURIComponent(manga.id)}/details`);
+  const language = manga.language === 'raw' ? 'raw' : 'sub';
+  const data = await api(`/api/manga/${encodeURIComponent(manga.id)}/details?language=${language}`);
   const details = data.manga;
   state.activeManga = details;
   state.mangaRelations = details.relations || [];
@@ -217,6 +491,8 @@ async function openMangaAbout(manga) {
   els.mangaDialogMeta.textContent = [details.type, details.status, details.score ? `Score ${details.score}` : '', details.authors?.join(', ')].filter(Boolean).join(' · ');
   const thumb = coverUrl(details.thumbnail || details.thumbnails?.[0]);
   const description = stripDescription(details.description) || 'No synopsis available.';
+  els.mangaChapterTools.hidden = true;
+  els.mangaDownloadTools.hidden = true;
   els.mangaDialogBody.innerHTML = `
     <div class="manga-details-layout">
       ${thumb ? `<img class="details-cover" src="${escapeHtml(thumb)}" alt="" loading="lazy" decoding="async">` : '<div class="details-cover placeholder" aria-hidden="true">?</div>'}
@@ -293,6 +569,45 @@ function toggleReaderControls() {
   }
 }
 
+function fullscreenElement() {
+  return document.fullscreenElement || document.webkitFullscreenElement || null;
+}
+
+function updateMangaFullscreenButton() {
+  const fullscreen = els.mangaReaderDialog.classList.contains('manga-reader-fullscreen');
+  els.mangaFullscreenBtn.textContent = fullscreen ? '×' : '⛶';
+  els.mangaFullscreenBtn.title = fullscreen ? 'Exit fullscreen' : 'Fullscreen';
+  els.mangaFullscreenBtn.setAttribute('aria-label', fullscreen ? 'Exit fullscreen' : 'Enter fullscreen');
+}
+
+async function requestMangaFullscreen() {
+  els.mangaReaderDialog.classList.add('manga-reader-fullscreen');
+  document.body.classList.add('manga-reader-fullscreen-active');
+  updateMangaFullscreenButton();
+  const root = document.documentElement;
+  const request = root.requestFullscreen || root.webkitRequestFullscreen;
+  if (request) await request.call(root);
+}
+
+async function exitMangaFullscreen() {
+  els.mangaReaderDialog.classList.remove('manga-reader-fullscreen');
+  document.body.classList.remove('manga-reader-fullscreen-active');
+  updateMangaFullscreenButton();
+  const exit = document.exitFullscreen || document.webkitExitFullscreen;
+  if (fullscreenElement() && exit) await exit.call(document);
+}
+
+async function toggleMangaFullscreen() {
+  if (els.mangaReaderDialog.classList.contains('manga-reader-fullscreen')) await exitMangaFullscreen();
+  else await requestMangaFullscreen();
+  showReaderControls();
+}
+
+async function closeMangaReader() {
+  if (els.mangaReaderDialog.classList.contains('manga-reader-fullscreen')) await exitMangaFullscreen();
+  els.mangaReaderDialog.close();
+}
+
 function readerChapter(delta) {
   const chapters = [...(state.activeManga?.chapters || [])].map(String).sort(compareChapters);
   const index = chapters.indexOf(String(state.activeChapter));
@@ -324,7 +639,7 @@ async function setChapterRead(manga, chapter, read) {
   state.activeManga = { ...manga, ...data.manga };
   const index = state.mangaLibrary.findIndex((item) => item.id === manga.id);
   if (index >= 0) state.mangaLibrary[index] = { ...state.mangaLibrary[index], ...data.manga };
-  els.chapterGrid.innerHTML = [...(manga.chapters || [])].sort((a, b) => compareChapters(b, a)).map((item) => chapterRow(state.activeManga, item)).join('');
+  renderChapterGrid(state.activeManga);
   renderMangaLibrary();
   return state.activeManga;
 }
@@ -342,12 +657,39 @@ async function toggleChapterDownload(manga, chapter) {
   await loadMangaDownloads(manga);
   updateReaderControls();
   if (els.mangaDialog.open) {
-    els.chapterGrid.innerHTML = [...(manga.chapters || [])].sort((a, b) => compareChapters(b, a)).map((item) => chapterRow(state.activeManga || manga, item)).join('');
+    renderChapterGrid(state.activeManga || manga);
   }
   toast(downloaded ? 'Offline chapter removed' : 'Chapter downloaded for offline reading');
 }
 
 export function bindMangaControls() {
+  document.addEventListener('change', async (event) => {
+    const select = event.target.closest('.manga-card select[data-action="manga-language"]');
+    if (!select) return;
+    const card = select.closest('.manga-card');
+    const manga = findManga(card);
+    if (!manga) return;
+    const previous = manga.language === 'raw' ? 'raw' : 'sub';
+    const language = select.value === 'raw' ? 'raw' : 'sub';
+    select.disabled = true;
+    try {
+      if (card.dataset.source === 'library') await updateMangaLanguage(manga, language);
+      else {
+        manga.language = language;
+        manga.chapterCount = manga.chapterCounts?.[language] || manga.chapterCount;
+        manga.latestChapter = manga.latestChapters?.[language] || manga.latestChapter;
+        manga.lastChapterDate = manga.lastChapterDates?.[language] || null;
+        renderMangaResults();
+        toast(`Using ${language === 'raw' ? 'Raw' : 'Translated'} for ${manga.name || manga.title}`);
+      }
+    } catch (err) {
+      manga.language = previous;
+      select.value = previous;
+      toast(err.message);
+    } finally {
+      select.disabled = false;
+    }
+  });
   document.querySelectorAll('.manga-browse-button').forEach((button) => button.addEventListener('click', () => {
     state.mangaBrowseSort = button.dataset.mangaSort || 'Latest_Update';
     document.querySelectorAll('.manga-browse-button').forEach((item) => item.classList.toggle('active', item === button));
@@ -378,6 +720,25 @@ export function bindMangaControls() {
   });
   els.closeMangaDialogBtn.addEventListener('click', () => els.mangaDialog.close());
   els.mangaDialog.addEventListener('click', (event) => { if (event.target === els.mangaDialog) els.mangaDialog.close(); });
+  els.mangaChapterJumpBtn.addEventListener('click', jumpToChapter);
+  els.mangaChapterTarget.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      jumpToChapter();
+    }
+  });
+  els.mangaMarkThroughBtn.addEventListener('click', () => runAction(els.mangaMarkThroughBtn, 'Marking…', markChaptersReadThrough));
+  document.querySelectorAll('.manga-download-quick').forEach((button) => {
+    button.addEventListener('click', () => setQuickDownloadRange(Number(button.dataset.count)));
+  });
+  els.mangaDownloadRangeBtn.addEventListener('click', () => {
+    runAction(els.mangaDownloadRangeBtn, 'Queueing…', startMangaDownloadRange)
+      .then(() => renderMangaDownloadJob(state.mangaDownloadJob));
+  });
+  els.mangaCancelDownloadBtn.addEventListener('click', () => {
+    runAction(els.mangaCancelDownloadBtn, 'Cancelling…', cancelMangaDownloadRange)
+      .then(() => renderMangaDownloadJob(state.mangaDownloadJob));
+  });
   els.mangaDialogBody.addEventListener('click', async (event) => {
     const button = event.target.closest('button[data-action]');
     const card = button?.closest('[data-related-manga-id]');
@@ -392,19 +753,29 @@ export function bindMangaControls() {
       }
     });
   });
-  els.closeMangaReaderBtn.addEventListener('click', () => els.mangaReaderDialog.close());
-  els.mangaReaderDialog.addEventListener('click', (event) => { if (event.target === els.mangaReaderDialog) els.mangaReaderDialog.close(); });
+  els.closeMangaReaderBtn.addEventListener('click', () => closeMangaReader().catch((err) => toast(err.message)));
+  els.mangaReaderDialog.addEventListener('click', (event) => {
+    if (event.target === els.mangaReaderDialog) closeMangaReader().catch((err) => toast(err.message));
+  });
   els.mangaReaderPages.addEventListener('click', toggleReaderControls);
   els.mangaReaderPages.addEventListener('scroll', () => {
     clearTimeout(readerControlsTimer);
     els.mangaReaderDialog.classList.add('controls-hidden');
   }, { passive: true });
   els.mangaDownloadChapterBtn.addEventListener('click', () => runAction(els.mangaDownloadChapterBtn, '…', () => toggleChapterDownload(state.activeManga, state.activeChapter)));
-  els.mangaFullscreenBtn.addEventListener('click', async () => {
-    if (document.fullscreenElement) await document.exitFullscreen();
-    else await els.mangaReaderDialog.requestFullscreen();
-    showReaderControls();
-  });
+  els.mangaFullscreenBtn.addEventListener('click', () => toggleMangaFullscreen().catch((err) => {
+    exitMangaFullscreen().catch(() => {});
+    toast(`Fullscreen unavailable: ${err.message}`);
+  }));
+  const syncMangaFullscreen = () => {
+    if (!fullscreenElement()) {
+      els.mangaReaderDialog.classList.remove('manga-reader-fullscreen');
+      document.body.classList.remove('manga-reader-fullscreen-active');
+      updateMangaFullscreenButton();
+    }
+  };
+  document.addEventListener('fullscreenchange', syncMangaFullscreen);
+  document.addEventListener('webkitfullscreenchange', syncMangaFullscreen);
   els.mangaPrevChapterBtn.addEventListener('click', () => changeReaderChapter(-1).catch((err) => toast(err.message)));
   els.mangaNextChapterBtn.addEventListener('click', () => changeReaderChapter(1).catch((err) => toast(err.message)));
 

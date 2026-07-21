@@ -28,6 +28,7 @@ test('searchManga maps AllManga results and normalizes cover urls', async () => 
   assert.equal(result.total, 1);
   assert.equal(result.results[0].name, 'English name');
   assert.equal(result.results[0].chapterCount, 12);
+  assert.deepEqual(result.results[0].chapterCounts, { sub: 12, raw: 0 });
   assert.equal(result.results[0].thumbnail, 'https://aln.youtube-anime.com/mcovers/one.webp');
   assert.deepEqual(receivedVariables.search, {
     allowAdult: false,
@@ -103,6 +104,9 @@ test('getMangaDetails resolves related manga metadata in one follow-up query', a
     nativeName: '',
     thumbnail: 'https://aln.youtube-anime.com/mcovers/sequel.webp',
     language: 'sub',
+    chapterCounts: { sub: 4, raw: 0 },
+    latestChapters: { sub: null, raw: null },
+    lastChapterDates: { sub: null, raw: null },
     chapterCount: 4,
     latestChapter: null,
     lastChapterDate: null,
