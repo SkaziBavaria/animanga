@@ -1,4 +1,4 @@
-const SHELL_CACHE = 'ani-web-shell-v37';
+const SHELL_CACHE = 'ani-web-shell-v38';
 const API_CACHE = 'ani-web-api-v2';
 const ASSETS = [
   '/', '/index.html', '/styles.css', '/manifest.webmanifest', '/icon.svg',

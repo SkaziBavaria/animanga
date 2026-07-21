@@ -259,6 +259,8 @@ test.describe('Manga', () => {
     await expect(page.locator('#mangaReaderDialog')).toHaveClass(/manga-reader-fullscreen/);
     await expect(page.locator('body')).toHaveClass(/manga-reader-fullscreen-active/);
     await expect(page.locator('#mangaFullscreenBtn')).toHaveAttribute('aria-label', 'Exit fullscreen');
+    await expect(page.locator('#mangaFullscreenBtn .fullscreen-exit')).toBeVisible();
+    await expect(page.locator('#mangaFullscreenBtn')).not.toHaveText('×');
   });
 
   test('marks the current chapter read when advancing', async ({ page }) => {
