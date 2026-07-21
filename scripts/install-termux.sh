@@ -2,7 +2,7 @@
 set -eu
 
 REPO_URL="${ANI_WEB_REPO_URL:-https://github.com/SkaziBavaria/ani-web.git}"
-BRANCH="${ANI_WEB_BRANCH:-main}"
+BRANCH="${ANI_WEB_BRANCH:-${BRANCH:-main}}"
 INSTALL_DIR="${ANI_WEB_INSTALL_DIR:-$HOME/ani-web}"
 ANI_CLI_STABLE_URL="https://raw.githubusercontent.com/pystardust/ani-cli/cc45a5530af350fb0e1a759e1d962814df5876fe/ani-cli"
 ANI_CLI_REFERENCE_URL="https://raw.githubusercontent.com/pystardust/ani-cli/fix/ani-cli"
@@ -13,18 +13,26 @@ fail() {
 }
 
 command -v pkg >/dev/null 2>&1 || fail 'This installer must be run inside Termux.'
+case "$BRANCH" in
+  ''|-*) fail 'BRANCH must be a valid Git branch name.' ;;
+esac
 
 printf '\n[1/5] Installing Termux packages...\n'
 pkg update -y
 pkg install -y git nodejs curl grep sed fzf openssl-tool termux-am aria2 ffmpeg patch
 
 printf '\n[2/5] Installing ani-web in %s...\n' "$INSTALL_DIR"
+printf 'Using branch: %s\n' "$BRANCH"
 if [ -d "$INSTALL_DIR/.git" ]; then
   if [ -n "$(git -C "$INSTALL_DIR" status --porcelain)" ]; then
     printf 'Local changes found; leaving the existing checkout unchanged.\n'
   else
     git -C "$INSTALL_DIR" fetch origin "$BRANCH:refs/remotes/origin/$BRANCH"
-    git -C "$INSTALL_DIR" checkout "$BRANCH"
+    if git -C "$INSTALL_DIR" show-ref --verify --quiet "refs/heads/$BRANCH"; then
+      git -C "$INSTALL_DIR" checkout "$BRANCH"
+    else
+      git -C "$INSTALL_DIR" checkout -b "$BRANCH" --track "origin/$BRANCH"
+    fi
     git -C "$INSTALL_DIR" merge --ff-only "origin/$BRANCH"
   fi
 elif [ -e "$INSTALL_DIR" ]; then

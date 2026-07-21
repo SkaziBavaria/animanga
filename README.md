@@ -49,6 +49,14 @@ Then open [http://127.0.0.1:7831](http://127.0.0.1:7831) in Chrome. If you want 
 
 To update the Termux installation, run the installer again. It only fast-forwards a clean checkout and will leave local changes alone.
 
+To install or switch to a specific branch, pass `BRANCH`. For example, while the manga work is still on its feature branch:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/SkaziBavaria/ani-web/feature/manga/scripts/install-termux.sh | BRANCH=feature/manga sh
+```
+
+Running the normal command again switches back to `main`. `ANI_WEB_BRANCH` remains supported as the longer environment-variable form.
+
 Android may stop Termux in the background. Setting Termux battery usage to **Unrestricted** usually fixes that. You can also run `termux-wake-lock` while using the server.
 
 ## Sync between devices

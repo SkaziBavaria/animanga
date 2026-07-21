@@ -17,3 +17,10 @@ test('Termux and Docker install the same patched ani-cli sources', () => {
   assert.match(installer, /patch-ani-cli-crypto\.js/);
   assert.match(installer, /sh -n "\$PATCH_DIR\/ani-cli"/);
 });
+
+test('Termux installer accepts BRANCH while keeping main as the default', () => {
+  const installer = fs.readFileSync(path.join(root, 'scripts', 'install-termux.sh'), 'utf8');
+  assert.match(installer, /BRANCH="\$\{ANI_WEB_BRANCH:-\$\{BRANCH:-main\}\}"/);
+  assert.match(installer, /fetch origin "\$BRANCH:refs\/remotes\/origin\/\$BRANCH"/);
+  assert.match(installer, /checkout -b "\$BRANCH" --track "origin\/\$BRANCH"/);
+});
