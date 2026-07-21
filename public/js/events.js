@@ -1,7 +1,7 @@
 import { api, toast, withBusy, runAction } from './api.js';
 import { els } from './dom.js';
 import { state } from './state.js';
-import { applyDiscoverFilters, browsePopular, browseRecommended, search, switchView } from './discover.js';
+import { applyDiscoverFilters, browsePopular, browseRecommended, search, switchMediaMode, switchSection, switchView } from './discover.js';
 import { openDetails, bindDetailsDialog } from './details.js';
 import {
   deleteEpisodeDownload,
@@ -11,6 +11,7 @@ import {
 import { openEpisodes, playShow, bindEpisodeDialog, toggleEpisodeWatched } from './episodes.js';
 import { loadJobs, clearJobs } from './jobs.js';
 import { loadLibrary, renderLibrary, trackShow, removeShow, updateShowMode } from './library.js';
+import { loadMangaLibrary } from './manga.js';
 import { bindPlayerDialog } from './playback.js';
 import {
   checkReleaseWatches,
@@ -24,7 +25,8 @@ import { busyLabel, nextEpisode } from './util.js';
 function bindGlobalClicks() {
   document.addEventListener('click', async (event) => {
     const tab = event.target.closest('.tab');
-    if (tab) switchView(tab.dataset.view);
+    if (tab?.dataset.section) switchSection(tab.dataset.section);
+    else if (tab?.dataset.view) switchView(tab.dataset.view);
 
     const releaseWatchButton = event.target.closest('button[data-action="watch-release"]');
     if (releaseWatchButton) {
@@ -32,7 +34,7 @@ function bindGlobalClicks() {
       return;
     }
 
-    const browseButton = event.target.closest('.browse-button');
+    const browseButton = event.target.closest('.browse-button[data-recommended], .browse-button[data-popular-range]');
     if (browseButton) {
       state.discoverGenres = [];
       state.discoverYear = null;
@@ -175,7 +177,11 @@ function bindDetailsRelated() {
 }
 
 function bindLibraryControls() {
-  els.refreshBtn.addEventListener('click', () => loadLibrary(true).catch((err) => toast(err.message)));
+  els.refreshBtn.addEventListener('click', () => {
+    const refresh = state.mediaMode === 'manga' ? loadMangaLibrary : loadLibrary;
+    refresh(true).catch((err) => toast(err.message));
+  });
+  els.mediaSwitchBtn.addEventListener('click', () => switchMediaMode());
   els.libraryFilter.addEventListener('change', () => {
     state.libraryFilter = els.libraryFilter.value;
     renderLibrary();

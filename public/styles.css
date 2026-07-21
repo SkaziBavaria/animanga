@@ -75,6 +75,33 @@ button.busy {
   margin-bottom: 18px;
 }
 
+.brand-switch {
+  min-height: 0;
+  padding: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  color: var(--text);
+  background: transparent;
+  text-align: left;
+}
+
+.brand-switch span {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.brand-switch span::after {
+  content: ' ⇄';
+}
+
+.topbar-brand {
+  flex: 1;
+}
+
 h1,
 h2,
 p {
@@ -169,33 +196,6 @@ h2 {
   grid-template-columns: 1fr 1fr;
   gap: 8px;
   margin-bottom: 12px;
-}
-
-.manga-switch {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-bottom: 12px;
-  padding: 4px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: var(--panel);
-}
-
-.manga-switch-button {
-  min-height: 40px;
-  color: var(--muted);
-  background: transparent;
-}
-
-.manga-switch-button.active {
-  color: #071310;
-  background: var(--accent);
-  font-weight: 800;
-}
-
-.manga-panel[hidden] {
-  display: none;
 }
 
 .manga-dialog-body {
@@ -907,7 +907,7 @@ label span {
   right: 0;
   bottom: 0;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 8px;
   padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
   background: rgba(12, 14, 18, .9);

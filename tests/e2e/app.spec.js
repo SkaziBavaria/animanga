@@ -18,18 +18,20 @@ test.describe('Shell & navigation', () => {
     await expect(page.locator('#libraryCount')).toHaveText('1');
   });
 
-  test('navigates between the four tabs', async ({ page }) => {
-    await page.click('.tab[data-view="searchView"]');
+  test('navigates between sections and switches anime or manga from the brand', async ({ page }) => {
+    await page.click('.tab[data-section="discover"]');
     await expect(page.locator('#searchView')).toHaveClass(/active/);
     await expect(page.locator('#libraryView')).not.toHaveClass(/active/);
 
     await page.click('.tab[data-view="settingsView"]');
     await expect(page.locator('#settingsView')).toHaveClass(/active/);
 
-    await page.click('.tab[data-view="mangaView"]');
-    await expect(page.locator('#mangaView')).toHaveClass(/active/);
+    await page.click('#mediaSwitchBtn');
+    await expect(page.locator('#mediaModeLabel')).toHaveText('Manga');
+    await expect(page.locator('#mangaLibraryView')).toHaveClass(/active/);
 
-    await page.click('.tab[data-view="libraryView"]');
+    await page.click('#mediaSwitchBtn');
+    await expect(page.locator('#mediaModeLabel')).toHaveText('Anime');
     await expect(page.locator('#libraryView')).toHaveClass(/active/);
   });
 

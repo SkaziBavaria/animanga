@@ -2,6 +2,8 @@ const $ = (selector) => document.querySelector(selector);
 
 export const els = {
   statusText: $('#statusText'),
+  mediaSwitchBtn: $('#mediaSwitchBtn'),
+  mediaModeLabel: $('#mediaModeLabel'),
   refreshBtn: $('#refreshBtn'),
   libraryList: $('#libraryList'),
   libraryCount: $('#libraryCount'),
@@ -15,10 +17,7 @@ export const els = {
   genreClearBtn: $('#genreClearBtn'),
   discoverYearFilter: $('#discoverYearFilter'),
   searchResults: $('#searchResults'),
-  mangaRefreshBtn: $('#mangaRefreshBtn'),
   mangaCount: $('#mangaCount'),
-  mangaLibraryPanel: $('#mangaLibraryPanel'),
-  mangaDiscoverPanel: $('#mangaDiscoverPanel'),
   mangaLibraryList: $('#mangaLibraryList'),
   mangaSearchForm: $('#mangaSearchForm'),
   mangaSearchInput: $('#mangaSearchInput'),

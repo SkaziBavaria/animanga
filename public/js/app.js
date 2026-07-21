@@ -8,6 +8,8 @@ import { loadProgress } from './progress.js';
 import { loadStatus } from './status.js';
 import { bindSyncControls, loadSyncConfig, startAutoSync } from './sync.js';
 import { bindMangaControls, loadMangaLibrary } from './manga.js';
+import { switchMediaMode } from './discover.js';
+import { state } from './state.js';
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').then((registration) => registration.update()).catch(() => {});
@@ -16,6 +18,7 @@ if ('serviceWorker' in navigator) {
 bindEvents();
 bindSyncControls();
 bindMangaControls();
+switchMediaMode(state.mediaMode);
 startAutoSync();
 
 (async function init() {

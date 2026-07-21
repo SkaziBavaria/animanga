@@ -79,3 +79,28 @@ export function switchView(id) {
   document.querySelectorAll('.tab').forEach((tab) => tab.classList.toggle('active', tab.dataset.view === id));
   if (id === 'searchView') loadDefaultDiscover();
 }
+
+function viewFor(section) {
+  if (state.mediaMode === 'manga') return section === 'discover' ? 'mangaDiscoverView' : 'mangaLibraryView';
+  return section === 'discover' ? 'searchView' : 'libraryView';
+}
+
+export function switchSection(section) {
+  state.activeSection = section === 'discover' ? 'discover' : 'library';
+  const id = viewFor(state.activeSection);
+  switchView(id);
+  document.querySelectorAll('.tab').forEach((tab) => tab.classList.toggle('active', tab.dataset.section === state.activeSection));
+}
+
+export function switchMediaMode(mode = state.mediaMode === 'anime' ? 'manga' : 'anime') {
+  if (document.querySelector('#settingsView.active')) state.activeSection = 'library';
+  state.mediaMode = mode === 'manga' ? 'manga' : 'anime';
+  localStorage.setItem('ani-web-media-mode', state.mediaMode);
+  els.mediaModeLabel.textContent = state.mediaMode === 'manga' ? 'Manga' : 'Anime';
+  const nextMode = state.mediaMode === 'manga' ? 'anime' : 'manga';
+  els.mediaSwitchBtn.title = `Switch to ${nextMode}`;
+  els.mediaSwitchBtn.setAttribute('aria-label', `Currently showing ${state.mediaMode}. Switch to ${nextMode}`);
+  els.refreshBtn.title = `Refresh ${state.mediaMode} library`;
+  els.refreshBtn.setAttribute('aria-label', `Refresh ${state.mediaMode} library`);
+  switchSection(state.activeSection);
+}

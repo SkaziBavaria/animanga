@@ -77,14 +77,14 @@ function renderMangaResults() {
 }
 
 export async function loadMangaLibrary(refresh = false) {
-  els.mangaRefreshBtn.disabled = true;
+  if (state.mediaMode === 'manga') els.refreshBtn.disabled = true;
   try {
     const data = await api(`/api/manga/library${refresh ? '?refresh=1' : ''}`);
     state.mangaLibrary = data.mangas || [];
     renderMangaLibrary();
     if (refresh) toast('Manga library updated');
   } finally {
-    els.mangaRefreshBtn.disabled = false;
+    if (state.mediaMode === 'manga') els.refreshBtn.disabled = false;
   }
 }
 
@@ -92,18 +92,6 @@ export async function searchManga(query = '') {
   const data = await api(`/api/manga/search?q=${encodeURIComponent(query)}`);
   state.mangaResults = data.results || [];
   renderMangaResults();
-}
-
-function switchMangaPanel(panel) {
-  const discover = panel === 'discover';
-  els.mangaLibraryPanel.hidden = discover;
-  els.mangaDiscoverPanel.hidden = !discover;
-  document.querySelectorAll('.manga-switch-button').forEach((button) => {
-    const active = button.dataset.mangaPanel === panel;
-    button.classList.toggle('active', active);
-    button.setAttribute('aria-selected', String(active));
-  });
-  state.mangaPanel = panel;
 }
 
 async function trackManga(manga) {
@@ -211,8 +199,6 @@ async function toggleChapter(manga, chapter) {
 }
 
 export function bindMangaControls() {
-  document.querySelectorAll('.manga-switch-button').forEach((button) => button.addEventListener('click', () => switchMangaPanel(button.dataset.mangaPanel)));
-  els.mangaRefreshBtn.addEventListener('click', () => loadMangaLibrary(true).catch((err) => toast(err.message)));
   els.mangaLatestBtn.addEventListener('click', () => searchManga('').catch((err) => toast(err.message)));
   els.mangaSearchForm.addEventListener('submit', (event) => {
     event.preventDefault();
@@ -231,7 +217,7 @@ export function bindMangaControls() {
 
   document.addEventListener('click', async (event) => {
     const discover = event.target.closest('[data-action="manga-open-discover"]');
-    if (discover) return switchMangaPanel('discover');
+    if (discover) return document.querySelector('.tab[data-section="discover"]')?.click();
     const button = event.target.closest('.manga-card button[data-action]');
     if (!button) return;
     const manga = findManga(button.closest('.manga-card'));

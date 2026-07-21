@@ -12,8 +12,11 @@
   <body>
     <div class="app-shell">
       <header class="topbar">
-        <div>
-          <h1>Ani Web</h1>
+        <div class="topbar-brand">
+          <button id="mediaSwitchBtn" class="brand-switch" type="button" title="Switch to manga" aria-label="Currently showing anime. Switch to manga">
+            <h1>Ani Web</h1>
+            <span id="mediaModeLabel">Anime</span>
+          </button>
           <p id="statusText">Starting...</p>
         </div>
         <button id="refreshBtn" class="icon-button" type="button" title="Refresh library" aria-label="Refresh library">↻</button>
@@ -105,31 +108,26 @@
           <div id="searchResults" class="show-list"></div>
         </section>
 
-        <section id="mangaView" class="view" aria-labelledby="mangaTitle">
+        <section id="mangaLibraryView" class="view" aria-labelledby="mangaLibraryTitle">
           <div class="section-head">
-            <div>
-              <h2 id="mangaTitle">Manga</h2>
-              <p class="section-subtitle">Your reading library and AllManga search</p>
-            </div>
-            <button id="mangaRefreshBtn" class="icon-button" type="button" title="Refresh manga library" aria-label="Refresh manga library">↻</button>
+            <h2 id="mangaLibraryTitle">Library</h2>
+            <span id="mangaCount" class="counter">0</span>
           </div>
-          <div class="manga-switch" role="tablist" aria-label="Manga section">
-            <button class="manga-switch-button active" data-manga-panel="library" type="button" role="tab" aria-selected="true">Library <span id="mangaCount" class="counter">0</span></button>
-            <button class="manga-switch-button" data-manga-panel="discover" type="button" role="tab" aria-selected="false">Discover</button>
+          <div id="mangaLibraryList" class="show-list"></div>
+        </section>
+
+        <section id="mangaDiscoverView" class="view" aria-labelledby="mangaDiscoverTitle">
+          <div class="section-head">
+            <h2 id="mangaDiscoverTitle">Discover</h2>
           </div>
-          <div id="mangaLibraryPanel" class="manga-panel active">
-            <div id="mangaLibraryList" class="show-list"></div>
+          <form id="mangaSearchForm" class="search-row">
+            <input id="mangaSearchInput" name="q" type="search" autocomplete="off" placeholder="Search manga">
+            <button type="submit">Search</button>
+          </form>
+          <div class="browse-row" aria-label="Browse manga">
+            <button id="mangaLatestBtn" class="browse-button" type="button">Latest updates</button>
           </div>
-          <div id="mangaDiscoverPanel" class="manga-panel" hidden>
-            <form id="mangaSearchForm" class="search-row">
-              <input id="mangaSearchInput" name="q" type="search" autocomplete="off" placeholder="Search manga">
-              <button type="submit">Search</button>
-            </form>
-            <div class="browse-row" aria-label="Browse manga">
-              <button id="mangaLatestBtn" class="browse-button" type="button">Latest updates</button>
-            </div>
-            <div id="mangaSearchResults" class="show-list"></div>
-          </div>
+          <div id="mangaSearchResults" class="show-list"></div>
         </section>
 
         <section id="settingsView" class="view" aria-labelledby="settingsTitle">
@@ -262,9 +260,8 @@
       </main>
 
       <nav class="tabbar" aria-label="Primary navigation">
-        <button class="tab active" data-view="libraryView" type="button">Library</button>
-        <button class="tab" data-view="searchView" type="button">Discover</button>
-        <button class="tab" data-view="mangaView" type="button">Manga</button>
+        <button class="tab active" data-section="library" type="button">Library</button>
+        <button class="tab" data-section="discover" type="button">Discover</button>
         <button class="tab" data-view="settingsView" type="button">Settings</button>
       </nav>
     </div>

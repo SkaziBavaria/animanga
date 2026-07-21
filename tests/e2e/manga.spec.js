@@ -7,7 +7,7 @@ test.describe('Manga', () => {
   test.beforeEach(async ({ page }) => {
     await installApiMocks(page);
     await page.goto('/');
-    await page.click('.tab[data-view="mangaView"]');
+    await page.click('#mediaSwitchBtn');
   });
 
   test('renders a separate manga library with reading progress', async ({ page }) => {
@@ -18,12 +18,13 @@ test.describe('Manga', () => {
   });
 
   test('searches manga and keeps anime discover separate', async ({ page }) => {
-    await page.click('[data-manga-panel="discover"]');
+    await page.click('.tab[data-section="discover"]');
     await page.fill('#mangaSearchInput', 'Test Story');
     const request = page.waitForRequest((item) => item.url().includes('/api/manga/search?q=Test%20Story'));
     await page.click('#mangaSearchForm button[type="submit"]');
     await request;
     await expect(page.locator('#mangaSearchResults .manga-card')).toHaveCount(1);
+    await expect(page.locator('#mangaDiscoverView')).toHaveClass(/active/);
     await expect(page.locator('#searchView')).not.toHaveClass(/active/);
   });
 
