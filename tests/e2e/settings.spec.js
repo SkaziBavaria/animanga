@@ -3,7 +3,7 @@
 const { test, expect } = require('@playwright/test');
 const { installApiMocks } = require('./fixtures');
 
-test.describe('Settings, command & logs', () => {
+test.describe('Settings & logs', () => {
   test('configures GitHub as sync provider without a callback URL', async ({ page }) => {
     await installApiMocks(page);
     await page.goto('/');
@@ -44,20 +44,6 @@ test.describe('Settings, command & logs', () => {
     const req = await saveRequest;
     expect(req.postDataJSON()).toMatchObject({ mode: 'dub', skipIntro: true });
     await expect(page.locator('#toast')).toContainText('Settings saved');
-  });
-
-  test('runs an advanced ani-cli command', async ({ page }) => {
-    await installApiMocks(page);
-    await page.goto('/');
-    await page.click('.tab[data-view="settingsView"]');
-    await page.click('.advanced-panel summary');
-    await page.fill('#commandInput', '-q 720 -e 1 "one piece"');
-
-    const cmd = page.waitForRequest((req) => req.url().endsWith('/api/command') && req.method() === 'POST');
-    await page.click('#commandForm button[type="submit"]');
-    await cmd;
-    await expect(page.locator('#toast')).toContainText('Command started');
-    await expect(page.locator('#commandInput')).toHaveValue('');
   });
 
   test('fetches and clears job logs', async ({ page }) => {

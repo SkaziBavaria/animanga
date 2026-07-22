@@ -1,4 +1,4 @@
-const SHELL_CACHE = 'animanga-shell-v46';
+const SHELL_CACHE = 'animanga-shell-v47';
 const API_CACHE = 'animanga-api-v4';
 const ASSETS = [
   '/', '/index.html', '/styles.css', '/manifest.webmanifest', '/icon.svg', '/animanga-logo.png',
