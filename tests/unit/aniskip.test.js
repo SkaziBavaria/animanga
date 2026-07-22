@@ -50,8 +50,34 @@ test('resolveMalId does not reuse negative cache entries', async () => {
   const second = await resolveMalId(state, 'Totally Unknown Show');
   assert.equal(first, null);
   assert.equal(second, null);
-  assert.equal(calls, 2);
+  assert.equal(calls, 4);
   assert.equal(state.cache.malIds, undefined);
+});
+
+test('resolveMalId falls back to Kitsu mappings when Jikan is unavailable', async () => {
+  setRawFetcher(async (url) => {
+    if (url.includes('jikan')) return jsonResponse({}, false);
+    assert.match(url, /kitsu\.io\/api\/edge\/anime/);
+    return jsonResponse({
+      data: [{
+        id: 'anime-1',
+        type: 'anime',
+        attributes: {
+          canonicalTitle: 'Ore dake Level Up na Ken: Season 2 - Arise from the Shadow',
+          titles: { en: 'Solo Leveling Season 2 -Arise from the Shadow-' },
+        },
+        relationships: { mappings: { data: [{ type: 'mappings', id: 'mapping-1' }] } },
+      }],
+      included: [{
+        id: 'mapping-1',
+        type: 'mappings',
+        attributes: { externalSite: 'myanimelist/anime', externalId: '58567' },
+      }],
+    });
+  });
+
+  const id = await resolveMalId(freshState(), 'Solo Leveling Season 2: Arise from the Shadow');
+  assert.equal(id, 58567);
 });
 
 test('resolveMalId ignores stale negative cache entries from old state files', async () => {
