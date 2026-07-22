@@ -7,13 +7,14 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 ADD https://raw.githubusercontent.com/pystardust/ani-cli/cc45a5530af350fb0e1a759e1d962814df5876fe/ani-cli /usr/local/bin/ani-cli
-ADD https://raw.githubusercontent.com/pystardust/ani-cli/fix/ani-cli /tmp/ani-cli-reference
 COPY scripts/patch-ani-cli-crypto.js /tmp/patch-ani-cli-crypto.js
+COPY lib/mkissa-crypto.js /tmp/mkissa-crypto.js
 
-RUN node /tmp/patch-ani-cli-crypto.js /usr/local/bin/ani-cli /tmp/ani-cli-reference \
+# Patch aaReq material from live mkissa bootstrap (master ani-cli no longer ships it).
+RUN node /tmp/patch-ani-cli-crypto.js /usr/local/bin/ani-cli \
   && sh -n /usr/local/bin/ani-cli \
   && chmod +x /usr/local/bin/ani-cli \
-  && rm -f /tmp/ani-cli-reference /tmp/patch-ani-cli-crypto.js
+  && rm -f /tmp/patch-ani-cli-crypto.js /tmp/mkissa-crypto.js
 
 WORKDIR /app
 

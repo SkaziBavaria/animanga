@@ -9,7 +9,6 @@ if [ -z "${ANIMANGA_INSTALL_DIR:-}${ANI_WEB_INSTALL_DIR:-}" ] && [ -d "$HOME/ani
 fi
 INSTALL_DIR="${ANIMANGA_INSTALL_DIR:-${ANI_WEB_INSTALL_DIR:-$DEFAULT_INSTALL_DIR}}"
 ANI_CLI_STABLE_URL="https://raw.githubusercontent.com/pystardust/ani-cli/cc45a5530af350fb0e1a759e1d962814df5876fe/ani-cli"
-ANI_CLI_REFERENCE_URL="https://raw.githubusercontent.com/pystardust/ani-cli/fix/ani-cli"
 
 fail() {
   printf 'AniManga installer: %s\n' "$1" >&2
@@ -59,8 +58,7 @@ printf '\n[4/5] Installing the pinned and patched ani-cli build...\n'
 PATCH_DIR="$(mktemp -d)"
 trap 'rm -rf "$PATCH_DIR"' EXIT HUP INT TERM
 curl -fsSL "$ANI_CLI_STABLE_URL" -o "$PATCH_DIR/ani-cli"
-curl -fsSL "$ANI_CLI_REFERENCE_URL" -o "$PATCH_DIR/ani-cli-reference"
-node "$INSTALL_DIR/scripts/patch-ani-cli-crypto.js" "$PATCH_DIR/ani-cli" "$PATCH_DIR/ani-cli-reference"
+node "$INSTALL_DIR/scripts/patch-ani-cli-crypto.js" "$PATCH_DIR/ani-cli"
 sh -n "$PATCH_DIR/ani-cli"
 chmod +x "$PATCH_DIR/ani-cli"
 mv "$PATCH_DIR/ani-cli" "$PREFIX/bin/ani-cli"

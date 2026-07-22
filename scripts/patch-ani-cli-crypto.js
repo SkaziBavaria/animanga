@@ -2,6 +2,22 @@
 'use strict';
 
 const fs = require('fs');
+const path = require('path');
+
+function loadMkissaCrypto() {
+  const candidates = [
+    path.join(__dirname, '..', 'lib', 'mkissa-crypto'),
+    path.join(__dirname, 'mkissa-crypto'),
+  ];
+  for (const candidate of candidates) {
+    try {
+      return require(candidate);
+    } catch (error) {
+      if (error.code !== 'MODULE_NOT_FOUND') throw error;
+    }
+  }
+  throw new Error('Could not load lib/mkissa-crypto.js');
+}
 
 function requiredMatch(text, pattern, label) {
   const match = text.match(pattern);
@@ -46,24 +62,40 @@ function patchStableAniCli(stable, config) {
   return output;
 }
 
-function main(args) {
-  if (args.length !== 2) throw new Error('Usage: patch-ani-cli-crypto.js STABLE_FILE REFERENCE_FILE');
+async function resolveCryptoConfig(referencePath) {
+  if (referencePath) {
+    try {
+      return {
+        source: 'reference',
+        ...extractCryptoConfig(fs.readFileSync(referencePath, 'utf8')),
+      };
+    } catch (error) {
+      process.stderr.write(`Reference crypto unavailable (${error.message}); fetching live mkissa material\n`);
+    }
+  }
+  const live = await loadMkissaCrypto().fetchLiveCryptoConfig();
+  return { source: 'mkissa', ...live };
+}
+
+async function main(args) {
+  if (args.length < 1 || args.length > 2) {
+    throw new Error('Usage: patch-ani-cli-crypto.js STABLE_FILE [REFERENCE_FILE]');
+  }
   const [stablePath, referencePath] = args;
   const stable = fs.readFileSync(stablePath, 'utf8');
-  const reference = fs.readFileSync(referencePath, 'utf8');
-  const config = extractCryptoConfig(reference);
+  const config = await resolveCryptoConfig(referencePath);
   const patched = patchStableAniCli(stable, config);
   fs.writeFileSync(stablePath, patched);
-  process.stdout.write(`Applied AllAnime crypto config: epoch=${config.epoch}, buildId=${config.buildId}, origin=${config.origin}\n`);
+  process.stdout.write(
+    `Applied AllAnime crypto config from ${config.source}: epoch=${config.epoch}, buildId=${config.buildId}, origin=${config.origin}\n`,
+  );
 }
 
 if (require.main === module) {
-  try {
-    main(process.argv.slice(2));
-  } catch (err) {
+  main(process.argv.slice(2)).catch((err) => {
     process.stderr.write(`${err.message}\n`);
     process.exitCode = 1;
-  }
+  });
 }
 
-module.exports = { extractCryptoConfig, patchStableAniCli };
+module.exports = { extractCryptoConfig, patchStableAniCli, resolveCryptoConfig };

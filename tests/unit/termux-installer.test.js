@@ -12,10 +12,13 @@ test('Termux and Docker install the same patched ani-cli sources', () => {
   const installer = fs.readFileSync(path.join(root, 'scripts', 'install-termux.sh'), 'utf8');
   const urls = [...dockerfile.matchAll(/https:\/\/raw\.githubusercontent\.com\/pystardust\/ani-cli\/[^\s]+\/ani-cli/g)]
     .map((match) => match[0]);
-  assert.equal(urls.length, 2);
-  for (const url of urls) assert.match(installer, new RegExp(url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.equal(urls.length, 1);
+  assert.match(urls[0], /cc45a5530af350fb0e1a759e1d962814df5876fe/);
+  assert.match(installer, new RegExp(urls[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.match(dockerfile, /mkissa-crypto\.js/);
   assert.match(installer, /patch-ani-cli-crypto\.js/);
   assert.match(installer, /sh -n "\$PATCH_DIR\/ani-cli"/);
+  assert.doesNotMatch(installer, /ani-cli-reference/);
 });
 
 test('Termux installer accepts BRANCH while keeping main as the default', () => {
