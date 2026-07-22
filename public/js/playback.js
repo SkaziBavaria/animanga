@@ -100,6 +100,7 @@ function attachSkipTimes(show, episode) {
 
   const requestSkipTimes = () => {
     const duration = Number.isFinite(video.duration) && video.duration > 0 ? Math.round(video.duration) : 0;
+    if (!duration) return;
     if (duration === lastDuration) return;
     lastDuration = duration;
     loadSkipTimes(title, episode, duration).then((skip) => {

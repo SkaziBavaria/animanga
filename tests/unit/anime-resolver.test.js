@@ -7,6 +7,7 @@ const {
   collectClockLinks,
   selectQuality,
   resolveMp4Upload,
+  resolveOkRu,
   setFetchForTests,
 } = require('../../lib/anime-resolver');
 
@@ -28,12 +29,19 @@ test('collects playable links and inherited referrers from clock payloads', () =
     links: [
       { link: 'https://cdn.example/720.mp4', resolutionStr: '720' },
       { hls: true, url: 'https://cdn.example/master.m3u8', hardsub_lang: 'en-US' },
+      { dash: true, link: 'https://api.example/dash.json', rawUrls: { vids: [] } },
     ],
   }, links);
   assert.deepEqual(links.map((link) => ({ url: link.url, quality: link.quality, referrer: link.referrer })), [
     { url: 'https://cdn.example/720.mp4', quality: 720, referrer: 'https://embed.example/' },
     { url: 'https://cdn.example/master.m3u8', quality: null, referrer: 'https://embed.example/' },
   ]);
+});
+
+test('ignores DASH descriptor endpoints that a video element cannot play', () => {
+  const links = [];
+  collectClockLinks({ dash: true, link: 'https://allanime.day/apiak/sk.json', rawUrls: { vids: [] } }, links);
+  assert.deepEqual(links, []);
 });
 
 test('selectQuality uses exact, lower, best and worst quality choices', () => {
@@ -54,5 +62,27 @@ test('extracts the direct MP4 URL from Mp4Upload HTML', async () => {
     quality: null,
     referrer: 'https://www.mp4upload.com',
     provider: 'Mp4Upload',
+  }]);
+});
+
+test('extracts a directly streamable OK.ru MP4 source', async () => {
+  const metadata = JSON.stringify({
+    movie: { height: 1080 },
+    videos: [{ name: 'full', url: 'https://cdn.ok.example/video' }],
+    ondemandHls: 'https://cdn.ok.example/master.m3u8',
+  });
+  const options = JSON.stringify({ flashvars: { metadata } }).replace(/"/g, '&quot;');
+  setFetchForTests(async () => {
+    return {
+      ok: true,
+      text: async () => `<div data-options="${options}"></div>`,
+    };
+  });
+
+  assert.deepEqual(await resolveOkRu('https://ok.ru/videoembed/123'), [{
+    url: 'https://cdn.ok.example/video',
+    quality: 1080,
+    referrer: 'https://ok.ru/videoembed/123',
+    provider: 'OK.ru',
   }]);
 });
