@@ -38,6 +38,14 @@ docker compose up -d --build
 
 Open [http://localhost:7831](http://localhost:7831).
 
+The Compose configuration binds to localhost by default. To use AniManga from other devices on your LAN, expose it deliberately and set an access token:
+
+```sh
+ANIMANGA_BIND_ADDRESS=0.0.0.0 ANIMANGA_ACCESS_TOKEN='use-a-long-random-password' docker compose up -d --build
+```
+
+The browser will ask for a username and password. The default username is `animanga`; the password is your access token. Do not expose AniManga directly to the public internet. Use HTTPS through a trusted reverse proxy if it must be reachable outside your device.
+
 To update later:
 
 ```sh
@@ -105,6 +113,8 @@ Google Drive is also supported, but it requires a Google Cloud OAuth Web client 
 
 - `ANIMANGA_PORT=7832` changes the port.
 - `ANIMANGA_HOST=0.0.0.0` exposes the server on the local network. Only do this on a network you trust.
+- `ANIMANGA_ACCESS_TOKEN=...` enables HTTP Basic authentication. This is strongly recommended whenever the server is reachable from another device.
+- `ANIMANGA_ACCESS_USERNAME=animanga` changes the Basic-auth username.
 - `ANIMANGA_CLIENT_PLAYBACK=1` forces browser playback.
 - `ANIMANGA_ANIME_RESOLVER=node` selects the built-in runtime resolver (default); use `ani-cli` to force the compatibility path.
 - `ANIMANGA_ANI_CLI_FALLBACK=1` enables the optional legacy ani-cli playback fallback (disabled by default).

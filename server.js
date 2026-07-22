@@ -4,17 +4,19 @@
 const http = require('http');
 const fs = require('fs');
 const os = require('os');
-const { HOST, PORT, HISTORY_FILE } = require('./lib/config');
+const { HOST, PORT, HISTORY_FILE, ACCESS_TOKEN, ACCESS_USERNAME } = require('./lib/config');
 const { ensureDataDir, startBackupSchedule } = require('./lib/state');
 const { handleApi } = require('./lib/routes');
 const { serveStatic } = require('./lib/static');
 const { syncNow } = require('./lib/sync');
+const { requireAuthentication } = require('./lib/auth');
 
 ensureDataDir();
 startBackupSchedule();
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || `${HOST}:${PORT}`}`);
+  if (!requireAuthentication(req, res, url.pathname)) return;
   if (url.pathname.startsWith('/api/')) {
     handleApi(req, res, url);
     return;
@@ -39,6 +41,8 @@ server.listen(PORT, HOST, () => {
     }
   }
   console.log(`Listening on ${HOST}:${PORT}`);
+  if (ACCESS_TOKEN) console.log(`Authentication enabled for user ${ACCESS_USERNAME}`);
+  else if (HOST === '0.0.0.0' || HOST === '::') console.warn('WARNING: AniManga is exposed without authentication. Set ANIMANGA_ACCESS_TOKEN or bind to localhost.');
   console.log(`History: ${HISTORY_FILE}`);
 });
 
