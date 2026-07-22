@@ -2,7 +2,14 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { setPosition, presentPositions, clearPosition } = require('../../lib/progress');
+const {
+  clearPosition,
+  mangaPositionKey,
+  presentMangaPositions,
+  presentPositions,
+  setMangaPosition,
+  setPosition,
+} = require('../../lib/progress');
 
 test('stores a mid-episode position', () => {
   const state = {};
@@ -40,4 +47,26 @@ test('clearPosition removes a stored record', () => {
 test('presentPositions returns the map', () => {
   const state = { positions: { 'a:1': { position: 10 } } };
   assert.deepEqual(presentPositions(state), { 'a:1': { position: 10 } });
+});
+
+test('stores manga page progress separately by language', () => {
+  const state = {};
+  setMangaPosition(state, { mangaId: 'manga', language: 'sub', chapter: '2', page: 4, pageCount: 10 });
+  setMangaPosition(state, { mangaId: 'manga', language: 'raw', chapter: '2', page: 2, pageCount: 8 });
+  assert.equal(state.mangaPositions[mangaPositionKey('manga', 'sub', '2')].page, 4);
+  assert.equal(state.mangaPositions[mangaPositionKey('manga', 'raw', '2')].page, 2);
+});
+
+test('can store the last visible manga page without completing the chapter', () => {
+  const state = {};
+  const result = setMangaPosition(state, { mangaId: 'manga', chapter: '2', page: 10, pageCount: 10 });
+  assert.equal(result.position.page, 10);
+  assert.equal(presentMangaPositions(state)['manga:sub:2'].pageCount, 10);
+});
+
+test('clears manga page progress explicitly', () => {
+  const state = { mangaPositions: { 'manga:sub:2': { page: 4 } } };
+  const result = setMangaPosition(state, { mangaId: 'manga', chapter: '2', clear: true });
+  assert.equal(result.cleared, true);
+  assert.equal(state.mangaPositions['manga:sub:2'], undefined);
 });

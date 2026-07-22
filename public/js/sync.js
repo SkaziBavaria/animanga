@@ -1,6 +1,7 @@
 import { api, toast, withBusy } from './api.js';
 import { els } from './dom.js';
 import { loadLibrary, loadSettings } from './library.js';
+import { loadMangaLibrary } from './manga.js';
 import { loadProgress } from './progress.js';
 
 let syncConfig = null;
@@ -107,7 +108,7 @@ async function pollGithub(interval = 5) {
 }
 
 async function refreshSyncedState() {
-  await Promise.all([loadSettings(), loadProgress(), loadLibrary(false)]);
+  await Promise.all([loadSettings(), loadProgress(), loadLibrary(false), loadMangaLibrary(false)]);
 }
 
 export function bindSyncControls() {

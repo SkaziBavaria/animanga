@@ -31,6 +31,7 @@ const {
   mergeSyncBundles,
   updateShowWatched,
   savePositionAtomic,
+  saveMangaPositionAtomic,
   updateMangaRead,
   updateMangaReadBatch,
   createDatabaseBackup,
@@ -133,6 +134,33 @@ test('manga tracking and per-chapter read state are syncable', () => {
   const records = syncBundle().records;
   assert.equal(records.some((record) => record.kind === 'manga' && record.key === 'm1'), true);
   assert.equal(records.some((record) => record.kind === 'manga_read' && record.key === 'm1:1'), true);
+});
+
+test('manga page progress persists, syncs, and clears when read', () => {
+  const state = readState();
+  state.mangas.m2 = { id: 'm2', name: 'Reader', language: 'sub', readChapters: [] };
+  saveState(state);
+
+  const saved = saveMangaPositionAtomic({ mangaId: 'm2', language: 'sub', chapter: '4', page: 7, pageCount: 12 });
+  assert.equal(saved.position.page, 7);
+  assert.equal(readState().mangaPositions['m2:sub:4'].pageCount, 12);
+  assert.equal(syncBundle().records.some((record) => record.kind === 'manga_position' && record.key === 'm2:sub:4'), true);
+
+  updateMangaRead('m2', '4', true);
+  assert.equal(readState().mangaPositions['m2:sub:4'], undefined);
+  assert.equal(saveMangaPositionAtomic({ mangaId: 'm2', language: 'sub', chapter: '4', page: 8 }).cleared, true);
+});
+
+test('merges manga page progress from another device', () => {
+  mergeSyncBundles([{
+    version: 1,
+    deviceId: 'tablet',
+    records: [
+      { kind: 'manga', key: 'm3', value: { id: 'm3', name: 'Synced reader' }, updatedAt: '2099-04-01T00:00:00.000Z', deviceId: 'tablet' },
+      { kind: 'manga_position', key: 'm3:raw:1.5', value: { mangaId: 'm3', language: 'raw', chapter: '1.5', page: 3, pageCount: 9 }, updatedAt: '2099-04-01T00:00:01.000Z', deviceId: 'tablet' },
+    ],
+  }]);
+  assert.equal(readState().mangaPositions['m3:raw:1.5'].page, 3);
 });
 
 test('marks multiple manga chapters read in one atomic update', () => {

@@ -22,6 +22,7 @@ export function latestPositionForShow(show) {
 export async function loadProgress() {
   const data = await api('/api/progress');
   state.positions = data.positions || {};
+  state.mangaPositions = data.mangaPositions || {};
 }
 
 export function saveProgress(showId, episode, position, duration) {
@@ -44,6 +45,60 @@ export function saveProgress(showId, episode, position, duration) {
   }
 
   postBeacon('/api/progress', { id: showId, episode, position: pos, duration: dur });
+}
+
+export function mangaPositionKey(mangaId, language, chapter) {
+  return `${mangaId}:${language === 'raw' ? 'raw' : 'sub'}:${String(chapter || '').trim()}`;
+}
+
+export function mangaPositionFor(mangaId, language, chapter) {
+  return state.mangaPositions[mangaPositionKey(mangaId, language, chapter)] || null;
+}
+
+export function latestMangaPositionFor(manga) {
+  const language = manga?.language === 'raw' ? 'raw' : 'sub';
+  const read = new Set((manga?.readChapters || []).map(String));
+  return Object.values(state.mangaPositions || {})
+    .filter((position) => position.mangaId === manga?.id && position.language === language)
+    .filter((position) => !read.has(String(position.chapter)))
+    .sort((a, b) => Date.parse(b.updatedAt || 0) - Date.parse(a.updatedAt || 0))[0] || null;
+}
+
+export function saveMangaProgress(manga, chapter, page, pageCount) {
+  if (!manga?.id || !chapter) return;
+  const language = manga.language === 'raw' ? 'raw' : 'sub';
+  const key = mangaPositionKey(manga.id, language, chapter);
+  const currentPage = Math.floor(Number(page));
+  if (!Number.isFinite(currentPage) || currentPage < 1) return;
+  const position = {
+    mangaId: manga.id,
+    language,
+    chapter: String(chapter),
+    page: currentPage,
+    pageCount: Number(pageCount) > 0 ? Math.floor(Number(pageCount)) : null,
+    updatedAt: new Date().toISOString(),
+  };
+  state.mangaPositions[key] = position;
+  postBeacon('/api/manga/progress', position);
+}
+
+export function removeMangaProgress(manga, chapter) {
+  if (!manga?.id || !chapter) return;
+  const language = manga.language === 'raw' ? 'raw' : 'sub';
+  const key = mangaPositionKey(manga.id, language, chapter);
+  delete state.mangaPositions[key];
+}
+
+export function clearMangaProgress(manga, chapter) {
+  if (!manga?.id || !chapter) return;
+  const language = manga.language === 'raw' ? 'raw' : 'sub';
+  removeMangaProgress(manga, chapter);
+  postBeacon('/api/manga/progress', {
+    mangaId: manga.id,
+    language,
+    chapter: String(chapter),
+    clear: true,
+  });
 }
 
 export function formatClock(seconds) {

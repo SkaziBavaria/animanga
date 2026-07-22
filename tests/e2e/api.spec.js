@@ -38,6 +38,21 @@ test.describe('Backend API', () => {
     expect(body.positions[`${SHOW_ID}:progress-test`].position).toBe(100);
   });
 
+  test('persists manga page progress until the chapter is read', async ({ request }) => {
+    const mangaId = 'e2e-api-manga-progress';
+    await request.post('/api/manga/progress', {
+      data: { mangaId, language: 'sub', chapter: '2', page: 4, pageCount: 9 },
+    });
+    let body = await (await request.get('/api/progress')).json();
+    expect(body.mangaPositions[`${mangaId}:sub:2`].page).toBe(4);
+
+    await request.post('/api/manga/read', {
+      data: { id: mangaId, chapter: '2', read: true, manga: { name: 'Progress test' } },
+    });
+    body = await (await request.get('/api/progress')).json();
+    expect(body.mangaPositions[`${mangaId}:sub:2`]).toBeUndefined();
+  });
+
   test('tracks, marks and untracks a show', async ({ request }) => {
     const tracked = await (await request.post('/api/track', {
       data: { id: SHOW_ID, name: 'E2E API Show', episodes: ['1', '2', '3'], mode: 'sub', tracked: true },

@@ -10,6 +10,7 @@ export const state = {
   downloads: {},
   offlineMangaDownloads: [],
   positions: {},
+  mangaPositions: {},
   libraryFilter: 'all',
   librarySort: 'new',
   activeShow: null,

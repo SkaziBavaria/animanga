@@ -1,5 +1,11 @@
 import { api, toast, runAction } from './api.js';
 import { els } from './dom.js';
+import {
+  latestMangaPositionFor,
+  mangaPositionFor,
+  removeMangaProgress,
+  saveMangaProgress,
+} from './progress.js';
 import { state } from './state.js';
 import { escapeHtml, nextEpisode, stripDescription } from './util.js';
 
@@ -120,7 +126,8 @@ function relationLabel(value) {
 
 function mangaCard(manga, source) {
   const tracked = state.mangaLibrary.some((item) => item.id === manga.id && item.tracked !== false);
-  const chapter = nextChapter(manga);
+  const resume = source === 'library' ? latestMangaPositionFor(manga) : null;
+  const chapter = resume?.chapter || nextChapter(manga);
   const cover = coverUrl(manga.thumbnail);
   const started = (manga.readChapters || []).length > 0;
   const canContinue = started && Number(manga.newCount) > 0;
@@ -129,8 +136,11 @@ function mangaCard(manga, source) {
   const recentlyUpdated = mangaRecentlyUpdated(manga.lastChapterDate);
   const origin = mangaOriginLabel(manga.countryOfOrigin);
   const hasSequel = (manga.relations || []).some((item) => String(item.relation).toLowerCase().includes('sequel'));
+  const readLabel = resume
+    ? `Resume ch ${chapter} · page ${resume.page}`
+    : `${canContinue ? 'Continue' : 'Read'} ch ${chapter}`;
   const primary = source === 'library'
-    ? `<button class="primary play-action ${canContinue ? 'play-action-continue' : 'play-action-play'} manga-read-action" data-action="manga-read" data-chapter="${escapeHtml(chapter)}">${chapter ? `${canContinue ? 'Continue' : 'Read'} ch ${escapeHtml(chapter)}` : 'Chapters'}</button>`
+    ? `<button class="primary play-action ${resume ? 'play-action-resume' : canContinue ? 'play-action-continue' : 'play-action-play'} manga-read-action" data-action="manga-read" data-chapter="${escapeHtml(chapter)}">${chapter ? escapeHtml(readLabel) : 'Chapters'}</button>`
     : tracked
       ? '<button class="tracked" data-action="manga-tracked" disabled>In library</button>'
       : '<button class="primary" data-action="manga-track">Add to library</button>';
@@ -249,13 +259,20 @@ async function removeManga(manga) {
 function chapterRow(manga, chapter) {
   const chapterText = String(chapter);
   const read = (manga.readChapters || []).map(String).includes(chapterText);
+  const position = read ? null : mangaPositionFor(manga.id, manga.language, chapterText);
   const downloaded = Boolean(state.mangaDownloads[chapterText]);
-  const upNext = !read && chapterText === String(nextChapter(manga));
+  const upNext = !read && !position && chapterText === String(nextChapter(manga));
   const released = mangaDateLabel(manga.chapterDates?.[chapterText]);
   const classes = ['episode', 'episode-play', 'chapter-open'];
   if (read) classes.push('watched');
   if (upNext) classes.push('next');
-  const stateLabels = [read ? 'Read' : upNext ? 'Up next' : 'Open in reader'];
+  const pageProgress = position
+    ? Math.min(95, Math.max(1, Math.round((position.page / (position.pageCount || position.page)) * 100)))
+    : 0;
+  const pageLabel = position
+    ? `Resume page ${position.page}${position.pageCount ? ` of ${position.pageCount}` : ''}`
+    : '';
+  const stateLabels = [read ? 'Read' : pageLabel || (upNext ? 'Up next' : 'Open in reader')];
   if (downloaded) stateLabels.push('Downloaded');
   return `
     <article class="episode-row-wrap chapter-row${read ? ' watched' : ''}${downloaded ? ' has-download downloaded' : ''}" data-chapter="${escapeHtml(chapterText)}">
@@ -275,8 +292,8 @@ function chapterRow(manga, chapter) {
           </button>
         </div>
       </div>
-      <div class="episode-view-progress${read ? ' complete' : ''}" role="progressbar" aria-label="Chapter ${escapeHtml(chapterText)} read progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${read ? '100' : '0'}" aria-valuetext="${read ? 'Read' : 'Unread'}">
-        <span style="width:${read ? '100' : '0'}%"></span>
+      <div class="episode-view-progress${read ? ' complete' : ''}" role="progressbar" aria-label="Chapter ${escapeHtml(chapterText)} read progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${read ? '100' : pageProgress}" aria-valuetext="${escapeHtml(read ? 'Read' : pageLabel || 'Unread')}">
+        <span style="width:${read ? '100' : pageProgress}%"></span>
       </div>
     </article>`;
 }
@@ -523,27 +540,96 @@ function mangaRelatedSection(relations) {
     </section>`;
 }
 
+let readerPageCount = 0;
+let readerProgressTimer;
+let readerChapterComplete = false;
+let readerRestoring = false;
+
+function currentReaderPage() {
+  const pages = [...els.mangaReaderPages.querySelectorAll('.manga-page')];
+  if (!pages.length) return 0;
+  const root = els.mangaReaderPages.getBoundingClientRect();
+  const marker = root.top + Math.min(80, root.height * 0.2);
+  const visible = pages.find((page) => page.getBoundingClientRect().bottom > marker) || pages.at(-1);
+  return Number(visible.dataset.page) || pages.indexOf(visible) + 1;
+}
+
+function readerReachedEnd() {
+  const lastPage = els.mangaReaderPages.querySelector('.manga-page:last-child');
+  if (!lastPage) return false;
+  const root = els.mangaReaderPages.getBoundingClientRect();
+  return lastPage.getBoundingClientRect().bottom <= root.bottom + 4;
+}
+
+function persistReaderProgress() {
+  const manga = state.activeManga;
+  const chapter = state.activeChapter;
+  if (!manga || !chapter || readerChapterComplete) return;
+  if ((manga.readChapters || []).map(String).includes(String(chapter))) return;
+  const page = currentReaderPage();
+  if (!page) return;
+  saveMangaProgress(manga, chapter, page, readerPageCount);
+  renderMangaLibrary();
+  if (els.mangaDialog.open) renderChapterGrid(manga);
+}
+
+async function completeReaderChapter() {
+  if (readerChapterComplete || !state.activeManga || !state.activeChapter) return;
+  readerChapterComplete = true;
+  clearTimeout(readerProgressTimer);
+  removeMangaProgress(state.activeManga, state.activeChapter);
+  state.activeManga = await setChapterRead(state.activeManga, state.activeChapter, true);
+}
+
+function restoreReaderProgress(manga, chapter) {
+  const position = mangaPositionFor(manga.id, manga.language, chapter);
+  const target = position && els.mangaReaderPages.querySelector(`.manga-page[data-page="${position.page}"]`);
+  if (!target) return;
+  let restored = false;
+  const restore = () => {
+    if (restored) return;
+    restored = true;
+    readerRestoring = true;
+    requestAnimationFrame(() => {
+      els.mangaReaderPages.scrollTop = target.offsetTop;
+      setTimeout(() => { readerRestoring = false; }, 100);
+    });
+  };
+  const image = target.querySelector('img');
+  if (image?.complete) restore();
+  else {
+    image?.addEventListener('load', restore, { once: true });
+    image?.addEventListener('error', restore, { once: true });
+    setTimeout(restore, 150);
+  }
+}
+
 async function openMangaReader(manga, chapter) {
   if (!chapter) return openMangaChapters(manga);
+  clearTimeout(readerProgressTimer);
   els.mangaReaderTitle.textContent = manga.name;
   els.mangaReaderMeta.textContent = `Chapter ${chapter}`;
   els.mangaReaderPages.innerHTML = '<div class="empty">Loading pages...</div>';
   state.activeManga = manga;
   state.activeChapter = String(chapter);
+  readerChapterComplete = (manga.readChapters || []).map(String).includes(String(chapter));
+  readerRestoring = false;
   updateReaderControls();
   if (els.mangaDialog.open) els.mangaDialog.close();
   if (!els.mangaReaderDialog.open) els.mangaReaderDialog.showModal();
   showReaderControls();
   const data = await api(`/api/manga/${encodeURIComponent(manga.id)}/chapters/${encodeURIComponent(chapter)}/pages`);
+  readerPageCount = data.pages.length;
   if (data.uploadDate) state.activeManga.chapterDates = { ...(state.activeManga.chapterDates || {}), [String(chapter)]: data.uploadDate };
   els.mangaReaderPages.innerHTML = data.pages.map((page) => {
     const src = page.local || String(page.url).startsWith('/')
       ? page.url
       : `/api/proxy?url=${encodeURIComponent(page.url)}&referrer=${encodeURIComponent('https://allmanga.to/')}`;
-    return `<figure class="manga-page"><img src="${escapeHtml(src)}" alt="Page ${page.number}" loading="lazy" decoding="async"><figcaption>Page ${page.number}</figcaption></figure>`;
+    return `<figure class="manga-page" data-page="${escapeHtml(page.number)}"><img src="${escapeHtml(src)}" alt="Page ${page.number}" loading="lazy" decoding="async"><figcaption>Page ${page.number}</figcaption></figure>`;
   }).join('');
   if (data.notes) els.mangaReaderMeta.textContent = `Chapter ${chapter} · ${data.notes}`;
   els.mangaReaderPages.scrollTop = 0;
+  restoreReaderProgress(manga, chapter);
 }
 
 let readerControlsTimer;
@@ -600,11 +686,11 @@ async function toggleMangaFullscreen() {
 }
 
 async function closeMangaReader() {
-  const manga = state.activeManga;
-  const chapter = state.activeChapter;
+  clearTimeout(readerProgressTimer);
+  if (readerReachedEnd()) await completeReaderChapter();
+  else persistReaderProgress();
   if (els.mangaReaderDialog.classList.contains('manga-reader-fullscreen')) await exitMangaFullscreen();
   els.mangaReaderDialog.close();
-  if (manga && chapter) await markChapterRead(manga, chapter);
 }
 
 function readerChapter(delta) {
@@ -624,13 +710,18 @@ function updateReaderControls() {
 async function changeReaderChapter(delta) {
   const chapter = readerChapter(delta);
   if (!chapter) return;
-  if (delta > 0) await setChapterRead(state.activeManga, state.activeChapter, true);
+  clearTimeout(readerProgressTimer);
+  if (delta > 0) await completeReaderChapter();
+  else persistReaderProgress();
   await openMangaReader(state.activeManga, chapter);
 }
 
 async function setChapterRead(manga, chapter, read, { markThrough = false } = {}) {
   const currentlyRead = (manga.readChapters || []).map(String).includes(String(chapter));
-  if (currentlyRead === read) return manga;
+  if (currentlyRead === read) {
+    if (read) removeMangaProgress(manga, chapter);
+    return manga;
+  }
   const shouldMarkThrough = read && markThrough && Number.isFinite(Number(chapter));
   const data = await api(shouldMarkThrough ? '/api/manga/read-through' : '/api/manga/read', {
     method: 'POST',
@@ -641,6 +732,7 @@ async function setChapterRead(manga, chapter, read, { markThrough = false } = {}
       manga: { name: manga.name, thumbnail: manga.thumbnail, language: manga.language },
     }),
   });
+  if (read) removeMangaProgress(manga, chapter);
   state.activeManga = { ...manga, ...data.manga };
   const index = state.mangaLibrary.findIndex((item) => item.id === manga.id);
   if (index >= 0) state.mangaLibrary[index] = { ...state.mangaLibrary[index], ...data.manga };
@@ -814,6 +906,13 @@ export function bindMangaControls() {
   els.mangaReaderPages.addEventListener('scroll', () => {
     clearTimeout(readerControlsTimer);
     els.mangaReaderDialog.classList.add('controls-hidden');
+    if (readerRestoring) return;
+    clearTimeout(readerProgressTimer);
+    if (readerReachedEnd()) {
+      completeReaderChapter().catch((err) => toast(err.message));
+      return;
+    }
+    readerProgressTimer = setTimeout(persistReaderProgress, 500);
   }, { passive: true });
   els.mangaDownloadChapterBtn.addEventListener('click', () => runAction(els.mangaDownloadChapterBtn, '…', () => toggleChapterDownload(state.activeManga, state.activeChapter)));
   updateMangaFullscreenButton();

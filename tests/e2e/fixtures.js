@@ -71,7 +71,7 @@ function jsonBody(data, status = 200) {
  * Installs deterministic mocks for every /api/* route so the real frontend can
  * be exercised end-to-end without ani-cli or the AllAnime API.
  *
- * Supported overrides: settings, library, downloads, positions, releaseWatches,
+ * Supported overrides: settings, library, downloads, positions, mangaPositions, releaseWatches,
  * searchResults, jobs, relations, playbackStatus (for local playback lookup).
  *
  * @param {import('@playwright/test').Page} page
@@ -82,6 +82,8 @@ async function installApiMocks(page, overrides = {}) {
   const library = overrides.library || [LIBRARY_SHOW];
   const downloads = overrides.downloads || {};
   const positions = overrides.positions || {};
+  const mangaPositions = { ...(overrides.mangaPositions || {}) };
+  const mangaPages = overrides.mangaPages || [{ number: 1, url: 'https://images.example/page-1.webp' }];
   const releaseWatches = overrides.releaseWatches || [];
   let mangaReleaseWatches = overrides.mangaReleaseWatches || [];
   const jobs = overrides.jobs || [];
@@ -143,8 +145,16 @@ async function installApiMocks(page, overrides = {}) {
     }
     if (p === '/api/settings' && method === 'GET') return route.fulfill(jsonBody(settings));
     if (p === '/api/settings' && method === 'POST') return route.fulfill(jsonBody({ ...settings, ...body() }));
-    if (p === '/api/progress' && method === 'GET') return route.fulfill(jsonBody({ positions }));
+    if (p === '/api/progress' && method === 'GET') return route.fulfill(jsonBody({ positions, mangaPositions }));
     if (p === '/api/progress' && method === 'POST') return route.fulfill(jsonBody({ ok: true }));
+    if (p === '/api/manga/progress' && method === 'POST') {
+      const data = body();
+      const language = data.language === 'raw' ? 'raw' : 'sub';
+      const key = `${data.mangaId || data.id}:${language}:${data.chapter}`;
+      if (data.clear || !data.page) delete mangaPositions[key];
+      else mangaPositions[key] = { ...data, mangaId: data.mangaId || data.id, language, chapter: String(data.chapter) };
+      return route.fulfill(jsonBody({ ok: true, position: mangaPositions[key] }));
+    }
     if (p === '/api/sync' && method === 'GET') return route.fulfill(jsonBody(syncPayload()));
     if (p === '/api/sync/provider' && method === 'POST') {
       syncProvider = body().provider;
@@ -194,6 +204,11 @@ async function installApiMocks(page, overrides = {}) {
       if (data.read) read.add(String(data.chapter)); else read.delete(String(data.chapter));
       const manga = { ...current, readChapters: [...read] };
       mangaLibrary = mangaLibrary.map((item) => item.id === manga.id ? manga : item);
+      if (data.read) {
+        Object.entries(mangaPositions).forEach(([key, position]) => {
+          if (position.mangaId === data.id && String(position.chapter) === String(data.chapter)) delete mangaPositions[key];
+        });
+      }
       return route.fulfill(jsonBody({ manga }));
     }
     if (p === '/api/manga/read-through' && method === 'POST') {
@@ -282,7 +297,7 @@ async function installApiMocks(page, overrides = {}) {
       return route.fulfill(jsonBody(method === 'DELETE' ? { deleted: true } : { download: { chapter, pages: 1, status: 'done' } }));
     }
     if (/^\/api\/manga\/[^/]+\/chapters\/[^/]+\/pages$/.test(p)) {
-      return route.fulfill(jsonBody({ pages: [{ number: 1, url: 'https://images.example/page-1.webp' }], notes: 'Chapter title' }));
+      return route.fulfill(jsonBody({ pages: mangaPages, notes: 'Chapter title' }));
     }
     if (/^\/api\/manga\/[^/]+$/.test(p) && method === 'DELETE') {
       mangaLibrary = mangaLibrary.filter((item) => item.id !== p.split('/').pop());

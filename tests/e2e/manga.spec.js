@@ -234,19 +234,54 @@ test.describe('Manga', () => {
     await expect(page.locator('#chapterGrid .chapter-row[data-chapter="2"]')).toHaveClass(/chapter-jump-highlight/);
   });
 
-  test('marks a chapter read when the built-in reader closes', async ({ page }) => {
+  test('saves and restores page progress when the reader closes mid-chapter', async ({ page }) => {
+    await page.route('**/api/manga/*/chapters/*/pages', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        pages: [1, 2, 3].map((number) => ({ number, url: `https://images.example/page-${number}.webp` })),
+        notes: 'Chapter title',
+      }),
+    }));
+    await page.addStyleTag({ content: '.manga-page img { height: 900px !important; min-height: 900px !important; }' });
     await page.click('#mangaLibraryList [data-action="manga-chapters"]');
     const pages = page.waitForRequest((item) => item.url().endsWith('/chapters/2/pages'));
     await page.click('#chapterGrid [data-chapter="2"] [data-action="chapter-open"]');
     await pages;
     await expect(page.locator('#mangaReaderDialog')).toBeVisible();
-    await expect(page.locator('#mangaReaderPages .manga-page')).toHaveCount(1);
+    await expect(page.locator('#mangaReaderPages .manga-page')).toHaveCount(3);
     await expect(page.locator('#mangaDownloadChapterBtn')).toHaveText('↓');
 
-    const mark = page.waitForRequest((item) => item.url().endsWith('/api/manga/read') && item.method() === 'POST');
+    const progress = page.waitForRequest((item) => {
+      if (!item.url().endsWith('/api/manga/progress') || item.method() !== 'POST') return false;
+      return item.postDataJSON().page === 2;
+    });
+    await page.locator('#mangaReaderPages').evaluate((element) => {
+      element.scrollTop = element.querySelector('.manga-page[data-page="2"]').offsetTop;
+    });
+    expect((await progress).postDataJSON()).toMatchObject({ chapter: '2', page: 2, pageCount: 3 });
+    await page.locator('#mangaReaderPages').click({ position: { x: 20, y: 20 } });
     await page.click('#closeMangaReaderBtn');
+    await expect(page.locator('#mangaLibraryList')).toContainText('Progress 1 / 3');
+    await expect(page.locator('#mangaLibraryList [data-action="manga-read"]')).toHaveText('Resume ch 2 · page 2');
+
+    await page.click('#mangaLibraryList [data-action="manga-read"]');
+    await expect.poll(() => page.locator('#mangaReaderPages').evaluate((element) => element.scrollTop)).toBeGreaterThan(700);
+  });
+
+  test('marks a chapter read after reaching the bottom of the last page', async ({ page }) => {
+    await page.route('**/api/manga/*/chapters/*/pages', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ pages: [1, 2].map((number) => ({ number, url: `https://images.example/page-${number}.webp` })) }),
+    }));
+    await page.addStyleTag({ content: '.manga-page img { height: 900px !important; min-height: 900px !important; }' });
+    await page.click('#mangaLibraryList [data-action="manga-chapters"]');
+    await page.click('#chapterGrid [data-chapter="2"] [data-action="chapter-open"]');
+
+    const mark = page.waitForRequest((item) => item.url().endsWith('/api/manga/read') && item.method() === 'POST');
+    await page.locator('#mangaReaderPages').evaluate((element) => { element.scrollTop = element.scrollHeight; });
     expect((await mark).postDataJSON()).toMatchObject({ chapter: '2', read: true });
-    await expect(page.locator('#mangaLibraryList')).toContainText('Progress 2 / 3');
     await expect(page.locator('#mangaLibraryList [data-action="manga-read"]')).toHaveText('Continue ch 3');
   });
 
