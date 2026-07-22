@@ -1,8 +1,30 @@
 # AniManga
 
-AniManga is a self-hosted anime player and manga reader. It uses [ani-cli](https://github.com/pystardust/ani-cli) for anime, supports offline manga reading, keeps track of viewing and reading progress, and runs through Docker or Termux.
+AniManga is a self-hosted anime player and manga reader. Anime and manga metadata, pages, and browser playback are resolved by the Node server. [ani-cli](https://github.com/pystardust/ani-cli) remains an optional compatibility fallback and currently powers episode downloads and some native-player flows.
 
 The player runs in the browser, so you can also install the site as a PWA from Chrome.
+
+## Install with npm
+
+You need Node 22.16 or newer.
+
+```sh
+npm install -g animanga
+animanga start
+```
+
+Open [http://localhost:7831](http://localhost:7831). AniManga stores application data in the platform user-data directory, not inside the global npm package. Run `animanga doctor` to check Node, storage, provider crypto, and optional playback tools.
+
+Useful CLI options:
+
+```sh
+animanga start --host 0.0.0.0 --port 7831
+animanga start --data-dir /path/to/data
+animanga start --resolver ani-cli
+animanga start --no-ani-cli-fallback
+```
+
+The npm package does not install or modify system programs. Browser playback works through the built-in Node resolver. Install ani-cli separately only if you want its temporary fallback or the download/native-player paths that still use it.
 
 ## Run with Docker
 
@@ -84,6 +106,9 @@ Google Drive is also supported, but it requires a Google Cloud OAuth Web client 
 - `ANIMANGA_PORT=7832` changes the port.
 - `ANIMANGA_HOST=0.0.0.0` exposes the server on the local network. Only do this on a network you trust.
 - `ANIMANGA_CLIENT_PLAYBACK=1` forces browser playback.
+- `ANIMANGA_ANIME_RESOLVER=node` selects the built-in runtime resolver (default); use `ani-cli` to force the compatibility path.
+- `ANIMANGA_ANI_CLI_FALLBACK=0` disables automatic fallback when the Node resolver cannot resolve a provider.
+- `ANIMANGA_DATA_DIR=/path/to/data` selects the persistent application-data directory.
 - `ANI_CLI_BIN=/path/to/ani-cli` selects a different ani-cli executable.
 - `ANI_CLI_DOWNLOAD_DIR=/path/to/downloads` changes the download directory.
 
