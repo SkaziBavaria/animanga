@@ -10,7 +10,7 @@ ADD https://raw.githubusercontent.com/pystardust/ani-cli/cc45a5530af350fb0e1a759
 COPY scripts/patch-ani-cli-crypto.js /tmp/patch-ani-cli-crypto.js
 COPY lib/mkissa-crypto.js /tmp/mkissa-crypto.js
 
-# Patch aaReq material from live mkissa bootstrap (master ani-cli no longer ships it).
+# Build-time patch as a fallback snapshot when runtime refresh cannot reach mkissa.
 RUN node /tmp/patch-ani-cli-crypto.js /usr/local/bin/ani-cli \
   && sh -n /usr/local/bin/ani-cli \
   && chmod +x /usr/local/bin/ani-cli \
@@ -22,6 +22,9 @@ COPY package.json ./
 COPY server.js ./
 COPY lib ./lib
 COPY public ./public
+COPY scripts ./scripts
+
+RUN chmod +x /app/scripts/docker-entrypoint.sh /app/scripts/refresh-ani-cli-crypto.js
 
 ENV ANIMANGA_HOST=0.0.0.0
 ENV ANIMANGA_PORT=7831
@@ -29,7 +32,8 @@ ENV ANIMANGA_CLIENT_PLAYBACK=1
 ENV ANIMANGA_DATA_DIR=/data/app
 ENV ANI_CLI_DOWNLOAD_DIR=/data/downloads
 ENV ANI_CLI_HIST_DIR=/data/ani-cli
+ENV ANI_CLI_BIN=/usr/local/bin/ani-cli
 
 EXPOSE 7831
 
-CMD ["node", "server.js"]
+ENTRYPOINT ["/app/scripts/docker-entrypoint.sh"]

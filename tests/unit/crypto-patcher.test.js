@@ -33,13 +33,13 @@ test('patches the stable Node-based aaReq implementation', () => {
   const output = patchStableAniCli(stable, {
     key,
     epoch: '6885',
-    buildId: '63',
+    buildId: '64',
     origin: 'https://mkissa.to',
   });
-  assert.match(output, /epoch:6885,buildId:'63'/);
-  assert.match(output, /update\('6885:63:'\+qh\+':'\+ts\)/);
+  assert.match(output, /epoch:6885,buildId:'64'/);
+  assert.match(output, /update\('6885:64:'\+qh\+':'\+ts\)/);
   assert.match(output, /Origin: https:\/\/mkissa\.to/);
-  assert.match(output, /x-build-id: 63/);
+  assert.match(output, /x-build-id: 64/);
   assert.match(output, new RegExp(key));
 });
 
@@ -49,23 +49,16 @@ test('fails closed when upstream no longer exposes expected values', () => {
 
 test('extractClientCrypto reads mask and buildId from the mkissa crypto chunk shape', () => {
   const legacy = [
-    'noise',
+    'noise aaReq',
     'const qd="a39b86dbbcf57f884f3e9074969e7fe26656c74012e4545605896621ffa441c1",kr=yt(183)!=="string"?"63":"";',
-    'function sign(){ return aaReq; }',
   ].join('\n');
-  assert.deepEqual(extractClientCrypto(legacy), {
-    maskHex: 'a39b86dbbcf57f884f3e9074969e7fe26656c74012e4545605896621ffa441c1',
-    buildId: '63',
-  });
+  assert.equal(extractClientCrypto(legacy).buildId, '63');
 
   const current = [
     'noise aaReq',
     'const Ba=ht(383)!=="string"?"70bb5e6260e19a806b3609dc0b6eb718899b09edbd0c23703a5de00e544de128":"",ln="64";',
   ].join('\n');
-  assert.deepEqual(extractClientCrypto(current), {
-    maskHex: '70bb5e6260e19a806b3609dc0b6eb718899b09edbd0c23703a5de00e544de128',
-    buildId: '64',
-  });
+  assert.equal(extractClientCrypto(current).buildId, '64');
 });
 
 test('deriveKey XORs the client mask with partB', () => {

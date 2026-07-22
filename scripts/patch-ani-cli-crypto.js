@@ -74,7 +74,7 @@ async function resolveCryptoConfig(referencePath) {
     }
   }
   const live = await loadMkissaCrypto().fetchLiveCryptoConfig();
-  return { source: 'mkissa', ...live };
+  return { source: live.source || 'mkissa', ...live };
 }
 
 async function main(args) {
