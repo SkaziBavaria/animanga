@@ -51,6 +51,10 @@ export function toast(message) {
   }, 2600);
 }
 
+export function reportBackgroundError(context, error) {
+  console.warn(`[AniManga] ${context}:`, error);
+}
+
 export async function withBusy(button, label, task) {
   if (!button) return task();
   const previous = button.textContent;
@@ -88,5 +92,5 @@ export function postBeacon(path, payload) {
     body,
     headers: { 'content-type': 'application/json' },
     keepalive: true,
-  }).catch(() => {});
+  }).catch((error) => reportBackgroundError(`Background request to ${path} failed`, error));
 }

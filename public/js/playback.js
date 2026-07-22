@@ -1,4 +1,4 @@
-import { api, toast, postBeacon } from './api.js';
+import { api, reportBackgroundError, toast, postBeacon } from './api.js';
 import { els } from './dom.js';
 import { state } from './state.js';
 import { usesBrowserPlayer } from './status.js';
@@ -146,7 +146,9 @@ function markEpisodeFinished() {
   });
   renderLibrary();
   if (state.activeShow && state.activeShow.id === showId) {
-    import('./episodes.js').then(({ renderEpisodeGrid }) => renderEpisodeGrid(state.activeShow)).catch(() => {});
+    import('./episodes.js')
+      .then(({ renderEpisodeGrid }) => renderEpisodeGrid(state.activeShow))
+      .catch((error) => reportBackgroundError('Could not refresh episode list', error));
   }
 }
 
@@ -262,7 +264,9 @@ async function togglePlayerFullscreen() {
   try {
     if (isPlayerStageFullscreen()) await exitPlayerFullscreen();
     else await requestPlayerFullscreen();
-  } catch {}
+  } catch (error) {
+    toast(`Fullscreen unavailable: ${error.message}`);
+  }
 }
 
 function shouldHideVideoControls() {
@@ -562,7 +566,9 @@ export function bindPlayerDialog() {
     currentShow = null;
     renderLibrary();
     if (state.activeShow) {
-      import('./episodes.js').then(({ renderEpisodeGrid }) => renderEpisodeGrid(state.activeShow)).catch(() => {});
+      import('./episodes.js')
+        .then(({ renderEpisodeGrid }) => renderEpisodeGrid(state.activeShow))
+        .catch((error) => reportBackgroundError('Could not refresh episode list', error));
     }
   });
 

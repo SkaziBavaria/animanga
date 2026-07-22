@@ -1,4 +1,4 @@
-import { api, toast, withBusy } from './api.js';
+import { api, reportBackgroundError, toast, withBusy } from './api.js';
 import { els } from './dom.js';
 import { state } from './state.js';
 import {
@@ -8,7 +8,9 @@ import {
 import { escapeHtml } from './util.js';
 
 function pokeJobsSoon() {
-  setTimeout(() => import('./jobs.js').then(({ loadJobs }) => loadJobs()).catch(() => {}), 1200);
+  setTimeout(() => import('./jobs.js')
+    .then(({ loadJobs }) => loadJobs())
+    .catch((error) => reportBackgroundError('Could not refresh download jobs', error)), 1200);
 }
 
 export async function downloadEpisode(show, episode) {
@@ -94,11 +96,14 @@ export function renderDownloads() {
   els.downloadsList.innerHTML = cards.length ? cards.join('') : '<div class="empty">No downloads.</div>';
 }
 
-function scheduleDownloadsPoll() {
+function scheduleDownloadsPoll(delay = 1200) {
   clearTimeout(loadDownloads.timer);
   const hasActive = Object.values(state.downloads || {}).some((item) => isDownloadBusy(item.status));
   if (hasActive) {
-    loadDownloads.timer = setTimeout(() => loadDownloads().catch(() => {}), 1200);
+    loadDownloads.timer = setTimeout(() => loadDownloads().catch((error) => {
+      reportBackgroundError('Download polling failed', error);
+      scheduleDownloadsPoll(3000);
+    }), delay);
   }
 }
 

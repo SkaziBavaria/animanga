@@ -1,4 +1,4 @@
-import { api, toast, runAction } from './api.js';
+import { api, reportBackgroundError, toast, runAction } from './api.js';
 import { els } from './dom.js';
 import {
   latestMangaPositionFor,
@@ -405,7 +405,7 @@ async function refreshMangaDownloadsAfterBatch(manga) {
   updateReaderControls();
 }
 
-function scheduleMangaDownloadPoll(manga) {
+function scheduleMangaDownloadPoll(manga, delay = 800) {
   clearTimeout(mangaDownloadPollTimer);
   if (!mangaDownloadJobActive(state.mangaDownloadJob)) return;
   mangaDownloadPollTimer = setTimeout(async () => {
@@ -420,8 +420,11 @@ function scheduleMangaDownloadPoll(manga) {
         if (completed) toast(`${completed} chapter${completed === 1 ? '' : 's'} downloaded`);
         await refreshMangaDownloadsAfterBatch(manga);
       }
-    } catch {}
-  }, 800);
+    } catch (error) {
+      reportBackgroundError('Manga download polling failed', error);
+      if (mangaDownloadJobActive(state.mangaDownloadJob)) scheduleMangaDownloadPoll(manga, 2500);
+    }
+  }, delay);
 }
 
 async function loadMangaDownloadJobs(manga) {
@@ -917,7 +920,7 @@ export function bindMangaControls() {
   els.mangaDownloadChapterBtn.addEventListener('click', () => runAction(els.mangaDownloadChapterBtn, '…', () => toggleChapterDownload(state.activeManga, state.activeChapter)));
   updateMangaFullscreenButton();
   els.mangaFullscreenBtn.addEventListener('click', () => toggleMangaFullscreen().catch((err) => {
-    exitMangaFullscreen().catch(() => {});
+    exitMangaFullscreen().catch((exitError) => reportBackgroundError('Could not exit manga fullscreen', exitError));
     toast(`Fullscreen unavailable: ${err.message}`);
   }));
   const syncMangaFullscreen = () => {
