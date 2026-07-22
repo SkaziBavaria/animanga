@@ -2,6 +2,8 @@ services:
   animanga:
     build: .
     restart: unless-stopped
+    init: true
+    stop_grace_period: 20s
     ports:
       - "${ANIMANGA_BIND_ADDRESS:-127.0.0.1}:7831:7831"
     environment:

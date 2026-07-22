@@ -5,11 +5,12 @@ const http = require('http');
 const fs = require('fs');
 const os = require('os');
 const { HOST, PORT, HISTORY_FILE, ACCESS_TOKEN, ACCESS_USERNAME } = require('./lib/config');
-const { ensureDataDir, startBackupSchedule } = require('./lib/state');
+const { ensureDataDir, startBackupSchedule, closeState } = require('./lib/state');
 const { handleApi } = require('./lib/routes');
 const { serveStatic } = require('./lib/static');
-const { syncNow } = require('./lib/sync');
+const { syncNow, waitForActiveSync } = require('./lib/sync');
 const { requireAuthentication } = require('./lib/auth');
+const { shutdownJobs } = require('./lib/jobs');
 
 ensureDataDir();
 startBackupSchedule();
@@ -46,5 +47,44 @@ server.listen(PORT, HOST, () => {
   console.log(`History: ${HISTORY_FILE}`);
 });
 
-setTimeout(() => syncNow({ silent: true }), 15_000).unref();
-setInterval(() => syncNow({ silent: true }), 5 * 60_000).unref();
+const initialSyncTimer = setTimeout(() => syncNow({ silent: true }), 15_000);
+const syncTimer = setInterval(() => syncNow({ silent: true }), 5 * 60_000);
+initialSyncTimer.unref();
+syncTimer.unref();
+
+let shuttingDown = false;
+
+async function shutdown(signal) {
+  if (shuttingDown) {
+    console.error(`Received ${signal} again; forcing exit`);
+    process.exit(1);
+  }
+  shuttingDown = true;
+  console.log(`Received ${signal}; shutting down`);
+  clearTimeout(initialSyncTimer);
+  clearInterval(syncTimer);
+
+  const serverClosed = new Promise((resolve) => server.close(resolve));
+  const connectionDeadline = setTimeout(() => server.closeAllConnections(), 10_000);
+  connectionDeadline.unref();
+
+  await Promise.all([
+    serverClosed,
+    shutdownJobs(),
+    waitForActiveSync(),
+  ]);
+  clearTimeout(connectionDeadline);
+  await closeState();
+  console.log('AniManga stopped cleanly');
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM').catch((error) => {
+  console.error('Shutdown failed:', error);
+  process.exitCode = 1;
+}));
+process.on('SIGINT', () => shutdown('SIGINT').catch((error) => {
+  console.error('Shutdown failed:', error);
+  process.exitCode = 1;
+}));
+
+module.exports = { server, shutdown };

@@ -54,7 +54,7 @@ git pull --ff-only
 docker compose up -d --build
 ```
 
-Docker stores the database, logs, downloaded episodes, and downloaded manga pages in the local `data/` directory. Rebuilding or restarting the container does not remove them. The standard image includes ffmpeg and does not include ani-cli.
+Docker stores the database, logs, downloaded episodes, and downloaded manga pages in the local `data/` directory. Rebuilding or restarting the container does not remove them. On the first start of the hardened image, existing files in that directory are assigned to the container's unprivileged `node` user; the application process itself does not run as root. The image includes a healthcheck and ffmpeg, and does not include ani-cli.
 
 ## Run on Android with Termux
 
