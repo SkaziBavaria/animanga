@@ -73,7 +73,9 @@ async function resolveCryptoConfig(referencePath) {
       process.stderr.write(`Reference crypto unavailable (${error.message}); fetching live mkissa material\n`);
     }
   }
-  const live = await loadMkissaCrypto().fetchLiveCryptoConfig();
+  const crypto = loadMkissaCrypto();
+  const live = await crypto.fetchLiveCryptoConfig();
+  await crypto.validateCryptoConfig(live);
   return { source: live.source || 'mkissa', ...live };
 }
 

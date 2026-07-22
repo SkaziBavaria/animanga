@@ -1,11 +1,38 @@
 {
   "name": "animanga",
   "version": "0.1.0",
-  "private": true,
-  "description": "AniManga is a self-hosted anime player and manga reader powered by ani-cli and AllManga",
+  "private": false,
+  "description": "Self-hosted anime player and manga reader",
+  "license": "MIT",
   "type": "commonjs",
+  "bin": {
+    "animanga": "./bin/animanga.js"
+  },
+  "files": [
+    "bin",
+    "lib",
+    "public",
+    "server.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SkaziBavaria/ani-web.git"
+  },
+  "homepage": "https://github.com/SkaziBavaria/ani-web#readme",
+  "bugs": {
+    "url": "https://github.com/SkaziBavaria/ani-web/issues"
+  },
+  "keywords": [
+    "anime",
+    "manga",
+    "self-hosted",
+    "pwa"
+  ],
   "scripts": {
     "start": "node server.js",
+    "prepack": "npm run test:unit",
     "test": "npm run test:unit && npm run test:e2e",
     "test:unit": "node scripts/run-node-tests.js tests/unit",
     "test:contract": "node scripts/run-node-tests.js tests/contract",
@@ -14,6 +41,9 @@
   },
   "engines": {
     "node": ">=22.16"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1"

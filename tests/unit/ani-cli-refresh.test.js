@@ -12,8 +12,11 @@ const requestTail = '${allanime_api}/api" --data-urlencode "variables=${query_va
 
 function stableFixture() {
   return [
+    '#!/bin/sh',
+    'node_crypto="',
     "const payload = JSON.stringify({v:1,ts:ts,epoch:4128,buildId:'9',qh:qh});",
     "const iv = crypto.createHash('sha256').update('4128:9:'+qh+':'+ts).digest();",
+    '"',
     `    api_resp="$(curl -H "Origin: \${allanime_refr}" "${requestTail}`,
     'allanime_key="22196fa6afca95309fdabe9a3534b87cd2454e50efeabfcbdbdfd3de678b3982"',
     '',
@@ -33,11 +36,37 @@ test('atomic refresh patches ani-cli only after a complete live config', async (
       origin: 'https://mkissa.to',
       source: 'mkissa',
     }),
+    validateConfig: async () => ({ ok: true }),
   });
   assert.equal(result.ok, true);
   const patched = fs.readFileSync(aniCliPath, 'utf8');
   assert.match(patched, /epoch:6885,buildId:'64'/);
   assert.match(patched, new RegExp(key));
+  assert.equal(fs.readdirSync(dir).some((name) => name.includes('.ani-cli.crypto-refresh.')), false);
+});
+
+test('failed atomic replacement leaves the previous ani-cli file unchanged', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'animanga-ani-cli-'));
+  const aniCliPath = path.join(dir, 'ani-cli');
+  const original = stableFixture();
+  fs.writeFileSync(aniCliPath, original);
+  const result = await refreshAniCliCrypto({
+    aniCliPath,
+    fetchConfig: async () => ({
+      key,
+      epoch: '6885',
+      buildId: '64',
+      origin: 'https://mkissa.to',
+      source: 'mkissa',
+    }),
+    validateConfig: async () => ({ ok: true }),
+    replaceFile: () => {
+      throw new Error('atomic rename unavailable');
+    },
+  });
+  assert.equal(result.ok, false);
+  assert.equal(fs.readFileSync(aniCliPath, 'utf8'), original);
+  assert.match(result.reason, /atomic rename unavailable/);
   assert.equal(fs.readdirSync(dir).some((name) => name.includes('.ani-cli.crypto-refresh.')), false);
 });
 
@@ -56,4 +85,27 @@ test('failed refresh leaves the previous ani-cli file unchanged', async () => {
   assert.equal(fs.readFileSync(aniCliPath, 'utf8'), original);
   assert.equal(fs.readdirSync(dir).some((name) => name.includes('.ani-cli.crypto-refresh.')), false);
   assert.doesNotMatch(result.reason || '', /[0-9a-f]{64}/i);
+});
+
+test('failed live validation keeps the previous ani-cli file', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'animanga-ani-cli-'));
+  const aniCliPath = path.join(dir, 'ani-cli');
+  const original = stableFixture();
+  fs.writeFileSync(aniCliPath, original);
+  const result = await refreshAniCliCrypto({
+    aniCliPath,
+    fetchConfig: async () => ({
+      key,
+      epoch: '6885',
+      buildId: '64',
+      origin: 'https://mkissa.to',
+      source: 'mkissa',
+    }),
+    validateConfig: async () => {
+      throw new Error('AA_CRYPTO_STALE');
+    },
+  });
+  assert.equal(result.ok, false);
+  assert.equal(fs.readFileSync(aniCliPath, 'utf8'), original);
+  assert.match(result.reason, /AA_CRYPTO_STALE/);
 });
