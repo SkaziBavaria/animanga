@@ -81,3 +81,12 @@ test('dispatcher preserves typed body and validation errors', async () => {
   assert.equal(missingId.res.status, 422);
   assert.equal(missingId.json.error, 'Missing show id');
 });
+
+test('manga progress accepts the public mangaId payload shape', async () => {
+  const result = await request('/api/manga/progress', {
+    method: 'POST',
+    body: { mangaId: 'manga-1', language: 'sub', chapter: '2', page: 4, pageCount: 9 },
+  });
+  assert.equal(result.res.status, 200);
+  assert.equal(result.json.position.page, 4);
+});

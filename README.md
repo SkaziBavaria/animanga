@@ -131,3 +131,21 @@ OAuth client secrets and access tokens are stored in the local SQLite database. 
 The previous `ANI_WEB_*` variable names remain supported for existing installations.
 
 The native installation requires Node 22.16 or newer. The Docker image includes a compatible Node version and all runtime dependencies.
+
+## Development checks
+
+Install the locked development dependencies and run the same static checks and unit tests used by CI:
+
+```sh
+npm ci
+npm run check
+```
+
+For browser tests, install Chromium once and run the E2E suite:
+
+```sh
+npx playwright install chromium
+npm run test:e2e
+```
+
+`RUN_CONTRACT=1 npm run test:contract` runs the slower live-provider checks. They verify current AllAnime/AllManga crypto, manga page decryption, browser playback, byte-range video access, and AniSkip. These checks are scheduled separately because upstream availability is outside AniManga's control.
