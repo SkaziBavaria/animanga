@@ -140,7 +140,7 @@ test.describe('Episodes dialog', () => {
     await expect(page.locator('#libraryList .show-card button[data-action="play"]')).toHaveText('Continue ep 3');
   });
 
-  test('retries skip lookup after the video duration becomes available', async ({ page }) => {
+  test('waits for the video duration before looking up skip times', async ({ page }) => {
     const skipDurations = [];
     await installApiMocks(page, {
       skipTimes: (url) => {
@@ -155,7 +155,8 @@ test.describe('Episodes dialog', () => {
     await page.click('#episodeGrid .episode-play[data-episode="2"]');
     await expect(page.locator('#playerDialog')).toBeVisible();
 
-    await expect.poll(() => skipDurations.includes(0)).toBe(true);
+    await page.waitForTimeout(100);
+    expect(skipDurations).not.toContain(0);
     await page.evaluate(() => {
       const video = document.querySelector('#playerVideo');
       Object.defineProperty(video, 'duration', { value: 120, configurable: true });
@@ -167,6 +168,7 @@ test.describe('Episodes dialog', () => {
       document.querySelector('#playerVideo').dispatchEvent(new Event('timeupdate'));
       return document.querySelector('#skipButton').hidden;
     })).toBe(false);
+    expect(skipDurations).not.toContain(0);
     expect(skipDurations).toContain(120);
     await expect(page.locator('#skipButton')).toContainText('Skip Intro');
   });
