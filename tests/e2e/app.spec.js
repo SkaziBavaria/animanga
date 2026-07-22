@@ -13,7 +13,7 @@ test.describe('Shell & navigation', () => {
     await expect(page).toHaveTitle('AniManga');
     await expect(page.locator('.brand-logo')).toHaveAttribute('src', '/animanga-logo.png');
     await expect(page.locator('.brand-logo')).toHaveAttribute('alt', 'AniManga');
-    await expect(page.locator('#statusText')).toContainText('ani-cli');
+    await expect(page.locator('#statusText')).toContainText('AniManga resolver');
     await expect(page.locator('#libraryView')).toHaveClass(/active/);
     await expect(page.locator('#libraryList .show-card')).toHaveCount(1);
     await expect(page.locator('#libraryList')).toContainText('Library Test Show');

@@ -1,12 +1,12 @@
 # AniManga
 
-AniManga is a self-hosted anime player and manga reader. Anime and manga metadata, pages, and browser playback are resolved by the Node server. [ani-cli](https://github.com/pystardust/ani-cli) remains an optional compatibility fallback and currently powers episode downloads and some native-player flows.
+AniManga is a self-hosted anime player and manga reader. Anime and manga metadata, pages, browser playback, and downloads are resolved by the Node server. Episode downloads are written with ffmpeg; ani-cli is not required.
 
 The player runs in the browser, so you can also install the site as a PWA from Chrome.
 
 ## Install with npm
 
-You need Node 22.16 or newer.
+You need Node 22.16 or newer. Install ffmpeg as well if you want to download anime episodes; manga downloads do not require it.
 
 ```sh
 npm install -g animanga
@@ -21,10 +21,10 @@ Useful CLI options:
 animanga start --host 0.0.0.0 --port 7831
 animanga start --data-dir /path/to/data
 animanga start --resolver ani-cli
-animanga start --no-ani-cli-fallback
+animanga start --ani-cli-fallback
 ```
 
-The npm package does not install or modify system programs. Browser playback works through the built-in Node resolver. Install ani-cli separately only if you want its temporary fallback or the download/native-player paths that still use it.
+The npm package does not install or modify system programs. Browser playback and manga work through the built-in Node adapters. Anime episode downloads use the `ffmpeg` executable available on your system.
 
 ## Run with Docker
 
@@ -46,7 +46,7 @@ git pull --ff-only
 docker compose up -d --build
 ```
 
-Docker stores the database, ani-cli history, logs, and downloaded episodes in the local `data/` directory. Rebuilding or restarting the container does not remove them.
+Docker stores the database, logs, downloaded episodes, and downloaded manga pages in the local `data/` directory. Rebuilding or restarting the container does not remove them. The standard image includes ffmpeg and does not include ani-cli.
 
 ## Run on Android with Termux
 
@@ -59,7 +59,7 @@ pkg install -y curl
 curl -fsSL https://raw.githubusercontent.com/SkaziBavaria/ani-web/main/scripts/install-termux.sh | sh
 ```
 
-The installer adds the required Termux packages, checks Node and SQLite, installs the same pinned and patched ani-cli build used by Docker, and places AniManga in `~/animanga`. Existing installations in `~/ani-web` continue to update in place.
+The installer adds the required Termux packages, checks Node, SQLite, and ffmpeg, and places AniManga in `~/animanga`. Existing installations in `~/ani-web` continue to update in place. ani-cli is not installed or required.
 
 Start it with:
 
@@ -107,10 +107,11 @@ Google Drive is also supported, but it requires a Google Cloud OAuth Web client 
 - `ANIMANGA_HOST=0.0.0.0` exposes the server on the local network. Only do this on a network you trust.
 - `ANIMANGA_CLIENT_PLAYBACK=1` forces browser playback.
 - `ANIMANGA_ANIME_RESOLVER=node` selects the built-in runtime resolver (default); use `ani-cli` to force the compatibility path.
-- `ANIMANGA_ANI_CLI_FALLBACK=0` disables automatic fallback when the Node resolver cannot resolve a provider.
+- `ANIMANGA_ANI_CLI_FALLBACK=1` enables the optional legacy ani-cli playback fallback (disabled by default).
 - `ANIMANGA_DATA_DIR=/path/to/data` selects the persistent application-data directory.
+- `ANIMANGA_DOWNLOAD_DIR=/path/to/downloads` changes the anime episode download directory.
 - `ANI_CLI_BIN=/path/to/ani-cli` selects a different ani-cli executable.
-- `ANI_CLI_DOWNLOAD_DIR=/path/to/downloads` changes the download directory.
+- `ANI_CLI_DOWNLOAD_DIR=/path/to/downloads` remains a deprecated alias for `ANIMANGA_DOWNLOAD_DIR`.
 
 The previous `ANI_WEB_*` variable names remain supported for existing installations.
 

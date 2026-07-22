@@ -18,6 +18,7 @@ Options:
   --port <number>        Listen port (default: 7831)
   --data-dir <path>      Persistent data directory
   --resolver <mode>      node or ani-cli (default: node)
+  --ani-cli-fallback     Enable the optional legacy ani-cli playback fallback
   --no-ani-cli-fallback  Disable the temporary ani-cli fallback
   -h, --help             Show this help
   -v, --version          Show the installed version
@@ -40,7 +41,8 @@ function configureStart(args) {
       const resolver = takeValue(args, index++, arg);
       if (!['node', 'ani-cli'].includes(resolver)) throw new Error('--resolver must be node or ani-cli');
       process.env.ANIMANGA_ANIME_RESOLVER = resolver;
-    } else if (arg === '--no-ani-cli-fallback') process.env.ANIMANGA_ANI_CLI_FALLBACK = '0';
+    } else if (arg === '--ani-cli-fallback') process.env.ANIMANGA_ANI_CLI_FALLBACK = '1';
+    else if (arg === '--no-ani-cli-fallback') process.env.ANIMANGA_ANI_CLI_FALLBACK = '0';
     else if (arg === '-h' || arg === '--help') {
       process.stdout.write(usage());
       return false;
@@ -96,9 +98,13 @@ async function doctor() {
     add('Provider crypto', false, error.message, false);
   }
 
-  for (const [label, binary] of [['ani-cli fallback', process.env.ANI_CLI_BIN || 'ani-cli'], ['mpv', 'mpv'], ['ffmpeg', 'ffmpeg']]) {
+  for (const [label, binary, missing] of [
+    ['ffmpeg downloads', 'ffmpeg', 'not installed (anime downloads unavailable)'],
+    ['ani-cli legacy fallback', process.env.ANI_CLI_BIN || 'ani-cli', 'not installed (optional)'],
+    ['mpv native player', 'mpv', 'not installed (optional)'],
+  ]) {
     const available = executable(binary);
-    add(label, available, available ? 'available' : 'not installed (optional)', false);
+    add(label, available, available ? 'available' : missing, false);
   }
 
   for (const check of checks) {

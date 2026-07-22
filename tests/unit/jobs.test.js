@@ -13,6 +13,7 @@ const {
   parseArgsLine,
   buildAniCliArgs,
   clientPlaybackEnabled,
+  startBackgroundTask,
 } = require('../../lib/jobs');
 
 test('parseDebugPlayback extracts the selected link and default referrer', () => {
@@ -83,4 +84,22 @@ test('clientPlaybackEnabled respects the explicit env flag', () => {
   assert.equal(clientPlaybackEnabled(), false);
   if (prev === undefined) delete process.env.ANI_WEB_CLIENT_PLAYBACK;
   else process.env.ANI_WEB_CLIENT_PLAYBACK = prev;
+});
+
+test('background download tasks use the shared queue and report completion', async () => {
+  let ran = false;
+  const completed = new Promise((resolve) => {
+    const job = startBackgroundTask('Node download', async (current) => {
+      assert.equal(current.status, 'running');
+      ran = true;
+    }, (current) => {
+      if (current.status === 'done') resolve(current);
+    });
+    assert.equal(job.status, 'queued');
+  });
+
+  const job = await completed;
+  assert.equal(ran, true);
+  assert.equal(job.status, 'done');
+  assert.ok(job.finishedAt);
 });

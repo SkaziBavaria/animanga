@@ -9,7 +9,7 @@ services:
       ANIMANGA_PORT: "7831"
       ANIMANGA_CLIENT_PLAYBACK: "1"
       ANIMANGA_DATA_DIR: "/data/app"
-      ANI_CLI_DOWNLOAD_DIR: "/data/downloads"
-      ANI_CLI_HIST_DIR: "/data/ani-cli"
+      ANIMANGA_DOWNLOAD_DIR: "/data/downloads"
+      ANIMANGA_ANI_CLI_FALLBACK: "0"
     volumes:
       - ./data:/data
