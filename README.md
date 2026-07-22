@@ -108,6 +108,9 @@ AniManga creates a private repository named `aniweb-sync-data`. The legacy repos
 ### Google Drive
 
 Google Drive is also supported, but it requires a Google Cloud OAuth Web client and an authorized HTTPS redirect URI. The exact callback URI is shown in **Settings → Cloud sync → Google Drive**.
+When AniManga is reached through a LAN address or reverse proxy, set `ANIMANGA_PUBLIC_URL` to its externally visible origin, for example `https://animanga.example.com`. The OAuth callback is then derived from that fixed origin and cannot be changed through request headers.
+
+OAuth client secrets and access tokens are stored in the local SQLite database. AniManga restricts its data directories, database, backups, history, and job logs to the current operating-system user where the platform supports Unix permissions. Protect the `data/` directory as you would any credential store.
 
 ## Useful environment variables
 
@@ -115,6 +118,8 @@ Google Drive is also supported, but it requires a Google Cloud OAuth Web client 
 - `ANIMANGA_HOST=0.0.0.0` exposes the server on the local network. Only do this on a network you trust.
 - `ANIMANGA_ACCESS_TOKEN=...` enables HTTP Basic authentication. This is strongly recommended whenever the server is reachable from another device.
 - `ANIMANGA_ACCESS_USERNAME=animanga` changes the Basic-auth username.
+- `ANIMANGA_PUBLIC_URL=https://animanga.example.com` fixes the external origin used for OAuth callbacks.
+- `ANIMANGA_TRUST_PROXY=1` accepts forwarded host/protocol headers when a fixed public URL cannot be used. Enable it only behind a trusted reverse proxy that overwrites those headers.
 - `ANIMANGA_CLIENT_PLAYBACK=1` forces browser playback.
 - `ANIMANGA_ANIME_RESOLVER=node` selects the built-in runtime resolver (default); use `ani-cli` to force the compatibility path.
 - `ANIMANGA_ANI_CLI_FALLBACK=1` enables the optional legacy ani-cli playback fallback (disabled by default).
