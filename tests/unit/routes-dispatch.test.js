@@ -4,6 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const os = require('os');
 const path = require('path');
+const { Readable } = require('stream');
 
 process.env.ANI_WEB_DATA_DIR = path.join(os.tmpdir(), `ani-web-routes-${process.pid}`);
 
@@ -29,8 +30,13 @@ function response() {
   };
 }
 
-async function request(pathname) {
-  const req = { method: 'GET', headers: {}, on() {} };
+async function request(pathname, options = {}) {
+  const rawBody = options.body === undefined
+    ? ''
+    : typeof options.body === 'string' ? options.body : JSON.stringify(options.body);
+  const req = Readable.from(rawBody ? [Buffer.from(rawBody)] : []);
+  req.method = options.method || 'GET';
+  req.headers = rawBody ? { 'content-length': String(Buffer.byteLength(rawBody)) } : {};
   const res = response();
   await handleApi(req, res, new URL(pathname, 'http://localhost'));
   return { res, json: res.body ? JSON.parse(res.body) : null };
@@ -60,4 +66,18 @@ test('dispatcher reaches playback and returns a consistent unknown-route respons
   const missing = await request('/api/does-not-exist');
   assert.equal(missing.res.status, 404);
   assert.equal(missing.json.error, 'API endpoint missing');
+});
+
+test('dispatcher preserves typed body and validation errors', async () => {
+  const malformed = await request('/api/settings', { method: 'POST', body: '{nope' });
+  assert.equal(malformed.res.status, 400);
+  assert.equal(malformed.json.error, 'Request body must contain valid JSON');
+
+  const unknown = await request('/api/settings', { method: 'POST', body: { admin: true } });
+  assert.equal(unknown.res.status, 422);
+  assert.equal(unknown.json.error, 'Unknown settings field');
+
+  const missingId = await request('/api/track', { method: 'POST', body: { name: 'No id' } });
+  assert.equal(missingId.res.status, 422);
+  assert.equal(missingId.json.error, 'Missing show id');
 });
