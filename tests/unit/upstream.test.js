@@ -16,7 +16,13 @@ test('adds a timeout signal to upstream requests', async () => {
 
 test('turns an elapsed upstream timeout into a typed 504 error', async () => {
   const hangingFetcher = (_url, options) => new Promise((_resolve, reject) => {
-    options.signal.addEventListener('abort', () => reject(options.signal.reason), { once: true });
+    // AbortSignal.timeout() uses an unref'ed timer on Node 22. Keep this
+    // synthetic request alive just like a real network socket would be.
+    const keepAlive = setTimeout(() => reject(new Error('timeout signal did not fire')), 1_000);
+    options.signal.addEventListener('abort', () => {
+      clearTimeout(keepAlive);
+      reject(options.signal.reason);
+    }, { once: true });
   });
   await assert.rejects(
     fetchWithTimeout(hangingFetcher, 'https://slow.example', {}, 5),
