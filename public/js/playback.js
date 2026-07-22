@@ -200,7 +200,7 @@ function intentUrl(url, player, title) {
   const extras = [
     'action=android.intent.action.VIEW',
     'type=video/mp4',
-    `S.title=${encodeURIComponent(title || 'Ani Web')}`,
+    `S.title=${encodeURIComponent(title || 'AniManga')}`,
   ];
   if (player === 'android_mpv') extras.push('package=is.xyz.mpv');
   if (player === 'vlc') extras.push('package=org.videolan.vlc');

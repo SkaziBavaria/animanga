@@ -1,6 +1,6 @@
 {
-  "name": "Ani Web",
-  "short_name": "Ani Web",
+  "name": "AniManga",
+  "short_name": "AniManga",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

@@ -89,7 +89,7 @@ test('uploads one private-repo sync file per device', async () => {
   assert.equal(result.files, 1);
   const upload = requests.find((request) => request.options.method === 'PUT');
   assert.match(upload.url, /\/contents\/devices\/.+\.json$/);
-  assert.equal(JSON.parse(upload.options.body).message.startsWith('Sync ani-web device '), true);
+  assert.equal(JSON.parse(upload.options.body).message.startsWith('Sync AniManga device '), true);
   githubSync.setRawFetcher(null);
 });
 

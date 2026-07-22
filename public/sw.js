@@ -1,7 +1,7 @@
-const SHELL_CACHE = 'ani-web-shell-v41';
-const API_CACHE = 'ani-web-api-v2';
+const SHELL_CACHE = 'animanga-shell-v43';
+const API_CACHE = 'animanga-api-v4';
 const ASSETS = [
-  '/', '/index.html', '/styles.css', '/manifest.webmanifest', '/icon.svg',
+  '/', '/index.html', '/styles.css', '/manifest.webmanifest', '/icon.svg', '/animanga-logo.png',
   '/js/app.js', '/js/api.js', '/js/aniskip.js', '/js/details.js', '/js/discover.js',
   '/js/dom.js', '/js/download-helpers.js', '/js/downloads.js', '/js/episodes.js',
   '/js/events.js', '/js/jobs.js', '/js/library.js', '/js/playback.js',
@@ -23,10 +23,13 @@ async function cachedOfflineResponse(request, cacheName) {
   const cached = await caches.match(request, { cacheName });
   if (!cached) return null;
   const headers = new Headers(cached.headers);
+  headers.set('x-animanga-cache', 'offline');
   headers.set('x-ani-web-cache', 'offline');
-  const cachedAt = Date.parse(headers.get('x-ani-web-cached-at') || '');
+  const cachedAt = Date.parse(headers.get('x-animanga-cached-at') || headers.get('x-ani-web-cached-at') || '');
   if (Number.isFinite(cachedAt)) {
-    headers.set('x-ani-web-cache-age', String(Math.max(0, Math.floor((Date.now() - cachedAt) / 1000))));
+    const age = String(Math.max(0, Math.floor((Date.now() - cachedAt) / 1000)));
+    headers.set('x-animanga-cache-age', age);
+    headers.set('x-ani-web-cache-age', age);
   }
   return new Response(await cached.blob(), {
     status: cached.status,
@@ -42,7 +45,9 @@ async function networkFirst(request, cacheName, fallbackRequest = null) {
       const cache = await caches.open(cacheName);
       const copy = response.clone();
       const headers = new Headers(copy.headers);
-      headers.set('x-ani-web-cached-at', new Date().toISOString());
+      const cachedAt = new Date().toISOString();
+      headers.set('x-animanga-cached-at', cachedAt);
+      headers.set('x-ani-web-cached-at', cachedAt);
       const cachedResponse = new Response(await copy.blob(), {
         status: copy.status,
         statusText: copy.statusText,

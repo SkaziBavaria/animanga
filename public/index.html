@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#111318">
-    <title>Ani Web</title>
+    <title>AniManga</title>
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="icon" href="/icon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="/styles.css">
@@ -14,7 +14,7 @@
       <header class="topbar">
         <div class="topbar-brand">
           <button id="mediaSwitchBtn" class="brand-switch" type="button" title="Switch to manga" aria-label="Currently showing anime. Switch to manga">
-            <h1>Ani Web</h1>
+            <img class="brand-logo" src="/animanga-logo.png" alt="AniManga" width="1000" height="375">
             <span id="mediaModeLabel">Anime</span>
           </button>
           <p id="statusText">Starting...</p>
@@ -236,7 +236,7 @@
                 <span>GitHub OAuth Client ID</span>
                 <input name="clientId" type="text" autocomplete="off" placeholder="OAuth App Client ID">
               </label>
-              <small class="sync-help">Create a GitHub OAuth App with Device Flow enabled. No public callback or client secret is needed. Ani-web creates a private <code>aniweb-sync-data</code> repository. GitHub grants the app <code>repo</code> access so it can create and update that private repository.</small>
+              <small class="sync-help">Create a GitHub OAuth App with Device Flow enabled. No public callback or client secret is needed. AniManga creates a private <code>aniweb-sync-data</code> repository. GitHub grants the app <code>repo</code> access so it can create and update that private repository.</small>
               <div id="githubDeviceAuth" class="device-auth" hidden>
                 <span>Open <a id="githubDeviceUrl" href="https://github.com/login/device" target="_blank" rel="noreferrer">GitHub device login</a> and enter:</span>
                 <strong id="githubDeviceCode"></strong>

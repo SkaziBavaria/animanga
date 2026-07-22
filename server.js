@@ -32,10 +32,10 @@ function lanAddresses() {
 
 server.listen(PORT, HOST, () => {
   const availableHost = ['0.0.0.0', '::', '127.0.0.1', '::1'].includes(HOST) ? 'localhost' : HOST;
-  console.log(`Ani Web available at http://${availableHost}:${PORT}`);
+  console.log(`AniManga available at http://${availableHost}:${PORT}`);
   if (HOST === '0.0.0.0' || HOST === '::') {
     if (!fs.existsSync('/.dockerenv')) {
-      for (const address of lanAddresses()) console.log(`Ani Web available on LAN at http://${address}:${PORT}`);
+      for (const address of lanAddresses()) console.log(`AniManga available on LAN at http://${address}:${PORT}`);
     }
   }
   console.log(`Listening on ${HOST}:${PORT}`);

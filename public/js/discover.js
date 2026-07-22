@@ -95,7 +95,7 @@ export function switchSection(section) {
 export function switchMediaMode(mode = state.mediaMode === 'anime' ? 'manga' : 'anime') {
   if (document.querySelector('#settingsView.active')) state.activeSection = 'library';
   state.mediaMode = mode === 'manga' ? 'manga' : 'anime';
-  localStorage.setItem('ani-web-media-mode', state.mediaMode);
+  localStorage.setItem('animanga-media-mode', state.mediaMode);
   els.mediaModeLabel.textContent = state.mediaMode === 'manga' ? 'Manga' : 'Anime';
   const nextMode = state.mediaMode === 'manga' ? 'anime' : 'manga';
   els.mediaSwitchBtn.title = `Switch to ${nextMode}`;

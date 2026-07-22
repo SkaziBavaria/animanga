@@ -10,7 +10,9 @@ test.describe('Shell & navigation', () => {
   });
 
   test('loads the shell and renders the library', async ({ page }) => {
-    await expect(page).toHaveTitle('Ani Web');
+    await expect(page).toHaveTitle('AniManga');
+    await expect(page.locator('.brand-logo')).toHaveAttribute('src', '/animanga-logo.png');
+    await expect(page.locator('.brand-logo')).toHaveAttribute('alt', 'AniManga');
     await expect(page.locator('#statusText')).toContainText('ani-cli');
     await expect(page.locator('#libraryView')).toHaveClass(/active/);
     await expect(page.locator('#libraryList .show-card')).toHaveCount(1);

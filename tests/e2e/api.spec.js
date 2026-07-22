@@ -39,10 +39,11 @@ test.describe('Backend API', () => {
   });
 
   test('persists manga page progress until the chapter is read', async ({ request }) => {
-    const mangaId = 'e2e-api-manga-progress';
-    await request.post('/api/manga/progress', {
+    const mangaId = `e2e-api-manga-progress-${Date.now()}`;
+    const saved = await (await request.post('/api/manga/progress', {
       data: { mangaId, language: 'sub', chapter: '2', page: 4, pageCount: 9 },
-    });
+    })).json();
+    expect(saved.position?.page).toBe(4);
     let body = await (await request.get('/api/progress')).json();
     expect(body.mangaPositions[`${mangaId}:sub:2`].page).toBe(4);
 
@@ -98,7 +99,7 @@ test.describe('Backend API', () => {
   test('serves static assets and 404s unknown routes', async ({ request }) => {
     const index = await request.get('/');
     expect(index.ok()).toBeTruthy();
-    expect(await index.text()).toContain('Ani Web');
+    expect(await index.text()).toContain('AniManga');
 
     const appJs = await request.get('/js/app.js');
     expect(appJs.ok()).toBeTruthy();

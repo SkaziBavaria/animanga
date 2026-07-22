@@ -1,6 +1,6 @@
-# ani-web
+# AniManga
 
-ani-web is a small web interface for [ani-cli](https://github.com/pystardust/ani-cli). It runs locally, keeps track of watched episodes and playback progress, and works on both a Docker host and an Android phone through Termux.
+AniManga is a self-hosted anime player and manga reader. It uses [ani-cli](https://github.com/pystardust/ani-cli) for anime, supports offline manga reading, keeps track of viewing and reading progress, and runs through Docker or Termux.
 
 The player runs in the browser, so you can also install the site as a PWA from Chrome.
 
@@ -37,12 +37,12 @@ pkg install -y curl
 curl -fsSL https://raw.githubusercontent.com/SkaziBavaria/ani-web/main/scripts/install-termux.sh | sh
 ```
 
-The installer adds the required Termux packages, checks Node and SQLite, installs the same pinned and patched ani-cli build used by Docker, and places ani-web in `~/ani-web`.
+The installer adds the required Termux packages, checks Node and SQLite, installs the same pinned and patched ani-cli build used by Docker, and places AniManga in `~/animanga`. Existing installations in `~/ani-web` continue to update in place.
 
 Start it with:
 
 ```sh
-ani-web
+animanga
 ```
 
 Then open [http://127.0.0.1:7831](http://127.0.0.1:7831) in Chrome. If you want to download episodes to shared storage, run `termux-setup-storage` once and accept Android's permission prompt.
@@ -55,7 +55,7 @@ To install or switch to a specific branch, pass `BRANCH`. For example, while the
 curl -fsSL https://raw.githubusercontent.com/SkaziBavaria/ani-web/feature/manga/scripts/install-termux.sh | BRANCH=feature/manga sh
 ```
 
-Running the normal command again switches back to `main`. `ANI_WEB_BRANCH` remains supported as the longer environment-variable form.
+Running the normal command again switches back to `main`. `ANIMANGA_BRANCH` is the preferred environment-variable form; the legacy `ANI_WEB_BRANCH` remains supported.
 
 Android may stop Termux in the background. Setting Termux battery usage to **Unrestricted** usually fixes that. You can also run `termux-wake-lock` while using the server.
 
@@ -68,12 +68,12 @@ Library entries, watched episodes, playback positions, SUB/DUB choices, and sett
 GitHub is the easiest option for local and Termux installations because it does not require a public domain or HTTPS callback.
 
 1. Create a GitHub OAuth App in **GitHub Settings → Developer settings → OAuth Apps**.
-2. Use your ani-web address as the homepage. The required callback field can be `http://127.0.0.1` because Device Flow does not use it.
+2. Use your AniManga address as the homepage. The required callback field can be `http://127.0.0.1` because Device Flow does not use it.
 3. Enable **Device Flow** in the OAuth App settings.
-4. Copy its Client ID into **Settings → Cloud sync → GitHub** in ani-web.
+4. Copy its Client ID into **Settings → Cloud sync → GitHub** in AniManga.
 5. Choose a different device name on each installation, save, and connect.
 
-ani-web creates a private repository named `aniweb-sync-data`. Each device writes its own sync file, and records are merged instead of replacing the complete database. The OAuth `repo` scope is required to create and update a private repository, so only connect an OAuth App you trust.
+AniManga creates a private repository named `aniweb-sync-data`. The legacy repository name is intentionally retained so existing devices keep syncing. Each device writes its own sync file, and records are merged instead of replacing the complete database. The OAuth `repo` scope is required to create and update a private repository, so only connect an OAuth App you trust.
 
 ### Google Drive
 
@@ -81,10 +81,12 @@ Google Drive is also supported, but it requires a Google Cloud OAuth Web client 
 
 ## Useful environment variables
 
-- `ANI_WEB_PORT=7832` changes the port.
-- `ANI_WEB_HOST=0.0.0.0` exposes the server on the local network. Only do this on a network you trust.
-- `ANI_WEB_CLIENT_PLAYBACK=1` forces browser playback.
+- `ANIMANGA_PORT=7832` changes the port.
+- `ANIMANGA_HOST=0.0.0.0` exposes the server on the local network. Only do this on a network you trust.
+- `ANIMANGA_CLIENT_PLAYBACK=1` forces browser playback.
 - `ANI_CLI_BIN=/path/to/ani-cli` selects a different ani-cli executable.
 - `ANI_CLI_DOWNLOAD_DIR=/path/to/downloads` changes the download directory.
+
+The previous `ANI_WEB_*` variable names remain supported for existing installations.
 
 The native installation requires Node 22.16 or newer. The Docker image includes a compatible Node version and all runtime dependencies.

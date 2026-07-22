@@ -2,7 +2,7 @@ name: Container Security
 
 on:
   push:
-    branches: [main, ani-web-docker]
+    branches: [main, animanga-docker, ani-web-docker]
   pull_request:
   workflow_dispatch:
 
@@ -16,25 +16,25 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Build image
-        run: docker build -t ani-web:ci .
+        run: docker build -t animanga:ci .
 
       - name: Generate SBOM
         uses: anchore/sbom-action@v0
         with:
-          image: ani-web:ci
+          image: animanga:ci
           format: spdx-json
-          output-file: ani-web.spdx.json
+          output-file: animanga.spdx.json
 
       - name: Upload SBOM
         uses: actions/upload-artifact@v7
         with:
-          name: ani-web-sbom
-          path: ani-web.spdx.json
+          name: animanga-sbom
+          path: animanga.spdx.json
           retention-days: 14
 
       - name: Scan image vulnerabilities
         uses: anchore/scan-action@v7
         with:
-          image: ani-web:ci
+          image: animanga:ci
           fail-build: false
           severity-cutoff: high

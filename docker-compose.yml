@@ -1,14 +1,14 @@
 services:
-  ani-web:
+  animanga:
     build: .
     restart: unless-stopped
     ports:
       - "7831:7831"
     environment:
-      ANI_WEB_HOST: "0.0.0.0"
-      ANI_WEB_PORT: "7831"
-      ANI_WEB_CLIENT_PLAYBACK: "1"
-      ANI_WEB_DATA_DIR: "/data/app"
+      ANIMANGA_HOST: "0.0.0.0"
+      ANIMANGA_PORT: "7831"
+      ANIMANGA_CLIENT_PLAYBACK: "1"
+      ANIMANGA_DATA_DIR: "/data/app"
       ANI_CLI_DOWNLOAD_DIR: "/data/downloads"
       ANI_CLI_HIST_DIR: "/data/ani-cli"
     volumes:
