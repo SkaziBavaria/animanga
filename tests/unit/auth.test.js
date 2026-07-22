@@ -44,3 +44,9 @@ test('parses passwords containing colons without truncating them', () => {
     password: 'one:two',
   });
 });
+
+test('rejects oversized and ambiguously separated authorization headers', () => {
+  const { basicCredentials } = loadAuth();
+  assert.equal(basicCredentials(`Basic ${'A'.repeat(9 * 1024)}`), null);
+  assert.equal(basicCredentials(`Basic  ${Buffer.from('animanga:secret').toString('base64')}`), null);
+});

@@ -4,7 +4,7 @@
 const http = require('http');
 const fs = require('fs');
 const os = require('os');
-const { HOST, PORT, HISTORY_FILE, ACCESS_TOKEN, ACCESS_USERNAME } = require('./lib/config');
+const { HOST, PORT, HISTORY_FILE, ACCESS_TOKEN } = require('./lib/config');
 const { ensureDataDir, startBackupSchedule, closeState } = require('./lib/state');
 const { handleApi } = require('./lib/routes');
 const { serveStatic } = require('./lib/static');
@@ -42,7 +42,7 @@ server.listen(PORT, HOST, () => {
     }
   }
   console.log(`Listening on ${HOST}:${PORT}`);
-  if (ACCESS_TOKEN) console.log(`Authentication enabled for user ${ACCESS_USERNAME}`);
+  if (ACCESS_TOKEN) console.log('Authentication enabled');
   else if (HOST === '0.0.0.0' || HOST === '::') console.warn('WARNING: AniManga is exposed without authentication. Set ANIMANGA_ACCESS_TOKEN or bind to localhost.');
   console.log(`History: ${HISTORY_FILE}`);
 });

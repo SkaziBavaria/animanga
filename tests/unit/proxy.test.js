@@ -3,7 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { isPrivateIp, parseProxyTarget, resolvePublicTarget } = require('../../lib/proxy');
+const { isPrivateIp, parseProxyTarget, pinnedRequestOptions, resolvePublicTarget } = require('../../lib/proxy');
 
 test('parseProxyTarget accepts http and https urls', () => {
   assert.equal(parseProxyTarget('https://cdn.example.com/video.mp4'), 'https://cdn.example.com/video.mp4');
@@ -45,4 +45,20 @@ test('pins a validated public DNS result', async () => {
   assert.equal(target.url.href, 'https://video.example/file.mp4');
   assert.equal(target.address, '203.0.114.10');
   assert.equal(target.family, 4);
+});
+
+test('connects directly to the validated address while preserving TLS and HTTP routing', () => {
+  const signal = new AbortController().signal;
+  const options = pinnedRequestOptions({
+    url: new URL('https://video.example:8443/media/file.mp4?quality=720'),
+    address: '203.0.114.10',
+    family: 4,
+  }, { Range: 'bytes=0-99' }, signal);
+  assert.equal(options.hostname, '203.0.114.10');
+  assert.equal(options.port, '8443');
+  assert.equal(options.path, '/media/file.mp4?quality=720');
+  assert.equal(options.headers.Host, 'video.example:8443');
+  assert.equal(options.servername, 'video.example');
+  assert.equal(options.signal, signal);
+  assert.equal('lookup' in options, false);
 });
