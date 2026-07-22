@@ -1189,6 +1189,7 @@ dialog::backdrop {
   margin-bottom: 12px;
 }
 
+.chapter-toolbar[hidden],
 .chapter-download-tools[hidden],
 .chapter-download-panel[hidden],
 .chapter-download-range[hidden] {

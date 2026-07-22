@@ -356,6 +356,9 @@ test.describe('Manga', () => {
   test('shows manga details without reusing the anime player', async ({ page }) => {
     await page.click('#mangaLibraryList [data-action="manga-about"]');
     await expect(page.locator('#mangaDialog')).toBeVisible();
+    await expect(page.locator('#mangaChapterTools')).toBeHidden();
+    await expect(page.locator('#mangaDownloadTools')).toBeHidden();
+    await expect(page.locator('#chapterGrid')).toBeEmpty();
     await expect(page.locator('#mangaDialogBody')).toContainText('A manga synopsis');
     await expect(page.locator('#mangaDialogBody .details-cover')).toHaveAttribute('src', /api\/proxy/);
     await expect(page.locator('#mangaDialogBody .related-item')).toContainText('Manga Test Sequel');
