@@ -392,14 +392,10 @@ async function installApiMocks(page, overrides = {}) {
       return route.fulfill(jsonBody({ queued: [{ episode: '1' }, { episode: '2' }], concurrency: 2 }));
     }
 
-    // --- playback / command ---
+    // --- playback ---
     if (p === '/api/play' && method === 'POST') {
       return route.fulfill(jsonBody({ job: { status: 'done' }, playback: { url: '/e2e-blank.mp4', title: 'E2E playback' } }));
     }
-    if (p === '/api/command' && method === 'POST') {
-      return route.fulfill(jsonBody({ job: { id: 'cmd1', status: 'launched' } }));
-    }
-
     return route.fulfill(jsonBody({}));
   });
 }

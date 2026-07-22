@@ -2,8 +2,10 @@ services:
   animanga:
     build: .
     restart: unless-stopped
+    init: true
+    stop_grace_period: 20s
     ports:
-      - "7831:7831"
+      - "${ANIMANGA_BIND_ADDRESS:-127.0.0.1}:7831:7831"
     environment:
       ANIMANGA_HOST: "0.0.0.0"
       ANIMANGA_PORT: "7831"
@@ -11,5 +13,9 @@ services:
       ANIMANGA_DATA_DIR: "/data/app"
       ANIMANGA_DOWNLOAD_DIR: "/data/downloads"
       ANIMANGA_ANI_CLI_FALLBACK: "0"
+      ANIMANGA_ACCESS_TOKEN: "${ANIMANGA_ACCESS_TOKEN:-}"
+      ANIMANGA_ACCESS_USERNAME: "${ANIMANGA_ACCESS_USERNAME:-animanga}"
+      ANIMANGA_PUBLIC_URL: "${ANIMANGA_PUBLIC_URL:-}"
+      ANIMANGA_TRUST_PROXY: "${ANIMANGA_TRUST_PROXY:-0}"
     volumes:
       - ./data:/data

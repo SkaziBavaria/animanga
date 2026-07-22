@@ -18,7 +18,10 @@ test('built-in Node resolver returns a playable URL without ani-cli', opts, asyn
   assert.ok(show?.id, 'live search should return a show id');
 
   const details = await getShowDetails(show.id, 'sub');
-  const episode = details.episodes.at(-1);
+  // Use the oldest episode as a stable provider fixture. A just-released episode
+  // can temporarily have only one embed host, which tests that host rather than
+  // the resolver's ability to expand normal multi-source responses.
+  const episode = details.episodes[0];
   assert.ok(episode, 'live show details should return an episode');
 
   const playback = await resolveEpisodePlayback({

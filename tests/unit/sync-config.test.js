@@ -14,6 +14,7 @@ process.env.ANI_CLI_DOWNLOAD_DIR = path.join(testDir, 'downloads');
 const sync = require('../../lib/sync');
 const githubSync = require('../../lib/github-sync');
 const { ensureDataDir } = require('../../lib/state');
+const { DATABASE_FILE, DATA_DIR } = require('../../lib/config');
 
 test('stores Google credentials server-side and produces an OAuth URL', () => {
   ensureDataDir();
@@ -26,6 +27,39 @@ test('stores Google credentials server-side and produces an OAuth URL', () => {
   assert.equal(url.origin, 'https://accounts.google.com');
   assert.equal(url.searchParams.get('scope'), 'https://www.googleapis.com/auth/drive.appdata');
   assert.equal(url.searchParams.get('access_type'), 'offline');
+  assert.equal(require('../../lib/state').getAppValue('sync_google').callbackUrl, 'http://127.0.0.1:7831/api/sync/google/callback');
+});
+
+test('protects the local credential store with private Unix permissions', { skip: process.platform === 'win32' }, () => {
+  ensureDataDir();
+  assert.equal(fs.statSync(DATA_DIR).mode & 0o777, 0o700);
+  assert.equal(fs.statSync(DATABASE_FILE).mode & 0o777, 0o600);
+});
+
+test('exchanges OAuth codes with the callback URL saved at authorization start', async () => {
+  const callbackUrl = 'https://anime.example/api/sync/google/callback';
+  sync.authorizationUrl(callbackUrl);
+  const oauthState = require('../../lib/state').getAppValue('sync_google').oauthState;
+  const originalFetch = global.fetch;
+  let tokenBody = '';
+  global.fetch = async (_url, options) => {
+    tokenBody = String(options.body);
+    return new Response(JSON.stringify({
+      refresh_token: 'google-refresh-token',
+      access_token: 'google-access-token',
+      expires_in: 3600,
+    }), { status: 200 });
+  };
+  try {
+    await sync.finishAuthorization({
+      code: 'oauth-code',
+      state: oauthState,
+      callbackUrl: 'https://attacker.example/callback',
+    });
+  } finally {
+    global.fetch = originalFetch;
+  }
+  assert.equal(new URLSearchParams(tokenBody).get('redirect_uri'), callbackUrl);
 });
 
 test('uses GitHub device flow without exposing tokens', async () => {

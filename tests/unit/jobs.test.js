@@ -10,11 +10,10 @@ process.env.ANI_WEB_DATA_DIR = path.join(os.tmpdir(), `ani-web-unit-${process.pi
 
 const {
   parseDebugPlayback,
-  parseArgsLine,
   buildAniCliArgs,
   clientPlaybackEnabled,
-  startBackgroundTask,
-} = require('../../lib/jobs');
+} = require('../../lib/legacy/ani-cli');
+const { startBackgroundTask } = require('../../lib/jobs');
 
 test('parseDebugPlayback extracts the selected link and default referrer', () => {
   const output = [
@@ -40,12 +39,6 @@ test('parseDebugPlayback picks mp4upload referrer', () => {
 
 test('parseDebugPlayback throws when no link found', () => {
   assert.throws(() => parseDebugPlayback('nothing to see here'));
-});
-
-test('parseArgsLine handles quotes and escapes', () => {
-  assert.deepEqual(parseArgsLine('-q 720 -e 1 "one piece"'), ['-q', '720', '-e', '1', 'one piece']);
-  assert.deepEqual(parseArgsLine("--dub 'attack on titan'"), ['--dub', 'attack on titan']);
-  assert.throws(() => parseArgsLine('"unterminated'));
 });
 
 test('buildAniCliArgs builds args from a payload without id', async () => {

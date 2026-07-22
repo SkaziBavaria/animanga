@@ -15,7 +15,7 @@ export async function api(path, options = {}) {
   }
   if (!res.ok || json.error) {
     const detail = typeof json.details === 'string'
-      ? json.details.replace(/\x1b\[[0-9;]*m/g, '').trim().split('\n').filter(Boolean).slice(-3).join(' · ')
+      ? json.details.replace(new RegExp('\\u001b\\[[0-9;]*m', 'g'), '').trim().split('\n').filter(Boolean).slice(-3).join(' · ')
       : '';
     throw new Error(detail ? `${json.error}: ${detail}` : json.error || `HTTP ${res.status}`);
   }
@@ -49,6 +49,10 @@ export function toast(message) {
       } catch {}
     }, 200);
   }, 2600);
+}
+
+export function reportBackgroundError(context, error) {
+  console.warn(`[AniManga] ${context}:`, error);
 }
 
 export async function withBusy(button, label, task) {
@@ -88,5 +92,5 @@ export function postBeacon(path, payload) {
     body,
     headers: { 'content-type': 'application/json' },
     keepalive: true,
-  }).catch(() => {});
+  }).catch((error) => reportBackgroundError(`Background request to ${path} failed`, error));
 }

@@ -38,6 +38,14 @@ docker compose up -d --build
 
 Open [http://localhost:7831](http://localhost:7831).
 
+The Compose configuration binds to localhost by default. To use AniManga from other devices on your LAN, expose it deliberately and set an access token:
+
+```sh
+ANIMANGA_BIND_ADDRESS=0.0.0.0 ANIMANGA_ACCESS_TOKEN='use-a-long-random-password' docker compose up -d --build
+```
+
+The browser will ask for a username and password. The default username is `animanga`; the password is your access token. Do not expose AniManga directly to the public internet. Use HTTPS through a trusted reverse proxy if it must be reachable outside your device.
+
 To update later:
 
 ```sh
@@ -46,7 +54,7 @@ git pull --ff-only
 docker compose up -d --build
 ```
 
-Docker stores the database, logs, downloaded episodes, and downloaded manga pages in the local `data/` directory. Rebuilding or restarting the container does not remove them. The standard image includes ffmpeg and does not include ani-cli.
+Docker stores the database, logs, downloaded episodes, and downloaded manga pages in the local `data/` directory. Rebuilding or restarting the container does not remove them. On the first start of the hardened image, existing files in that directory are assigned to the container's unprivileged `node` user; the application process itself does not run as root. The image includes a healthcheck and ffmpeg, and does not include ani-cli.
 
 ## Run on Android with Termux
 
@@ -100,11 +108,18 @@ AniManga creates a private repository named `aniweb-sync-data`. The legacy repos
 ### Google Drive
 
 Google Drive is also supported, but it requires a Google Cloud OAuth Web client and an authorized HTTPS redirect URI. The exact callback URI is shown in **Settings → Cloud sync → Google Drive**.
+When AniManga is reached through a LAN address or reverse proxy, set `ANIMANGA_PUBLIC_URL` to its externally visible origin, for example `https://animanga.example.com`. The OAuth callback is then derived from that fixed origin and cannot be changed through request headers.
+
+OAuth client secrets and access tokens are stored in the local SQLite database. AniManga restricts its data directories, database, backups, history, and job logs to the current operating-system user where the platform supports Unix permissions. Protect the `data/` directory as you would any credential store.
 
 ## Useful environment variables
 
 - `ANIMANGA_PORT=7832` changes the port.
 - `ANIMANGA_HOST=0.0.0.0` exposes the server on the local network. Only do this on a network you trust.
+- `ANIMANGA_ACCESS_TOKEN=...` enables HTTP Basic authentication. This is strongly recommended whenever the server is reachable from another device.
+- `ANIMANGA_ACCESS_USERNAME=animanga` changes the Basic-auth username.
+- `ANIMANGA_PUBLIC_URL=https://animanga.example.com` fixes the external origin used for OAuth callbacks.
+- `ANIMANGA_TRUST_PROXY=1` accepts forwarded host/protocol headers when a fixed public URL cannot be used. Enable it only behind a trusted reverse proxy that overwrites those headers.
 - `ANIMANGA_CLIENT_PLAYBACK=1` forces browser playback.
 - `ANIMANGA_ANIME_RESOLVER=node` selects the built-in runtime resolver (default); use `ani-cli` to force the compatibility path.
 - `ANIMANGA_ANI_CLI_FALLBACK=1` enables the optional legacy ani-cli playback fallback (disabled by default).
@@ -116,3 +131,21 @@ Google Drive is also supported, but it requires a Google Cloud OAuth Web client 
 The previous `ANI_WEB_*` variable names remain supported for existing installations.
 
 The native installation requires Node 22.16 or newer. The Docker image includes a compatible Node version and all runtime dependencies.
+
+## Development checks
+
+Install the locked development dependencies and run the same static checks and unit tests used by CI:
+
+```sh
+npm ci
+npm run check
+```
+
+For browser tests, install Chromium once and run the E2E suite:
+
+```sh
+npx playwright install chromium
+npm run test:e2e
+```
+
+`RUN_CONTRACT=1 npm run test:contract` runs the slower live-provider checks. They verify current AllAnime/AllManga crypto, manga page decryption, browser playback, byte-range video access, and AniSkip. These checks are scheduled separately because upstream availability is outside AniManga's control.

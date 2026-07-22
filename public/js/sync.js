@@ -1,4 +1,4 @@
-import { api, toast, withBusy } from './api.js';
+import { api, reportBackgroundError, toast, withBusy } from './api.js';
 import { els } from './dom.js';
 import { loadLibrary, loadSettings } from './library.js';
 import { loadMangaLibrary } from './manga.js';
@@ -165,7 +165,7 @@ export function bindSyncControls() {
       await loadSyncConfig();
       toast(`Sync complete · ${result.applied || 0} changes applied`);
     } catch (err) {
-      await loadSyncConfig().catch(() => {});
+      await loadSyncConfig().catch((error) => reportBackgroundError('Could not refresh sync status', error));
       toast(err.message);
     }
   });
@@ -195,8 +195,9 @@ async function autoSync() {
     await api('/api/sync/run', { method: 'POST' });
     await refreshSyncedState();
     await loadSyncConfig();
-  } catch {
-    await loadSyncConfig().catch(() => {});
+  } catch (error) {
+    reportBackgroundError('Automatic sync failed', error);
+    await loadSyncConfig().catch((refreshError) => reportBackgroundError('Could not refresh sync status', refreshError));
   }
 }
 

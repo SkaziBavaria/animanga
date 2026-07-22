@@ -237,19 +237,6 @@ function bindForms() {
     }
   });
 
-  els.commandForm.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const command = els.commandInput.value.trim();
-    if (!command) return;
-    try {
-      await api('/api/command', { method: 'POST', body: JSON.stringify({ command }) });
-      els.commandInput.value = '';
-      toast('Command started');
-      setTimeout(() => loadJobs().catch(() => {}), 1200);
-    } catch (err) {
-      toast(err.message);
-    }
-  });
 }
 
 export function bindEvents() {

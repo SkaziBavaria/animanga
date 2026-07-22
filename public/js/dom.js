@@ -75,8 +75,6 @@ export const els = {
   githubDeviceAuth: $('#githubDeviceAuth'),
   githubDeviceUrl: $('#githubDeviceUrl'),
   githubDeviceCode: $('#githubDeviceCode'),
-  commandForm: $('#commandForm'),
-  commandInput: $('#commandInput'),
   downloadsBtn: $('#downloadsBtn'),
   downloadsList: $('#downloadsList'),
   releaseWatchesCount: $('#releaseWatchesCount'),

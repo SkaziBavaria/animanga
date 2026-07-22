@@ -1,4 +1,4 @@
-import { toast } from './api.js';
+import { reportBackgroundError, toast } from './api.js';
 import { bindEvents } from './events.js';
 import { loadDownloads } from './downloads.js';
 import { loadJobs } from './jobs.js';
@@ -13,7 +13,9 @@ import { switchMediaMode } from './discover.js';
 import { state } from './state.js';
 
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').then((registration) => registration.update()).catch(() => {});
+  navigator.serviceWorker.register('/sw.js')
+    .then((registration) => registration.update())
+    .catch((error) => reportBackgroundError('Service worker registration failed', error));
 }
 
 bindEvents();
@@ -32,8 +34,10 @@ startAutoSync();
     await loadDownloads();
     await loadReleaseWatches();
     await loadMangaReleaseWatches();
-    checkReleaseWatches({ silent: true }).catch(() => {});
-    checkMangaReleaseWatches({ silent: true }).catch(() => {});
+    checkReleaseWatches({ silent: true })
+      .catch((error) => reportBackgroundError('Anime release check failed', error));
+    checkMangaReleaseWatches({ silent: true })
+      .catch((error) => reportBackgroundError('Manga release check failed', error));
     await loadJobs();
     if (new URLSearchParams(window.location.search).get('sync') === 'connected') {
       toast('Google Drive connected');
