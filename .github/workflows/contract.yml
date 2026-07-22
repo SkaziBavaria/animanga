@@ -1,6 +1,6 @@
 name: Contract (upstream)
 
-# Live checks against AllAnime + ani-cli to detect upstream breakage.
+# Live checks against the Node provider adapters to detect upstream breakage.
 # Runs on a schedule and on demand; not part of the PR gate.
 
 on:
@@ -14,7 +14,6 @@ jobs:
     timeout-minutes: 15
     env:
       RUN_CONTRACT: '1'
-      ANI_CLI_BIN: ani-cli
     steps:
       - uses: actions/checkout@v7
 
@@ -26,12 +25,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install ani-cli and runtime deps
+      - name: Install download runtime
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends fzf ffmpeg aria2
-          sudo curl -fsSL https://raw.githubusercontent.com/pystardust/ani-cli/master/ani-cli -o /usr/local/bin/ani-cli
-          sudo chmod +x /usr/local/bin/ani-cli
+          sudo apt-get install -y --no-install-recommends ffmpeg
 
       - name: Run contract tests
         run: npm run test:contract

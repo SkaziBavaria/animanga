@@ -2,6 +2,5 @@
 SCRIPT_PATH="$(readlink -f "$0" 2>/dev/null || printf '%s' "$0")"
 cd "$(dirname "$SCRIPT_PATH")" || exit 1
 export ANIMANGA_CLIENT_PLAYBACK="${ANIMANGA_CLIENT_PLAYBACK:-${ANI_WEB_CLIENT_PLAYBACK:-1}}"
-# Best-effort live aaReq refresh; keep previous ani-cli if mkissa is unreachable.
-node scripts/refresh-ani-cli-crypto.js || true
+export ANIMANGA_ANI_CLI_FALLBACK="${ANIMANGA_ANI_CLI_FALLBACK:-0}"
 exec node server.js

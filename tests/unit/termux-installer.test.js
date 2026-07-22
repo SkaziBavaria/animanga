@@ -7,26 +7,17 @@ const assert = require('node:assert/strict');
 
 const root = path.join(__dirname, '..', '..');
 
-test('Termux and Docker install the same patched ani-cli sources', () => {
+test('Termux and Docker provide ffmpeg downloads without installing ani-cli', () => {
   const dockerfile = fs.readFileSync(path.join(root, 'Dockerfile'), 'utf8');
   const installer = fs.readFileSync(path.join(root, 'scripts', 'install-termux.sh'), 'utf8');
   const startSh = fs.readFileSync(path.join(root, 'start.sh'), 'utf8');
-  const entrypoint = fs.readFileSync(path.join(root, 'scripts', 'docker-entrypoint.sh'), 'utf8');
-  const urls = [...dockerfile.matchAll(/https:\/\/raw\.githubusercontent\.com\/pystardust\/ani-cli\/[^\s]+\/ani-cli/g)]
-    .map((match) => match[0]);
-  assert.equal(urls.length, 1);
-  assert.match(urls[0], /cc45a5530af350fb0e1a759e1d962814df5876fe/);
-  assert.match(installer, new RegExp(urls[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
-  assert.match(dockerfile, /mkissa-crypto\.js/);
-  assert.match(dockerfile, /docker-entrypoint\.sh/);
-  assert.match(dockerfile, /COPY scripts \.\/scripts/);
-  assert.match(entrypoint, /^#!\/bin\/sh/m);
-  assert.match(entrypoint, /refresh-ani-cli-crypto\.js/);
-  assert.match(startSh, /refresh-ani-cli-crypto\.js/);
-  assert.match(installer, /patch-ani-cli-crypto\.js/);
-  assert.match(installer, /sh -n "\$PATCH_DIR\/ani-cli"/);
-  assert.doesNotMatch(installer, /ani-cli-reference/);
-  assert.doesNotMatch(entrypoint, /termux/);
+  assert.match(dockerfile, /ca-certificates ffmpeg/);
+  assert.match(dockerfile, /ANIMANGA_ANI_CLI_FALLBACK=0/);
+  assert.match(installer, /pkg install -y .*ffmpeg/);
+  assert.match(installer, /command -v ffmpeg/);
+  assert.doesNotMatch(dockerfile, /pystardust|patch-ani-cli|\/usr\/local\/bin\/ani-cli/);
+  assert.doesNotMatch(installer, /pystardust|patch-ani-cli|ANI_CLI_STABLE_URL/);
+  assert.doesNotMatch(startSh, /refresh-ani-cli-crypto/);
 });
 
 test('Termux installer accepts BRANCH while keeping main as the default', () => {

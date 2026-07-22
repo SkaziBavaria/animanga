@@ -140,7 +140,7 @@ async function installApiMocks(page, overrides = {}) {
         ok: true,
         aniCli: 'ani-cli',
         aniCliVersion: 'e2e',
-        deps: { node: 'test', aniCli: true, mpv: false, androidActivityManager: false, clientPlayback: true },
+        deps: { node: 'test', aniCli: false, mpv: false, androidActivityManager: false, clientPlayback: true, animeResolver: 'node' },
       }));
     }
     if (p === '/api/settings' && method === 'GET') return route.fulfill(jsonBody(settings));

@@ -40,3 +40,8 @@ test('start options reject invalid resolvers and unknown flags', () => {
   assert.throws(() => configureStart(['--resolver', 'magic']), /node or ani-cli/);
   assert.throws(() => configureStart(['--wat']), /Unknown option/);
 });
+
+test('legacy ani-cli fallback is explicit opt-in', () => {
+  assert.equal(configureStart(['--ani-cli-fallback']), true);
+  assert.equal(process.env.ANIMANGA_ANI_CLI_FALLBACK, '1');
+});
