@@ -2,6 +2,8 @@
 'use strict';
 
 const http = require('http');
+const fs = require('fs');
+const os = require('os');
 const { HOST, PORT, HISTORY_FILE } = require('./lib/config');
 const { ensureDataDir, startBackupSchedule } = require('./lib/state');
 const { handleApi } = require('./lib/routes');
@@ -20,8 +22,23 @@ const server = http.createServer((req, res) => {
   serveStatic(req, res, url);
 });
 
+function lanAddresses() {
+  return Object.values(os.networkInterfaces())
+    .flat()
+    .filter((address) => address && (address.family === 'IPv4' || address.family === 4) && !address.internal)
+    .map((address) => address.address)
+    .filter((address, index, addresses) => addresses.indexOf(address) === index);
+}
+
 server.listen(PORT, HOST, () => {
-  console.log(`Ani Web running at http://${HOST}:${PORT}`);
+  const availableHost = ['0.0.0.0', '::', '127.0.0.1', '::1'].includes(HOST) ? 'localhost' : HOST;
+  console.log(`Ani Web available at http://${availableHost}:${PORT}`);
+  if (HOST === '0.0.0.0' || HOST === '::') {
+    if (!fs.existsSync('/.dockerenv')) {
+      for (const address of lanAddresses()) console.log(`Ani Web available on LAN at http://${address}:${PORT}`);
+    }
+  }
+  console.log(`Listening on ${HOST}:${PORT}`);
   console.log(`History: ${HISTORY_FILE}`);
 });
 
