@@ -2,6 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
 const {
   STREAM_QUERY_HASH,
   deriveKey,
@@ -9,10 +10,14 @@ const {
   extractClientCryptoCandidates,
   parseBootstrapJson,
   buildAtomicConfig,
+  buildAaRequest,
   fetchLiveCryptoConfig,
+  validateCryptoConfig,
   resolveCompleteCryptoConfig,
   markConfigVerified,
+  rememberCompleteConfig,
   discardCompleteConfig,
+  getCachedCompleteConfig,
   getLastVerifiedCompleteConfig,
   setFetchTextForTests,
   resetMkissaCryptoForTests,
@@ -61,6 +66,64 @@ test('parseBootstrapJson fails closed on missing or invalid partB', () => {
   assert.throws(() => parseBootstrapJson(null), /bootstrap/);
   assert.throws(() => parseBootstrapJson('{"epoch":1}'), /partB/);
   assert.throws(() => parseBootstrapJson('{"epoch":1,"partB":"@@@"}'), /partB|incomplete|invalid/);
+  assert.throws(
+    () => parseBootstrapJson(JSON.stringify({ epoch: 1, partB: Buffer.alloc(33).toString('base64') })),
+    /exactly 32 bytes/,
+  );
+});
+
+test('validates a complete generation against a gated encrypted response', async () => {
+  const config = buildAtomicConfig({
+    epoch: 6885,
+    partB: PART_B,
+    maskHex: 'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',
+    buildId: '64',
+  });
+  let calls = 0;
+  const fetcher = async (_url, options) => {
+    calls += 1;
+    const request = JSON.parse(options.body);
+    if (calls === 1) {
+      assert.equal(request.extensions, undefined);
+      return {
+        ok: true,
+        json: async () => ({ data: { mangas: { edges: [{ _id: 'one-piece', name: 'One Piece' }] } } }),
+      };
+    }
+    assert.ok(request.extensions?.aaReq);
+    assert.doesNotThrow(() => Buffer.from(request.extensions.aaReq, 'base64'));
+    const iv = crypto.randomBytes(12);
+    const cipher = crypto.createCipheriv('aes-256-gcm', Buffer.from(config.key, 'hex'), iv);
+    const payload = JSON.stringify({ chapterPages: { edges: [{ pictureUrls: [] }] } });
+    const encrypted = Buffer.concat([
+      Buffer.from([1]),
+      iv,
+      cipher.update(payload),
+      cipher.final(),
+      cipher.getAuthTag(),
+    ]).toString('base64');
+    return { ok: true, json: async () => ({ data: { tobeparsed: encrypted } }) };
+  };
+  const result = await validateCryptoConfig(config, { fetcher });
+  assert.deepEqual(result, { ok: true, mangaId: 'one-piece', sourceCount: 1 });
+  assert.equal(calls, 2);
+  assert.ok(buildAaRequest('query { chapterPages }', config));
+});
+
+test('failed validation discards the unverified cached generation', async () => {
+  const config = buildAtomicConfig({
+    epoch: 6885,
+    partB: PART_B,
+    maskHex: 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+    buildId: '64',
+  });
+  rememberCompleteConfig(config);
+  const fetcher = async () => ({
+    ok: true,
+    json: async () => ({ errors: [{ message: 'provider unavailable' }] }),
+  });
+  await assert.rejects(() => validateCryptoConfig(config, { fetcher }), /validation search failed/);
+  assert.equal(getCachedCompleteConfig(), null);
 });
 
 test('buildAtomicConfig derives a complete generation without exposing partB', () => {

@@ -7,8 +7,10 @@ const {
   deriveMangaKey,
   extractClientCrypto,
   aaRequest,
+  encryptedGraphql,
   resetMangaCryptoForTests,
 } = require('../../lib/allmanga');
+const { setFetchTextForTests } = require('../../lib/mkissa-crypto');
 
 test.afterEach(() => resetMangaCryptoForTests());
 
@@ -40,4 +42,45 @@ test('aaRequest builds a versioned AES-GCM blob', () => {
   const bytes = Buffer.from(token, 'base64');
   assert.equal(bytes[0], 1);
   assert.ok(bytes.length > 1 + 12 + 16);
+});
+
+test('encryptedGraphql heals with a new candidate after response decryption fails', async () => {
+  const partB = Buffer.alloc(32, 7).toString('base64');
+  const maskA = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+  const maskB = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+  setFetchTextForTests(async (url) => {
+    if (url === 'https://mkissa.to/') {
+      return [
+        `<script>window.__aaCrypto={"epoch":6885,"partB":"${partB}"};</script>`,
+        'import("https://cdn.example/_app/immutable/entry/app.x.js")',
+      ].join('\n');
+    }
+    if (url.endsWith('app.x.js')) return 'deps["../chunks/crypto.js"]';
+    if (url.includes('/chunks/crypto.js')) {
+      return [
+        'aaReq',
+        `const A=fn(1)!=="string"?"${maskA}":"",buildA="10";`,
+        `const B=fn(2)!=="string"?"${maskB}":"",buildB="11";`,
+      ].join('\n');
+    }
+    throw new Error(`unexpected crypto URL: ${url}`);
+  });
+
+  const originalFetch = global.fetch;
+  let apiCalls = 0;
+  global.fetch = async () => {
+    apiCalls += 1;
+    if (apiCalls === 1) {
+      return { ok: true, json: async () => ({ data: { tobeparsed: 'invalid-envelope' } }) };
+    }
+    return { ok: true, json: async () => ({ data: { chapterPages: { edges: [] } } }) };
+  };
+
+  try {
+    const data = await encryptedGraphql('query { chapterPages }', {});
+    assert.deepEqual(data, { chapterPages: { edges: [] } });
+    assert.equal(apiCalls, 2);
+  } finally {
+    global.fetch = originalFetch;
+  }
 });
