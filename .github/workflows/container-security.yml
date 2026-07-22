@@ -36,5 +36,5 @@ jobs:
         uses: anchore/scan-action@v7
         with:
           image: animanga:ci
-          fail-build: false
+          fail-build: true
           severity-cutoff: high
