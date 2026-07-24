@@ -9,10 +9,10 @@ export function escapeHtml(value) {
 }
 
 export function stripDescription(value) {
-  const withBreaks = String(value || '').replace(/<br\s*\/?>/gi, '\n');
-  const withoutTags = withBreaks.replace(/<[^>]+>/g, '');
+  // Drop angle brackets entirely so crafted nested tags cannot reassemble.
+  const withBreaks = String(value || '').replace(/<br\s*\/?>/gi, '\n').replace(/[<>]/g, '');
   const textarea = document.createElement('textarea');
-  textarea.innerHTML = withoutTags;
+  textarea.innerHTML = withBreaks;
   return textarea.value.replace(/\n{3,}/g, '\n\n').trim();
 }
 

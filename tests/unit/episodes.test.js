@@ -18,6 +18,8 @@ test('cleanTitle strips the episode-count suffix', () => {
   assert.equal(cleanTitle('Bleach (366 episodes)'), 'Bleach');
   assert.equal(cleanTitle('One Piece (1 episode)'), 'One Piece');
   assert.equal(cleanTitle('  Naruto  '), 'Naruto');
+  assert.equal(cleanTitle('Show (12.5 episodes)'), 'Show');
+  assert.equal(cleanTitle('Show (12 episodes)   '), 'Show');
 });
 
 test('queryTitle prefers english then name then title', () => {
