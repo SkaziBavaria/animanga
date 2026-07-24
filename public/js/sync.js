@@ -2,7 +2,9 @@ import { api, reportBackgroundError, toast, withBusy } from './api.js';
 import { els } from './dom.js';
 import { loadLibrary, loadSettings } from './library.js';
 import { loadMangaLibrary } from './manga.js';
+import { loadMangaReleaseWatches } from './manga-release-watches.js';
 import { loadProgress } from './progress.js';
+import { loadReleaseWatches } from './release-watches.js';
 
 let syncConfig = null;
 let githubPollTimer = null;
@@ -108,7 +110,14 @@ async function pollGithub(interval = 5) {
 }
 
 async function refreshSyncedState() {
-  await Promise.all([loadSettings(), loadProgress(), loadLibrary(false), loadMangaLibrary(false)]);
+  await Promise.all([
+    loadSettings(),
+    loadProgress(),
+    loadLibrary(false),
+    loadMangaLibrary(false),
+    loadReleaseWatches(),
+    loadMangaReleaseWatches(),
+  ]);
 }
 
 export function bindSyncControls() {
