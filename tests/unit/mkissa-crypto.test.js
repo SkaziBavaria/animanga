@@ -27,6 +27,7 @@ const {
 
 const LEGACY_MASK = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 const CURRENT_MASK = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+const PAIRED_MASK = 'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc';
 const LEGACY_CHUNK = [
   'noise aaReq',
   `const qd="${LEGACY_MASK}",kr=yt(183)!=="string"?"11":"";`,
@@ -37,12 +38,17 @@ const CURRENT_CHUNK = [
   `const Ba=ht(383)!=="string"?"${CURRENT_MASK}":"",ln="12";`,
 ].join('\n');
 
+const PAIRED_CHUNK = [
+  'noise aaReq',
+  `const qa=_t(230)!=="string"?"${PAIRED_MASK}":"",gr=_t(230)!=="string"?"65":"";`,
+].join('\n');
+
 const PART_B = Buffer.alloc(32, 7).toString('base64');
 const TEST_EPOCH = 42;
 
 test.afterEach(() => resetMkissaCryptoForTests());
 
-test('extractClientCrypto supports legacy and current bundle shapes', () => {
+test('extractClientCrypto supports legacy, mid, and paired-ternary bundle shapes', () => {
   assert.deepEqual(extractClientCrypto(LEGACY_CHUNK), {
     maskHex: LEGACY_MASK,
     buildId: '11',
@@ -52,6 +58,11 @@ test('extractClientCrypto supports legacy and current bundle shapes', () => {
     maskHex: CURRENT_MASK,
     buildId: '12',
     format: 'ternary',
+  });
+  assert.deepEqual(extractClientCrypto(PAIRED_CHUNK), {
+    maskHex: PAIRED_MASK,
+    buildId: '65',
+    format: 'paired-ternary',
   });
 });
 
@@ -171,6 +182,25 @@ test('live refresh fails clearly without app-entry or high-confidence candidates
     throw new Error(`unexpected ${url}`);
   });
   await assert.rejects(() => fetchLiveCryptoConfig(), /high-confidence|mask\/buildId/);
+});
+
+test('live refresh accepts paired-ternary mask/buildId from crypto chunk', async () => {
+  setFetchTextForTests(async (url) => {
+    if (url.includes('mkissa.to') && !url.includes('.js')) {
+      return [
+        `<script>window.__aaCrypto={"epoch":${TEST_EPOCH},"partB":"${PART_B}"};</script>`,
+        'import("https://cdn.example/_app/immutable/entry/app.x.js")',
+      ].join('\n');
+    }
+    if (url.endsWith('app.x.js')) return 'deps["../chunks/crypto.js"]';
+    if (url.includes('/chunks/crypto.js')) return PAIRED_CHUNK;
+    throw new Error(`unexpected ${url}`);
+  });
+
+  const config = await fetchLiveCryptoConfig();
+  assert.equal(config.maskHex, PAIRED_MASK);
+  assert.equal(config.buildId, '65');
+  assert.equal(config.epoch, String(TEST_EPOCH));
 });
 
 test('never mixes a fresh bootstrap with another generation mask', async () => {
