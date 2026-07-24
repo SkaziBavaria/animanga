@@ -140,7 +140,7 @@ export function presentMangaCard(manga = {}) {
   const latestChapter = manga.latestChapter || manga.chapters?.at(-1) || manga.chapterCount || null;
   const last = episodeNumber(lastRead);
   const latest = episodeNumber(latestChapter);
-  let newCount = 0;
+  let newCount;
   if (Array.isArray(manga.chapters) && manga.chapters.length) {
     newCount = manga.chapters.filter((chapter) => {
       const value = Number(chapter);
