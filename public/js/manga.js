@@ -98,7 +98,7 @@ function mangaRecentlyUpdated(value) {
   const date = mangaDate(value);
   if (!date) return false;
   const age = Date.now() - date.getTime();
-  return age >= 0 && age <= 90 * 86_400_000;
+  return age >= 0 && age <= 30 * 86_400_000;
 }
 
 function mangaOriginLabel(value) {
@@ -197,8 +197,7 @@ function mangaCard(manga, source) {
           ${manga.archived ? '<span class="pill">Archived</span>' : ''}
           ${manga.downloadedChapters ? `<span class="pill downloaded">↓ ${escapeHtml(manga.downloadedChapters)} saved</span>` : ''}
           ${lifecycle ? `<span class="pill schedule">${escapeHtml(lifecycle)}</span>` : ''}
-          ${recentlyUpdated ? '<span class="pill hot">Recently updated</span>' : ''}
-          ${manga.latestChapter ? `<span class="pill schedule">Ch ${escapeHtml(manga.latestChapter)}${latestDate ? ` · ${escapeHtml(latestDate)}` : ''}</span>` : ''}
+          ${manga.latestChapter ? `<span class="pill schedule${recentlyUpdated ? ' hot' : ''}">Ch ${escapeHtml(manga.latestChapter)}${latestDate ? ` · ${escapeHtml(latestDate)}` : ''}</span>` : ''}
           ${source !== 'library' && manga.score ? `<span class="pill">Score ${escapeHtml(manga.score)}</span>` : ''}
           ${manga.recommendationReason ? `<span class="pill reason">${escapeHtml(manga.recommendationReason)}</span>` : ''}
           ${hasSequel ? '<span class="pill sequel released">Sequel available</span>' : ''}
