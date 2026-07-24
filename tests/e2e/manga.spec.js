@@ -72,7 +72,7 @@ test.describe('Manga', () => {
       airedStart: { year: 2020 },
       lastChapterDate: {
         year: now.getUTCFullYear(),
-        month: now.getUTCMonth() + 1,
+        month: now.getUTCMonth(),
         date: now.getUTCDate(),
       },
     };
@@ -85,8 +85,9 @@ test.describe('Manga', () => {
 
     await expect(page.locator('#mangaLibraryList')).not.toContainText('Status unknown');
     await expect(page.locator('#mangaLibraryList')).not.toContainText('2020');
-    await expect(page.locator('#mangaLibraryList')).toContainText('Recently updated');
-    await expect(page.locator('#mangaLibraryList')).toContainText('Ch 3 · 0 days ago');
+    await expect(page.locator('#mangaLibraryList')).not.toContainText('Recently updated');
+    const chapterPill = page.locator('#mangaLibraryList .pill.schedule.hot');
+    await expect(chapterPill).toContainText('Ch 3 · 0 days ago');
   });
 
   test('labels manga origins with compact country codes', async ({ page }) => {
@@ -201,7 +202,13 @@ test.describe('Manga', () => {
   });
 
   test('browses manga categories and applies multiple filters', async ({ page }) => {
+    const popularRequest = page.waitForRequest((item) => new URL(item.url()).pathname === '/api/manga/popular' && new URL(item.url()).searchParams.get('range') === '0');
     await page.click('.tab[data-section="discover"]');
+    await popularRequest;
+    await expect(page.locator('#mangaPopularBtn')).toHaveClass(/active/);
+    await expect(page.locator('#mangaLatestBtn')).not.toHaveClass(/active/);
+    await expect(page.locator('#mangaSearchResults .manga-card')).toHaveCount(1);
+
     const hotRequest = page.waitForRequest((item) => new URL(item.url()).pathname === '/api/manga/popular' && new URL(item.url()).searchParams.get('range') === '1');
     await page.click('.manga-browse-button:has-text("Hot")');
     await hotRequest;

@@ -1,7 +1,7 @@
 import { api, toast, withBusy, runAction } from './api.js';
 import { els } from './dom.js';
 import { state } from './state.js';
-import { applyDiscoverFilters, browsePopular, browseRecommended, refreshSearchResults, search, switchMediaMode, switchSection, switchView } from './discover.js';
+import { applyDiscoverFilters, browseLatest, browsePopular, browseRecommended, refreshSearchResults, search, switchMediaMode, switchSection, switchView } from './discover.js';
 import { openDetails, bindDetailsDialog } from './details.js';
 import {
   deleteEpisodeDownload,
@@ -28,13 +28,19 @@ function bindGlobalClicks() {
     if (tab?.dataset.section) switchSection(tab.dataset.section);
     else if (tab?.dataset.view) switchView(tab.dataset.view);
 
+    const openDiscover = event.target.closest('[data-action="open-discover"]');
+    if (openDiscover) {
+      document.querySelector('.tab[data-section="discover"]')?.click();
+      return;
+    }
+
     const releaseWatchButton = event.target.closest('button[data-action="watch-release"]');
     if (releaseWatchButton) {
       await runAction(releaseWatchButton, 'Saving...', () => watchRelease(releaseWatchButton.dataset.query || state.lastSearchQuery));
       return;
     }
 
-    const browseButton = event.target.closest('.browse-button[data-recommended], .browse-button[data-popular-range]');
+    const browseButton = event.target.closest('.browse-button[data-recommended], .browse-button[data-popular-range], .browse-button[data-anime-sort]');
     if (browseButton) {
       state.discoverGenres = [];
       state.discoverYear = null;
@@ -44,7 +50,9 @@ function bindGlobalClicks() {
       document.querySelectorAll('.browse-button').forEach((button) => button.classList.toggle('active', button === browseButton));
       const task = browseButton.dataset.recommended
         ? () => browseRecommended()
-        : () => browsePopular(browseButton.dataset.popularRange, browseButton.textContent.trim());
+        : browseButton.dataset.animeSort
+          ? () => browseLatest(browseButton.dataset.animeSort)
+          : () => browsePopular(browseButton.dataset.popularRange, browseButton.textContent.trim());
       await runAction(browseButton, 'Loading...', task);
     }
 

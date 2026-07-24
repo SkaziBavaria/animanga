@@ -138,28 +138,115 @@ export function renderEpisodeGrid(show) {
   }).join('');
 }
 
+function confirmEarlierEpisodes(message) {
+  els.animeWatchConfirmMessage.textContent = message;
+  els.animeWatchConfirmDialog.returnValue = 'no';
+  return new Promise((resolve) => {
+    els.animeWatchConfirmDialog.addEventListener('close', () => {
+      resolve(els.animeWatchConfirmDialog.returnValue === 'yes');
+    }, { once: true });
+    els.animeWatchConfirmDialog.showModal();
+  });
+}
+
+async function applyEpisodeWatched(show, episode, { watched, markThrough = false } = {}) {
+  const epText = String(episode);
+  const shouldMarkThrough = watched && markThrough && Number.isFinite(Number(epText));
+  const data = await api(shouldMarkThrough ? '/api/mark-range' : '/api/mark', {
+    method: 'POST',
+    body: JSON.stringify({
+      id: show.id,
+      episode: epText,
+      ...(shouldMarkThrough
+        ? { mode: show.mode || state.settings?.mode || 'sub' }
+        : { watched }),
+    }),
+  });
+  if (watched) {
+    if (shouldMarkThrough) {
+      const target = Number(epText);
+      for (const key of Object.keys(state.positions || {})) {
+        const entry = state.positions[key];
+        if (entry?.showId !== show.id) continue;
+        if (Number.isFinite(Number(entry.episode)) && Number(entry.episode) <= target) {
+          delete state.positions[key];
+        }
+      }
+    } else {
+      delete state.positions[`${show.id}:${epText}`];
+    }
+  }
+  const preservedEpisodes = show.episodes;
+  const merged = presentAnimeCard({
+    ...show,
+    ...(data.show || {}),
+    episodes: preservedEpisodes,
+  });
+  const presented = syncAnimeShow(merged);
+  Object.assign(show, presented || merged);
+  show.episodes = preservedEpisodes;
+  renderEpisodeGrid(show);
+  refreshAnimeCards();
+  if (shouldMarkThrough) toast(`Marked watched through episode ${epText}`);
+  else toast(watched ? `Episode ${epText} marked watched` : `Episode ${epText} marked unwatched`);
+}
+
+async function markEpisodeWatched(show, episode) {
+  const epText = String(episode);
+  const watched = new Set((show.watchedEpisodes || []).map(String));
+  if (watched.has(epText)) return;
+  if (!Number.isFinite(Number(epText))) {
+    await applyEpisodeWatched(show, epText, { watched: true });
+    return;
+  }
+
+  const target = Number(epText);
+  const unreadEarlier = (show.episodes || [])
+    .map(String)
+    .filter((item) => Number.isFinite(Number(item)) && Number(item) < target && !watched.has(item));
+  if (!unreadEarlier.length) {
+    await applyEpisodeWatched(show, epText, { watched: true });
+    return;
+  }
+
+  const noun = unreadEarlier.length === 1 ? 'episode' : 'episodes';
+  const markThrough = await confirmEarlierEpisodes(
+    `${unreadEarlier.length} earlier unwatched ${noun} found. Mark everything through episode ${epText} as watched?`,
+  );
+  await applyEpisodeWatched(show, epText, { watched: true, markThrough });
+}
+
 export async function toggleEpisodeWatched(show, episode) {
   const epText = String(episode);
   const watched = new Set((show.watchedEpisodes || []).map(String));
   const shouldWatch = !watched.has(epText);
-  const data = await api('/api/mark', {
-    method: 'POST',
-    body: JSON.stringify({ id: show.id, episode: epText, watched: shouldWatch }),
-  });
-  if (shouldWatch) delete state.positions[`${show.id}:${epText}`];
-  const preservedEpisodes = show.episodes;
-  const presented = syncAnimeShow(presentAnimeCard({
-    ...show,
-    ...(data.show || {}),
-    episodes: preservedEpisodes,
-  }));
-  if (presented) presented.episodes = preservedEpisodes;
-  show.episodes = preservedEpisodes;
-  renderEpisodeGrid(show);
-  refreshAnimeCards();
-  toast(shouldWatch ? `Episode ${epText} marked watched` : `Episode ${epText} marked unwatched`);
+  if (shouldWatch) return markEpisodeWatched(show, epText);
+  return applyEpisodeWatched(show, epText, { watched: false });
 }
 
 export function bindEpisodeDialog() {
   els.closeDialogBtn.addEventListener('click', () => els.dialog.close());
+  els.episodeJumpBtn?.addEventListener('click', () => {
+    const show = state.activeShow;
+    if (!show?.episodes?.length) return;
+    const target = String(els.episodeJumpTarget?.value || '').trim();
+    if (!target) return;
+    const match = show.episodes.map(String).find((episode) => episode === target)
+      || show.episodes.map(String).find((episode) => Number(episode) === Number(target));
+    if (!match) {
+      toast(`Episode ${target} not found`);
+      return;
+    }
+    const row = els.episodeGrid.querySelector(`[data-episode="${CSS.escape(match)}"]`);
+    if (!row) return;
+    els.episodeGrid.querySelectorAll('.episode-jump-highlight').forEach((item) => item.classList.remove('episode-jump-highlight'));
+    row.classList.add('episode-jump-highlight');
+    row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  });
+  els.episodeJumpTarget?.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      els.episodeJumpBtn?.click();
+    }
+  });
 }

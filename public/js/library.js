@@ -47,7 +47,7 @@ export function renderLibrary() {
       ? state.library.length
       : activeCount;
   if (!state.library.length) {
-    els.libraryList.innerHTML = '<div class="empty">Your library is empty. Search for an anime and press Track.</div>';
+    els.libraryList.innerHTML = '<div class="empty empty-action"><span>Your library is empty.</span><button class="small-button secondary" data-action="open-discover" type="button">Find anime</button></div>';
     return;
   }
 
