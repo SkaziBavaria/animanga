@@ -10,6 +10,7 @@ module.exports = [
       'data/**',
       'playwright-report/**',
       'test-results/**',
+      'tests/fixtures/**',
     ],
   },
   js.configs.recommended,
