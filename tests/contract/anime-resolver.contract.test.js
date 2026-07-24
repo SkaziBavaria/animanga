@@ -12,7 +12,7 @@ const opts = {
   timeout: 120_000,
 };
 
-test('built-in Node resolver returns a playable URL without ani-cli', opts, async () => {
+test('built-in resolver returns a playable URL', opts, async () => {
   const results = await popularAnime('0', 'sub');
   const show = results.find((item) => item?.id) || results[0];
   assert.ok(show?.id, 'live popular list should return a show id');

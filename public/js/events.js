@@ -133,8 +133,7 @@ function bindEpisodeGrid() {
     if (!button || !state.activeShow) return;
     const episode = button.dataset.episode;
     try {
-      // Watched state now updates once playback actually finishes (see markEpisodeFinished in playback.js),
-      // not the moment the player opens.
+      // Watched state updates when playback finishes (markEpisodeFinished), not when the player opens.
       await playShow(state.activeShow, episode);
     } catch (err) {
       toast(err.message);

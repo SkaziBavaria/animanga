@@ -17,7 +17,7 @@ test.afterEach(() => {
 test('global CLI exposes the expected commands', () => {
   assert.match(usage(), /animanga \[start\]/);
   assert.match(usage(), /animanga doctor/);
-  assert.doesNotMatch(usage(), /ani-cli/);
+  assert.doesNotMatch(usage(), /\bani-cli\b/);
 });
 
 test('start options configure the server before it is loaded', () => {

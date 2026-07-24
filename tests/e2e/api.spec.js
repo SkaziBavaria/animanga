@@ -4,7 +4,7 @@ const { test, expect } = require('@playwright/test');
 const { APP_VERSION } = require('./fixtures');
 
 // Real backend integration against the running server (no mocks). Only exercises
-// endpoints that stay local (no ani-cli / AllAnime network calls). Serial so the
+// local endpoints (no upstream anime/manga network calls). Serial so the
 // track -> mark -> untrack lifecycle runs in order against shared state.
 test.describe.configure({ mode: 'serial' });
 
