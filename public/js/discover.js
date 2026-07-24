@@ -1,6 +1,7 @@
 import { api, toast } from './api.js';
 import { els } from './dom.js';
 import { state } from './state.js';
+import { loadDefaultMangaDiscover } from './manga.js';
 import { noSearchResultsHtml, showCard } from './shows.js';
 import { escapeHtml } from './util.js';
 
@@ -83,6 +84,7 @@ export function switchView(id) {
   document.querySelectorAll('.view').forEach((view) => view.classList.toggle('active', view.id === id));
   document.querySelectorAll('.tab').forEach((tab) => tab.classList.toggle('active', tab.dataset.view === id));
   if (id === 'searchView') loadDefaultDiscover();
+  if (id === 'mangaDiscoverView') loadDefaultMangaDiscover();
 }
 
 function viewFor(section) {

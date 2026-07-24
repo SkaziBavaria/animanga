@@ -17,6 +17,7 @@ export const state = {
   detailsRelations: [],
   activeDetailsShow: null,
   discoverLoaded: false,
+  mangaDiscoverLoaded: false,
   mediaMode: localStorage.getItem('animanga-media-mode') === 'manga' ? 'manga' : 'anime',
   activeSection: 'library',
   mangaLibrary: [],

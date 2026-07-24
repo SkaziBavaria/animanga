@@ -272,6 +272,7 @@ export async function loadMangaLibrary(refresh = false) {
 }
 
 export async function searchManga(query = '', options = {}) {
+  state.mangaDiscoverLoaded = true;
   const params = new URLSearchParams({
     q: query,
     sort: options.sort || state.mangaBrowseSort,
@@ -288,12 +289,22 @@ export async function searchManga(query = '', options = {}) {
 }
 
 async function browseManga(button) {
+  state.mangaDiscoverLoaded = true;
   let endpoint = '/api/manga/search?q=&sort=Latest_Update';
   if (button.dataset.mangaRecommended) endpoint = '/api/manga/recommendations';
   if (button.dataset.mangaPopularRange !== undefined) endpoint = `/api/manga/popular?range=${encodeURIComponent(button.dataset.mangaPopularRange)}`;
   const data = await api(endpoint);
   state.mangaResults = data.results || [];
   renderMangaResults();
+}
+
+export function loadDefaultMangaDiscover() {
+  if (state.mangaDiscoverLoaded) return;
+  const popularButton = els.mangaPopularBtn || document.querySelector('.manga-browse-button[data-manga-popular-range="0"]');
+  if (!popularButton) return;
+  document.querySelectorAll('.manga-browse-button').forEach((button) => button.classList.toggle('active', button === popularButton));
+  els.mangaSearchResults.innerHTML = '<div class="empty">Loading Popular...</div>';
+  browseManga(popularButton).catch((err) => toast(err.message));
 }
 
 function updateMangaFilterSummary() {
