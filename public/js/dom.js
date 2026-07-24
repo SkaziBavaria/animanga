@@ -24,6 +24,7 @@ export const els = {
   mangaSearchForm: $('#mangaSearchForm'),
   mangaSearchInput: $('#mangaSearchInput'),
   mangaLatestBtn: $('#mangaLatestBtn'),
+  mangaPopularBtn: $('#mangaPopularBtn'),
   mangaGenreFilter: $('#mangaGenreFilter'),
   mangaGenreFilterSummary: $('#mangaGenreFilterSummary'),
   mangaGenreApplyBtn: $('#mangaGenreApplyBtn'),

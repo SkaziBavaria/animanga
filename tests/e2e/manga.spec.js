@@ -201,7 +201,13 @@ test.describe('Manga', () => {
   });
 
   test('browses manga categories and applies multiple filters', async ({ page }) => {
+    const popularRequest = page.waitForRequest((item) => new URL(item.url()).pathname === '/api/manga/popular' && new URL(item.url()).searchParams.get('range') === '0');
     await page.click('.tab[data-section="discover"]');
+    await popularRequest;
+    await expect(page.locator('#mangaPopularBtn')).toHaveClass(/active/);
+    await expect(page.locator('#mangaLatestBtn')).not.toHaveClass(/active/);
+    await expect(page.locator('#mangaSearchResults .manga-card')).toHaveCount(1);
+
     const hotRequest = page.waitForRequest((item) => new URL(item.url()).pathname === '/api/manga/popular' && new URL(item.url()).searchParams.get('range') === '1');
     await page.click('.manga-browse-button:has-text("Hot")');
     await hotRequest;
