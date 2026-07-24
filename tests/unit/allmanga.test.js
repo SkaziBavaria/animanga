@@ -121,3 +121,25 @@ test('getMangaDetails resolves related manga metadata in one follow-up query', a
     relation: 'sequel',
   }]);
 });
+
+test('getMangaDetails can skip related manga lookups for chapter lists', async () => {
+  let queries = 0;
+  setRawFetcher(async (query) => {
+    queries += 1;
+    assert.equal(query.includes('r0: manga'), false);
+    return {
+      data: {
+        manga: {
+          _id: 'm1',
+          name: 'Story',
+          availableChaptersDetail: { sub: ['1', '2'] },
+          relatedMangas: [{ relation: 'sequel', mangaId: 'm2' }],
+        },
+      },
+    };
+  });
+  const manga = await getMangaDetails('m1', 'sub', { includeRelations: false });
+  assert.equal(queries, 1);
+  assert.deepEqual(manga.chapters, ['1', '2']);
+  assert.deepEqual(manga.relations, []);
+});

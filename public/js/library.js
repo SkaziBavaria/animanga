@@ -1,4 +1,5 @@
 import { api, toast } from './api.js';
+import { refreshSearchResults } from './discover.js';
 import { els } from './dom.js';
 import { state } from './state.js';
 import { showCard } from './shows.js';
@@ -6,6 +7,7 @@ import {
   hasNewEpisodeToContinue,
   hasStarted,
   isCompleted,
+  presentAnimeCard,
   progressRatio,
 } from './util.js';
 
@@ -43,13 +45,32 @@ export function renderLibrary() {
     : '<div class="empty">No shows match this filter.</div>';
 }
 
+export function refreshAnimeCards() {
+  renderLibrary();
+  refreshSearchResults();
+}
+
+/** Patch every in-memory copy of a show and recompute card fields. */
+export function syncAnimeShow(partial) {
+  if (!partial?.id) return null;
+  const presented = presentAnimeCard(partial);
+  for (const show of state.library) {
+    if (show.id === presented.id) Object.assign(show, presented);
+  }
+  for (const show of state.searchResults) {
+    if (show.id === presented.id) Object.assign(show, presented);
+  }
+  if (state.activeShow?.id === presented.id) Object.assign(state.activeShow, presented);
+  return presented;
+}
+
 export async function loadLibrary(refresh = false) {
   els.refreshBtn.disabled = true;
   els.refreshBtn.textContent = '…';
   try {
     const data = await api(`/api/library${refresh ? '?refresh=1' : ''}`);
     state.library = data.shows || [];
-    renderLibrary();
+    refreshAnimeCards();
     if (refresh) toast('Library updated');
   } finally {
     els.refreshBtn.disabled = false;
@@ -62,14 +83,11 @@ export async function trackShow(show) {
   await api('/api/track', { method: 'POST', body: JSON.stringify({ ...show, tracked: true }) });
   toast('Anime tracked');
   await loadLibrary(false);
-  if (state.searchResults.length) {
-    els.searchResults.innerHTML = state.searchResults.map((item) => showCard(item, 'search')).join('');
-  }
 }
 
 export async function removeShow(show) {
   const name = show.name || show.title || 'this anime';
-  const ok = window.confirm(`Remove "${name}" from your library?\n\nThis will not delete ani-cli history. You can add it again from Search > Track.`);
+  const ok = window.confirm(`Remove "${name}" from your library?\n\nYou can add it again from Search > Track.`);
   if (!ok) return;
   await api(`/api/shows/${encodeURIComponent(show.id)}`, { method: 'DELETE' });
   toast('Removed from library');
@@ -81,8 +99,8 @@ export async function updateShowMode(show, mode) {
     method: 'PATCH',
     body: JSON.stringify({ mode }),
   });
-  Object.assign(show, data.show);
-  renderLibrary();
+  syncAnimeShow(data.show || { ...show, mode });
+  refreshAnimeCards();
   toast(`Using ${String(mode).toUpperCase()} for ${show.name || show.title}`);
 }
 

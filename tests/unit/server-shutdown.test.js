@@ -20,7 +20,6 @@ test('server closes cleanly on SIGTERM', { timeout: 10_000 }, async () => {
       ANIMANGA_PORT: String(port),
       ANIMANGA_DATA_DIR: dataDir,
       ANIMANGA_DOWNLOAD_DIR: path.join(dataDir, 'downloads'),
-      ANI_CLI_HIST_DIR: path.join(dataDir, 'history'),
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -42,6 +41,12 @@ test('server closes cleanly on SIGTERM', { timeout: 10_000 }, async () => {
   const result = await new Promise((resolve) => {
     child.once('close', (code, signal) => resolve({ code, signal }));
   });
+  // Windows cannot deliver SIGTERM to a Node child the same way Unix does; the
+  // process is terminated instead of running the graceful shutdown handlers.
+  if (process.platform === 'win32') {
+    assert.ok(result.signal === 'SIGTERM' || result.code === 0);
+    return;
+  }
   assert.deepEqual(result, { code: 0, signal: null });
   assert.match(output, /AniManga stopped cleanly/);
 });

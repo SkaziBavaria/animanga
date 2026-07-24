@@ -89,18 +89,6 @@ export function removeMangaProgress(manga, chapter) {
   delete state.mangaPositions[key];
 }
 
-export function clearMangaProgress(manga, chapter) {
-  if (!manga?.id || !chapter) return;
-  const language = manga.language === 'raw' ? 'raw' : 'sub';
-  removeMangaProgress(manga, chapter);
-  postBeacon('/api/manga/progress', {
-    mangaId: manga.id,
-    language,
-    chapter: String(chapter),
-    clear: true,
-  });
-}
-
 export function formatClock(seconds) {
   const total = Math.max(0, Math.floor(Number(seconds) || 0));
   const h = Math.floor(total / 3600);

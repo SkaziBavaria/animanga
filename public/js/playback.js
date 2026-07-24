@@ -4,7 +4,10 @@ import { state } from './state.js';
 import { usesBrowserPlayer } from './status.js';
 import { positionFor, saveProgress } from './progress.js';
 import { setupPlayerGestures } from './player-gestures.js';
-import { renderLibrary } from './library.js';
+import { refreshAnimeCards, syncAnimeShow } from './library.js';
+import {
+  presentAnimeCard,
+} from './util.js';
 import { loadSkipTimes, skipShowTitle } from './aniskip.js';
 
 let currentContext = null;
@@ -141,10 +144,10 @@ function markEpisodeFinished() {
   postBeacon('/api/mark', { id: showId, episode, watched: true });
   const libraryShow = state.library.find((show) => show.id === showId);
   [...new Set([currentShow, state.activeShow, libraryShow].filter(Boolean))].forEach((show) => {
-    show.lastWatched = episode;
-    show.watchedEpisodes = Array.from(new Set([...(show.watchedEpisodes || []), episode]));
+    show.watchedEpisodes = Array.from(new Set([...(show.watchedEpisodes || []), String(episode)]));
+    syncAnimeShow(presentAnimeCard(show));
   });
-  renderLibrary();
+  refreshAnimeCards();
   if (state.activeShow && state.activeShow.id === showId) {
     import('./episodes.js')
       .then(({ renderEpisodeGrid }) => renderEpisodeGrid(state.activeShow))
@@ -214,6 +217,7 @@ function proxyStreamUrl(playback) {
   if (playback.local || playback.url.startsWith('/')) {
     return new URL(playback.url, window.location.origin).href;
   }
+  if (playback.proxyUrl) return playback.proxyUrl;
   const params = new URLSearchParams({ url: playback.url });
   if (playback.referrer) params.set('referrer', playback.referrer);
   return `/api/proxy?${params.toString()}`;
@@ -551,7 +555,7 @@ export function bindPlayerDialog() {
   els.playerDialog.addEventListener('close', () => {
     if (shouldMarkFinishedOnClose()) markEpisodeFinished();
     else persistProgress();
-    renderLibrary();
+    refreshAnimeCards();
     els.playerVideo.pause();
     els.playerVideo.removeAttribute('src');
     els.playerVideo.load();
@@ -564,7 +568,7 @@ export function bindPlayerDialog() {
     updateVideoControls();
     currentContext = null;
     currentShow = null;
-    renderLibrary();
+    refreshAnimeCards();
     if (state.activeShow) {
       import('./episodes.js')
         .then(({ renderEpisodeGrid }) => renderEpisodeGrid(state.activeShow))

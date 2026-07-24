@@ -6,21 +6,11 @@ const path = require('node:path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ani-web-sqlite-'));
-const historyDir = path.join(testDir, 'history');
+const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'animanga-sqlite-'));
 const downloadDir = path.join(testDir, 'downloads');
-fs.mkdirSync(historyDir, { recursive: true });
 fs.mkdirSync(downloadDir, { recursive: true });
-process.env.ANI_WEB_DATA_DIR = testDir;
-process.env.ANI_CLI_HIST_DIR = historyDir;
-process.env.ANI_CLI_DOWNLOAD_DIR = downloadDir;
-
-fs.writeFileSync(path.join(testDir, 'state.json'), JSON.stringify({
-  shows: { legacy: { id: 'legacy', name: 'Imported show', watchedEpisodes: ['1'] } },
-  positions: { 'legacy:2': { showId: 'legacy', episode: '2', position: 60, duration: 1200 } },
-  settings: { mode: 'dub' },
-  cache: { details: { legacy: { value: { name: 'Cached' }, createdAt: '2026-01-01T00:00:00.000Z' } } },
-}));
+process.env.ANIMANGA_DATA_DIR = testDir;
+process.env.ANIMANGA_DOWNLOAD_DIR = downloadDir;
 
 const {
   ensureDataDir,
@@ -38,13 +28,20 @@ const {
 } = require('../../lib/state');
 const { DATABASE_FILE, BACKUP_DIR } = require('../../lib/config');
 
-test('imports legacy JSON into SQLite on first startup', () => {
+test('starts with SQLite and can seed application state', () => {
   ensureDataDir();
   const state = readState();
-  assert.equal(state.shows.legacy.name, 'Imported show');
-  assert.equal(state.positions['legacy:2'].position, 60);
-  assert.equal(state.settings.mode, 'dub');
-  assert.equal(state.cache.details.legacy.value.name, 'Cached');
+  state.shows.legacy = { id: 'legacy', name: 'Imported show', watchedEpisodes: ['1'] };
+  state.positions['legacy:2'] = { showId: 'legacy', episode: '2', position: 60, duration: 1200 };
+  state.settings.mode = 'dub';
+  state.cache.details.legacy = { value: { name: 'Cached' }, createdAt: '2026-01-01T00:00:00.000Z' };
+  saveState(state);
+
+  const stored = readState();
+  assert.equal(stored.shows.legacy.name, 'Imported show');
+  assert.equal(stored.positions['legacy:2'].position, 60);
+  assert.equal(stored.settings.mode, 'dub');
+  assert.equal(stored.cache.details.legacy.value.name, 'Cached');
   assert.equal(fs.existsSync(DATABASE_FILE), true);
 });
 

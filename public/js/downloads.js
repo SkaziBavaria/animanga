@@ -108,10 +108,10 @@ function scheduleDownloadsPoll(delay = 1200) {
 }
 
 async function refreshDownloadViews() {
-  const { renderLibrary } = await import('./library.js');
+  const { refreshAnimeCards } = await import('./library.js');
   const { renderEpisodeGrid } = await import('./episodes.js');
   renderDownloads();
-  renderLibrary();
+  refreshAnimeCards();
   if (state.activeShow) renderEpisodeGrid(state.activeShow);
 }
 

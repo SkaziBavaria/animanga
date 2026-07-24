@@ -102,6 +102,54 @@ export function progressRatio(show) {
   return Math.min(1, last / latest);
 }
 
+/** Mirror server presentShow for immediate card updates without a refetch. */
+export function presentAnimeCard(show = {}) {
+  const watchedEpisodes = Array.from(new Set((show.watchedEpisodes || []).map(String)));
+  // Always derive from watched list (matches server) so rewatching an older ep cannot lower progress.
+  const lastWatched = highestWatchedEpisode({ watchedEpisodes }) || show.lastWatched || '';
+  const latestEpisode = show.latestEpisode || show.episodeCount || null;
+  const latest = episodeNumber(latestEpisode);
+  const last = episodeNumber(lastWatched);
+  const newCount = Number.isFinite(latest) && Number.isFinite(last)
+    ? Math.max(0, Math.floor(latest - last))
+    : 0;
+  return {
+    ...show,
+    watchedEpisodes,
+    lastWatched,
+    latestEpisode,
+    newCount,
+    watchedCount: watchedEpisodes.length,
+  };
+}
+
+/** Mirror server presentManga for immediate card updates without a refetch. */
+export function presentMangaCard(manga = {}) {
+  const readChapters = Array.from(new Set((manga.readChapters || []).map(String)))
+    .sort((a, b) => Number(a) - Number(b) || String(a).localeCompare(String(b)));
+  // Always derive from read list (matches server) so rereading an older chapter cannot lower progress.
+  const lastRead = readChapters.at(-1) || manga.lastRead || '';
+  const latestChapter = manga.latestChapter || manga.chapters?.at(-1) || manga.chapterCount || null;
+  const read = new Set(readChapters);
+  let newCount = Array.isArray(manga.chapters)
+    ? manga.chapters.filter((chapter) => !read.has(String(chapter))).length
+    : 0;
+  if (!Array.isArray(manga.chapters) || !manga.chapters.length) {
+    const latest = episodeNumber(latestChapter);
+    const last = episodeNumber(lastRead);
+    newCount = Number.isFinite(latest) && Number.isFinite(last)
+      ? Math.max(0, Math.floor(latest - last))
+      : Number(manga.newCount) || 0;
+  }
+  return {
+    ...manga,
+    readChapters,
+    lastRead,
+    latestChapter,
+    newCount,
+  };
+}
+
 export function thumbnailUrl(show) {
   return show.thumbnail || show.thumbnails?.[0] || '';
 }

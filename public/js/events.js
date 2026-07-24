@@ -1,7 +1,7 @@
 import { api, toast, withBusy, runAction } from './api.js';
 import { els } from './dom.js';
 import { state } from './state.js';
-import { applyDiscoverFilters, browsePopular, browseRecommended, search, switchMediaMode, switchSection, switchView } from './discover.js';
+import { applyDiscoverFilters, browsePopular, browseRecommended, refreshSearchResults, search, switchMediaMode, switchSection, switchView } from './discover.js';
 import { openDetails, bindDetailsDialog } from './details.js';
 import {
   deleteEpisodeDownload,
@@ -75,14 +75,17 @@ function bindCardModeChanges() {
     const mode = select.value;
     select.disabled = true;
     try {
-      if (card.dataset.source === 'library') await updateShowMode(show, mode);
-      else {
+      const tracked = state.library.some((item) => item.id === show.id);
+      if (card.dataset.source === 'library' || tracked) {
+        await updateShowMode(show, mode);
+      } else {
         show.mode = mode;
         const count = Number(show.episodeCounts?.[mode] || 0);
         if (count > 0) {
           show.episodeCount = count;
           show.latestEpisode = count;
         }
+        refreshSearchResults();
         toast(`Using ${mode.toUpperCase()} for ${show.name || show.title}`);
       }
     } catch (err) {

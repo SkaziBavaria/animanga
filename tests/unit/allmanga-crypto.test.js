@@ -12,6 +12,10 @@ const {
 } = require('../../lib/allmanga');
 const { setFetchTextForTests } = require('../../lib/mkissa-crypto');
 
+const LEGACY_MASK = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+const CURRENT_MASK = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+const TEST_EPOCH = 42;
+
 test.afterEach(() => resetMangaCryptoForTests());
 
 test('deriveMangaKey XORs the client mask with partB', () => {
@@ -23,22 +27,22 @@ test('deriveMangaKey XORs the client mask with partB', () => {
 test('extractClientCrypto reads mask and buildId from the mkissa crypto chunk shape', () => {
   const legacy = [
     'noise aaReq',
-    'const qd="a39b86dbbcf57f884f3e9074969e7fe26656c74012e4545605896621ffa441c1",kr=yt(183)!=="string"?"63":"";',
+    `const qd="${LEGACY_MASK}",kr=yt(183)!=="string"?"11":"";`,
   ].join('\n');
-  assert.equal(extractClientCrypto(legacy).maskHex, 'a39b86dbbcf57f884f3e9074969e7fe26656c74012e4545605896621ffa441c1');
-  assert.equal(extractClientCrypto(legacy).buildId, '63');
+  assert.equal(extractClientCrypto(legacy).maskHex, LEGACY_MASK);
+  assert.equal(extractClientCrypto(legacy).buildId, '11');
 
   const current = [
     'noise aaReq',
-    'const Ba=ht(383)!=="string"?"70bb5e6260e19a806b3609dc0b6eb718899b09edbd0c23703a5de00e544de128":"",ln="64";',
+    `const Ba=ht(383)!=="string"?"${CURRENT_MASK}":"",ln="12";`,
   ].join('\n');
-  assert.equal(extractClientCrypto(current).maskHex, '70bb5e6260e19a806b3609dc0b6eb718899b09edbd0c23703a5de00e544de128');
-  assert.equal(extractClientCrypto(current).buildId, '64');
+  assert.equal(extractClientCrypto(current).maskHex, CURRENT_MASK);
+  assert.equal(extractClientCrypto(current).buildId, '12');
 });
 
 test('aaRequest builds a versioned AES-GCM blob', () => {
   const key = crypto.randomBytes(32).toString('hex');
-  const token = aaRequest('query { chapterPages }', { key, epoch: 6885, buildId: '64' });
+  const token = aaRequest('query { chapterPages }', { key, epoch: TEST_EPOCH, buildId: '12' });
   const bytes = Buffer.from(token, 'base64');
   assert.equal(bytes[0], 1);
   assert.ok(bytes.length > 1 + 12 + 16);
@@ -46,12 +50,12 @@ test('aaRequest builds a versioned AES-GCM blob', () => {
 
 test('encryptedGraphql heals with a new candidate after response decryption fails', async () => {
   const partB = Buffer.alloc(32, 7).toString('base64');
-  const maskA = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
-  const maskB = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+  const maskA = LEGACY_MASK;
+  const maskB = CURRENT_MASK;
   setFetchTextForTests(async (url) => {
     if (url === 'https://mkissa.to/') {
       return [
-        `<script>window.__aaCrypto={"epoch":6885,"partB":"${partB}"};</script>`,
+        `<script>window.__aaCrypto={"epoch":${TEST_EPOCH},"partB":"${partB}"};</script>`,
         'import("https://cdn.example/_app/immutable/entry/app.x.js")',
       ].join('\n');
     }

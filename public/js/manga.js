@@ -7,7 +7,7 @@ import {
   saveMangaProgress,
 } from './progress.js';
 import { state } from './state.js';
-import { escapeHtml, nextEpisode, stripDescription } from './util.js';
+import { escapeHtml, nextEpisode, presentMangaCard, stripDescription } from './util.js';
 
 function compareChapters(a, b) {
   return Number(a) - Number(b) || String(a).localeCompare(String(b));
@@ -15,7 +15,9 @@ function compareChapters(a, b) {
 
 function coverUrl(url) {
   if (!url) return '';
-  return `/api/proxy?url=${encodeURIComponent(url)}&referrer=${encodeURIComponent('https://allmanga.to/')}`;
+  // Server returns signed /api/proxy URLs for remote covers.
+  if (url.startsWith('/')) return url;
+  return url;
 }
 
 function initials(manga) {
@@ -173,7 +175,10 @@ function mangaCard(manga, source) {
 
 function findManga(card) {
   const id = card?.dataset.mangaId;
-  return [...state.mangaLibrary, ...state.mangaResults].find((item) => item.id === id);
+  if (!id) return null;
+  const primary = card.dataset.source === 'library' ? state.mangaLibrary : state.mangaResults;
+  const secondary = card.dataset.source === 'library' ? state.mangaResults : state.mangaLibrary;
+  return primary.find((item) => item.id === id) || secondary.find((item) => item.id === id) || null;
 }
 
 export function renderMangaLibrary() {
@@ -183,10 +188,29 @@ export function renderMangaLibrary() {
     : '<div class="empty empty-action"><span>Your manga library is empty.</span><button class="small-button secondary" data-action="manga-open-discover" type="button">Find manga</button></div>';
 }
 
-function renderMangaResults(emptyHtml = '<div class="empty">No manga found.</div>') {
+export function renderMangaResults(emptyHtml = '<div class="empty">No manga found.</div>') {
   els.mangaSearchResults.innerHTML = state.mangaResults.length
     ? state.mangaResults.map((manga) => mangaCard(manga, 'search')).join('')
     : emptyHtml;
+}
+
+export function refreshMangaCards(emptyHtml) {
+  renderMangaLibrary();
+  if (state.mangaResults.length || emptyHtml) renderMangaResults(emptyHtml);
+}
+
+/** Patch every in-memory copy of a manga and recompute card fields. */
+export function syncManga(partial) {
+  if (!partial?.id) return null;
+  const presented = presentMangaCard(partial);
+  for (const manga of state.mangaLibrary) {
+    if (manga.id === presented.id) Object.assign(manga, presented);
+  }
+  for (const manga of state.mangaResults) {
+    if (manga.id === presented.id) Object.assign(manga, presented);
+  }
+  if (state.activeManga?.id === presented.id) Object.assign(state.activeManga, presented);
+  return presented;
 }
 
 export async function loadMangaLibrary(refresh = false) {
@@ -194,7 +218,7 @@ export async function loadMangaLibrary(refresh = false) {
   try {
     const data = await api(`/api/manga/library${refresh ? '?refresh=1' : ''}`);
     state.mangaLibrary = data.mangas || [];
-    renderMangaLibrary();
+    refreshMangaCards();
     if (refresh) toast('Manga library updated');
   } finally {
     if (state.mediaMode === 'manga') els.refreshBtn.disabled = false;
@@ -234,7 +258,6 @@ function updateMangaFilterSummary() {
 export async function trackManga(manga) {
   await api('/api/manga/track', { method: 'POST', body: JSON.stringify(manga) });
   await loadMangaLibrary();
-  renderMangaResults();
   toast('Manga added to library');
 }
 
@@ -243,9 +266,8 @@ async function updateMangaLanguage(manga, language) {
     method: 'PATCH',
     body: JSON.stringify({ language }),
   });
-  Object.assign(manga, data.manga);
-  await loadMangaLibrary();
-  renderMangaResults();
+  syncManga(data.manga || { ...manga, language });
+  refreshMangaCards();
   toast(`Using ${language === 'raw' ? 'Raw' : 'Translated'} for ${manga.name || manga.title}`);
 }
 
@@ -398,10 +420,15 @@ function renderMangaDownloadJob(job) {
 
 async function refreshMangaDownloadsAfterBatch(manga) {
   await loadMangaDownloads(manga);
-  const index = state.mangaLibrary.findIndex((item) => item.id === manga.id);
-  if (index >= 0) state.mangaLibrary[index].downloadedChapters = Object.keys(state.mangaDownloads).length;
-  if (state.activeManga?.id === manga.id) renderChapterGrid(state.activeManga);
-  renderMangaLibrary();
+  const count = Object.keys(state.mangaDownloads).length;
+  for (const entry of [...state.mangaLibrary, ...state.mangaResults]) {
+    if (entry.id === manga.id) entry.downloadedChapters = count;
+  }
+  if (state.activeManga?.id === manga.id) {
+    state.activeManga.downloadedChapters = count;
+    renderChapterGrid(state.activeManga);
+  }
+  refreshMangaCards();
   updateReaderControls();
 }
 
@@ -463,15 +490,23 @@ async function cancelMangaDownloadRange() {
 }
 
 async function openMangaChapters(manga, requestedChapter = '') {
+  // Continue/read with a known chapter: open pages first so we don't burn the
+  // upstream rate budget on a redundant details+relations fetch.
+  if (requestedChapter && Array.isArray(manga.chapters) && manga.chapters.length) {
+    state.activeManga = presentMangaCard(manga);
+    await openMangaReader(manga, requestedChapter);
+    return;
+  }
+
   const language = manga.language === 'raw' ? 'raw' : 'sub';
   const [data] = await Promise.all([
     api(`/api/manga/${encodeURIComponent(manga.id)}/chapters?language=${language}`),
     loadMangaDownloads(manga),
   ]);
   const details = { ...data.manga, chapters: data.chapters };
-  const index = state.mangaLibrary.findIndex((item) => item.id === manga.id);
-  if (index >= 0) state.mangaLibrary[index] = { ...state.mangaLibrary[index], ...details };
-  state.activeManga = details;
+  syncManga(details);
+  state.activeManga = presentMangaCard({ ...(state.activeManga || manga), ...details });
+  refreshMangaCards();
   els.mangaDialogTitle.textContent = details.name;
   els.mangaDialogMeta.textContent = `${data.chapters.length} chapters / ${details.status || 'Status unknown'}`;
   els.mangaDialogBody.innerHTML = '';
@@ -495,11 +530,8 @@ async function openMangaAbout(manga) {
   const details = data.manga;
   state.activeManga = details;
   state.mangaRelations = details.relations || [];
-  const libraryIndex = state.mangaLibrary.findIndex((item) => item.id === details.id);
-  if (libraryIndex >= 0) {
-    state.mangaLibrary[libraryIndex] = { ...state.mangaLibrary[libraryIndex], ...details };
-    renderMangaLibrary();
-  }
+  syncManga(details);
+  refreshMangaCards();
   els.mangaDialogTitle.textContent = details.name;
   els.mangaDialogMeta.textContent = [details.type, details.status, details.score ? `Score ${details.score}` : '', details.authors?.join(', ')].filter(Boolean).join(' · ');
   const thumb = coverUrl(details.thumbnail || details.thumbnails?.[0]);
@@ -572,7 +604,7 @@ function persistReaderProgress() {
   const page = currentReaderPage();
   if (!page) return;
   saveMangaProgress(manga, chapter, page, readerPageCount);
-  renderMangaLibrary();
+  refreshMangaCards();
   if (els.mangaDialog.open) renderChapterGrid(manga);
 }
 
@@ -625,9 +657,7 @@ async function openMangaReader(manga, chapter) {
   readerPageCount = data.pages.length;
   if (data.uploadDate) state.activeManga.chapterDates = { ...(state.activeManga.chapterDates || {}), [String(chapter)]: data.uploadDate };
   els.mangaReaderPages.innerHTML = data.pages.map((page) => {
-    const src = page.local || String(page.url).startsWith('/')
-      ? page.url
-      : `/api/proxy?url=${encodeURIComponent(page.url)}&referrer=${encodeURIComponent('https://allmanga.to/')}`;
+    const src = page.url;
     return `<figure class="manga-page" data-page="${escapeHtml(page.number)}"><img src="${escapeHtml(src)}" alt="Page ${page.number}" loading="lazy" decoding="async"><figcaption>Page ${page.number}</figcaption></figure>`;
   }).join('');
   if (data.notes) els.mangaReaderMeta.textContent = `Chapter ${chapter} · ${data.notes}`;
@@ -736,11 +766,10 @@ async function setChapterRead(manga, chapter, read, { markThrough = false } = {}
     }),
   });
   if (read) removeMangaProgress(manga, chapter);
-  state.activeManga = { ...manga, ...data.manga };
-  const index = state.mangaLibrary.findIndex((item) => item.id === manga.id);
-  if (index >= 0) state.mangaLibrary[index] = { ...state.mangaLibrary[index], ...data.manga };
-  renderChapterGrid(state.activeManga);
-  renderMangaLibrary();
+  const presented = syncManga(data.manga || manga);
+  state.activeManga = presented || { ...manga, ...data.manga };
+  if (els.mangaDialog.open) renderChapterGrid(state.activeManga);
+  refreshMangaCards();
   return state.activeManga;
 }
 
@@ -802,8 +831,10 @@ export function bindMangaControls() {
     const language = select.value === 'raw' ? 'raw' : 'sub';
     select.disabled = true;
     try {
-      if (card.dataset.source === 'library') await updateMangaLanguage(manga, language);
-      else {
+      const tracked = state.mangaLibrary.some((item) => item.id === manga.id);
+      if (card.dataset.source === 'library' || tracked) {
+        await updateMangaLanguage(manga, language);
+      } else {
         manga.language = language;
         manga.chapterCount = manga.chapterCounts?.[language] || manga.chapterCount;
         manga.latestChapter = manga.latestChapters?.[language] || manga.latestChapter;

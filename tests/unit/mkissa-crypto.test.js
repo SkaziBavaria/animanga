@@ -25,29 +25,32 @@ const {
   formatCryptoFailure,
 } = require('../../lib/mkissa-crypto');
 
+const LEGACY_MASK = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+const CURRENT_MASK = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
 const LEGACY_CHUNK = [
   'noise aaReq',
-  'const qd="a39b86dbbcf57f884f3e9074969e7fe26656c74012e4545605896621ffa441c1",kr=yt(183)!=="string"?"63":"";',
+  `const qd="${LEGACY_MASK}",kr=yt(183)!=="string"?"11":"";`,
 ].join('\n');
 
 const CURRENT_CHUNK = [
   'noise aaReq',
-  'const Ba=ht(383)!=="string"?"70bb5e6260e19a806b3609dc0b6eb718899b09edbd0c23703a5de00e544de128":"",ln="64";',
+  `const Ba=ht(383)!=="string"?"${CURRENT_MASK}":"",ln="12";`,
 ].join('\n');
 
 const PART_B = Buffer.alloc(32, 7).toString('base64');
+const TEST_EPOCH = 42;
 
 test.afterEach(() => resetMkissaCryptoForTests());
 
 test('extractClientCrypto supports legacy and current bundle shapes', () => {
   assert.deepEqual(extractClientCrypto(LEGACY_CHUNK), {
-    maskHex: 'a39b86dbbcf57f884f3e9074969e7fe26656c74012e4545605896621ffa441c1',
-    buildId: '63',
+    maskHex: LEGACY_MASK,
+    buildId: '11',
     format: 'legacy',
   });
   assert.deepEqual(extractClientCrypto(CURRENT_CHUNK), {
-    maskHex: '70bb5e6260e19a806b3609dc0b6eb718899b09edbd0c23703a5de00e544de128',
-    buildId: '64',
+    maskHex: CURRENT_MASK,
+    buildId: '12',
     format: 'ternary',
   });
 });
@@ -74,10 +77,10 @@ test('parseBootstrapJson fails closed on missing or invalid partB', () => {
 
 test('validates a complete generation against a gated encrypted response', async () => {
   const config = buildAtomicConfig({
-    epoch: 6885,
+    epoch: TEST_EPOCH,
     partB: PART_B,
     maskHex: 'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',
-    buildId: '64',
+    buildId: '12',
   });
   let calls = 0;
   const fetcher = async (_url, options) => {
@@ -87,7 +90,7 @@ test('validates a complete generation against a gated encrypted response', async
       assert.equal(request.extensions, undefined);
       return {
         ok: true,
-        json: async () => ({ data: { mangas: { edges: [{ _id: 'one-piece', name: 'One Piece' }] } } }),
+        json: async () => ({ data: { mangas: { edges: [{ _id: 'sample-manga', name: 'Sample Manga' }] } } }),
       };
     }
     assert.ok(request.extensions?.aaReq);
@@ -105,17 +108,17 @@ test('validates a complete generation against a gated encrypted response', async
     return { ok: true, json: async () => ({ data: { tobeparsed: encrypted } }) };
   };
   const result = await validateCryptoConfig(config, { fetcher });
-  assert.deepEqual(result, { ok: true, mangaId: 'one-piece', sourceCount: 1 });
+  assert.deepEqual(result, { ok: true, mangaId: 'sample-manga', sourceCount: 1 });
   assert.equal(calls, 2);
   assert.ok(buildAaRequest('query { chapterPages }', config));
 });
 
 test('failed validation discards the unverified cached generation', async () => {
   const config = buildAtomicConfig({
-    epoch: 6885,
+    epoch: TEST_EPOCH,
     partB: PART_B,
     maskHex: 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
-    buildId: '64',
+    buildId: '12',
   });
   rememberCompleteConfig(config);
   const fetcher = async () => ({
@@ -127,22 +130,22 @@ test('failed validation discards the unverified cached generation', async () => 
 });
 
 test('buildAtomicConfig derives a complete generation without exposing partB', () => {
-  const maskHex = 'a39b86dbbcf57f884f3e9074969e7fe26656c74012e4545605896621ffa441c1';
+  const maskHex = LEGACY_MASK;
   const config = buildAtomicConfig({
-    epoch: 6885,
+    epoch: TEST_EPOCH,
     partB: PART_B,
     maskHex,
-    buildId: '64',
+    buildId: '12',
     appEntryUrl: 'https://cdn.example/entry/app.js',
   });
-  assert.equal(config.epoch, '6885');
-  assert.equal(config.buildId, '64');
+  assert.equal(config.epoch, String(TEST_EPOCH));
+  assert.equal(config.buildId, '12');
   assert.equal(config.maskHex, maskHex);
   assert.equal(config.key, deriveKey(maskHex, PART_B).toString('hex'));
   assert.equal(config.partB, undefined);
-  assert.match(formatCryptoFailure({ code: 'AA_CRYPTO_STALE', epoch: 6885, buildId: '64' }), /AA_CRYPTO_STALE/);
+  assert.match(formatCryptoFailure({ code: 'AA_CRYPTO_STALE', epoch: TEST_EPOCH, buildId: '12' }), /AA_CRYPTO_STALE/);
   assert.doesNotMatch(
-    formatCryptoFailure({ code: 'AA_CRYPTO_STALE', epoch: 6885, buildId: '64', message: 'failed' }),
+    formatCryptoFailure({ code: 'AA_CRYPTO_STALE', epoch: TEST_EPOCH, buildId: '12', message: 'failed' }),
     new RegExp(`partB|${config.key}`),
   );
 });
@@ -150,7 +153,7 @@ test('buildAtomicConfig derives a complete generation without exposing partB', (
 test('live refresh fails clearly without app-entry or high-confidence candidates', async () => {
   setFetchTextForTests(async (url) => {
     if (url.includes('mkissa.to') && !url.includes('.js')) {
-      return '<script>window.__aaCrypto={"epoch":6885,"partB":"' + PART_B + '"};</script>';
+      return `<script>window.__aaCrypto={"epoch":${TEST_EPOCH},"partB":"${PART_B}"};</script>`;
     }
     throw new Error(`unexpected ${url}`);
   });
@@ -159,7 +162,7 @@ test('live refresh fails clearly without app-entry or high-confidence candidates
   setFetchTextForTests(async (url) => {
     if (url.includes('mkissa.to') && !url.includes('.js')) {
       return [
-        '<script>window.__aaCrypto={"epoch":6885,"partB":"' + PART_B + '"};</script>',
+        `<script>window.__aaCrypto={"epoch":${TEST_EPOCH},"partB":"${PART_B}"};</script>`,
         'import("https://cdn.example/_app/immutable/entry/app.x.js")',
       ].join('\n');
     }
@@ -174,7 +177,7 @@ test('never mixes a fresh bootstrap with another generation mask', async () => {
   const verified = buildAtomicConfig({
     epoch: 1,
     partB: Buffer.alloc(32, 1).toString('base64'),
-    maskHex: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    maskHex: LEGACY_MASK,
     buildId: '1',
     appEntryUrl: 'old',
   });
@@ -182,7 +185,7 @@ test('never mixes a fresh bootstrap with another generation mask', async () => {
 
   setFetchTextForTests(async (url) => {
     if (url.includes('mkissa.to') && !url.includes('.js')) {
-      return '<script>window.__aaCrypto={"epoch":6885,"partB":"' + PART_B + '"};</script>';
+      return `<script>window.__aaCrypto={"epoch":${TEST_EPOCH},"partB":"${PART_B}"};</script>`;
     }
     throw new Error(`unexpected ${url}`);
   });
@@ -195,12 +198,12 @@ test('never mixes a fresh bootstrap with another generation mask', async () => {
 });
 
 test('healing excludes already tried candidates', async () => {
-  const maskA = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
-  const maskB = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+  const maskA = LEGACY_MASK;
+  const maskB = CURRENT_MASK;
   setFetchTextForTests(async (url) => {
     if (url.includes('mkissa.to') && !url.includes('.js')) {
       return [
-        '<script>window.__aaCrypto={"epoch":6885,"partB":"' + PART_B + '"};</script>',
+        `<script>window.__aaCrypto={"epoch":${TEST_EPOCH},"partB":"${PART_B}"};</script>`,
         'import("https://cdn.example/_app/immutable/entry/app.x.js")',
       ].join('\n');
     }

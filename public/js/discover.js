@@ -22,6 +22,11 @@ function renderSearchResults(results, emptyHtml) {
     : emptyHtml;
 }
 
+export function refreshSearchResults() {
+  if (!state.searchResults.length) return;
+  els.searchResults.innerHTML = state.searchResults.map((show) => showCard(show, 'search')).join('');
+}
+
 export async function search(q) {
   document.querySelectorAll('.browse-button').forEach((button) => button.classList.remove('active'));
   state.discoverLoaded = true;

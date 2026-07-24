@@ -5,10 +5,10 @@ const path = require('node:path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const DATA_DIR = path.join(os.tmpdir(), `ani-web-dl-unit-${process.pid}`);
+const DATA_DIR = path.join(os.tmpdir(), `animanga-dl-unit-${process.pid}`);
 const DOWNLOAD_DIR = path.join(DATA_DIR, 'downloads');
-process.env.ANI_WEB_DATA_DIR = DATA_DIR;
-process.env.ANI_CLI_DOWNLOAD_DIR = DOWNLOAD_DIR;
+process.env.ANIMANGA_DATA_DIR = DATA_DIR;
+process.env.ANIMANGA_DOWNLOAD_DIR = DOWNLOAD_DIR;
 
 const fs = require('node:fs');
 const { downloadKey, downloadStatus, isDownloadBusy, resolveDownloadPath } = require('../../lib/downloads');

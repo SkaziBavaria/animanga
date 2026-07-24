@@ -88,7 +88,7 @@ function stopGithubPolling() {
 async function pollGithub(interval = 5) {
   stopGithubPolling();
   try {
-    const result = await api('/api/sync/github/poll');
+    const result = await api('/api/sync/github/poll', { method: 'POST', body: '{}' });
     renderSyncConfig(result.config);
     if (result.deviceAuth?.status === 'success') {
       await api('/api/sync/run', { method: 'POST' });
@@ -203,6 +203,5 @@ async function autoSync() {
 
 export function startAutoSync() {
   setTimeout(autoSync, 10_000);
-  setInterval(autoSync, 5 * 60_000);
   window.addEventListener('online', autoSync);
 }

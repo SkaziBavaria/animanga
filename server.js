@@ -4,22 +4,40 @@
 const http = require('http');
 const fs = require('fs');
 const os = require('os');
-const { HOST, PORT, HISTORY_FILE, ACCESS_TOKEN } = require('./lib/config');
+const { HOST, PORT, ACCESS_TOKEN } = require('./lib/config');
+const { assertSecureBind, isOpenBind } = require('./lib/bind-security');
 const { ensureDataDir, startBackupSchedule, closeState } = require('./lib/state');
 const { handleApi } = require('./lib/routes');
+const { sendError } = require('./lib/http');
 const { serveStatic } = require('./lib/static');
 const { syncNow, waitForActiveSync } = require('./lib/sync');
 const { requireAuthentication } = require('./lib/auth');
 const { shutdownJobs } = require('./lib/jobs');
 
+assertSecureBind({ host: HOST, accessToken: ACCESS_TOKEN });
+
 ensureDataDir();
 startBackupSchedule();
+
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled promise rejection:', reason);
+});
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught exception:', error);
+  process.exit(1);
+});
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || `${HOST}:${PORT}`}`);
   if (!requireAuthentication(req, res, url.pathname)) return;
   if (url.pathname.startsWith('/api/')) {
-    handleApi(req, res, url);
+    handleApi(req, res, url).catch((err) => {
+      if (!res.headersSent) {
+        sendError(res, Number(err.status || err.statusCode) || 500, err.message || 'Internal server error');
+      } else {
+        res.destroy();
+      }
+    });
     return;
   }
   serveStatic(req, res, url);
@@ -43,8 +61,7 @@ server.listen(PORT, HOST, () => {
   }
   console.log(`Listening on ${HOST}:${PORT}`);
   if (ACCESS_TOKEN) console.log('Authentication enabled');
-  else if (HOST === '0.0.0.0' || HOST === '::') console.warn('WARNING: AniManga is exposed without authentication. Set ANIMANGA_ACCESS_TOKEN or bind to localhost.');
-  console.log(`History: ${HISTORY_FILE}`);
+  else if (isOpenBind(HOST)) console.warn('WARNING: AniManga is exposed without authentication. Set ANIMANGA_ACCESS_TOKEN or bind to localhost.');
 });
 
 const initialSyncTimer = setTimeout(() => syncNow({ silent: true }), 15_000);

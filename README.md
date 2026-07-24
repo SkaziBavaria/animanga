@@ -1,6 +1,6 @@
 # AniManga
 
-AniManga is a self-hosted anime player and manga reader. Anime and manga metadata, pages, browser playback, and downloads are resolved by the Node server. Episode downloads are written with ffmpeg; ani-cli is not required.
+AniManga is a self-hosted anime player and manga reader. Anime and manga metadata, pages, browser playback, and downloads are resolved by the Node server. Episode downloads are written with ffmpeg.
 
 The player runs in the browser, so you can also install the site as a PWA from Chrome.
 
@@ -20,8 +20,6 @@ Useful CLI options:
 ```sh
 animanga start --host 0.0.0.0 --port 7831
 animanga start --data-dir /path/to/data
-animanga start --resolver ani-cli
-animanga start --ani-cli-fallback
 ```
 
 The npm package does not install or modify system programs. Browser playback and manga work through the built-in Node adapters. Anime episode downloads use the `ffmpeg` executable available on your system.
@@ -54,7 +52,7 @@ git pull --ff-only
 docker compose up -d --build
 ```
 
-Docker stores the database, logs, downloaded episodes, and downloaded manga pages in the local `data/` directory. Rebuilding or restarting the container does not remove them. On the first start of the hardened image, existing files in that directory are assigned to the container's unprivileged `node` user; the application process itself does not run as root. The image includes a healthcheck and ffmpeg, and does not include ani-cli.
+Docker stores the database, logs, downloaded episodes, and downloaded manga pages in the local `data/` directory. Rebuilding or restarting the container does not remove them. On the first start of the hardened image, existing files in that directory are assigned to the container's unprivileged `node` user; the application process itself does not run as root. The image includes a healthcheck and ffmpeg.
 
 ## Run on Android with Termux
 
@@ -67,7 +65,7 @@ pkg install -y curl
 curl -fsSL https://raw.githubusercontent.com/SkaziBavaria/ani-web/main/scripts/install-termux.sh | sh
 ```
 
-The installer adds the required Termux packages, checks Node, SQLite, and ffmpeg, and places AniManga in `~/animanga`. Existing installations in `~/ani-web` continue to update in place. ani-cli is not installed or required.
+The installer adds the required Termux packages, checks Node, SQLite, and ffmpeg, and places AniManga in `~/animanga`.
 
 Start it with:
 
@@ -77,15 +75,7 @@ animanga
 
 Then open [http://127.0.0.1:7831](http://127.0.0.1:7831) in Chrome. If you want to download episodes to shared storage, run `termux-setup-storage` once and accept Android's permission prompt.
 
-To update the Termux installation, run the installer again. It only fast-forwards a clean checkout and will leave local changes alone.
-
-To install or switch to a specific branch, pass `BRANCH`. For example, while the manga work is still on its feature branch:
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/SkaziBavaria/ani-web/feature/manga/scripts/install-termux.sh | BRANCH=feature/manga sh
-```
-
-Running the normal command again switches back to `main`. `ANIMANGA_BRANCH` is the preferred environment-variable form; the legacy `ANI_WEB_BRANCH` remains supported.
+To update the Termux installation, run the installer again. It only fast-forwards a clean checkout and will leave local changes alone. To check out a specific git branch instead of `main`, set `ANIMANGA_BRANCH` (or pass `BRANCH=...`) when running the installer.
 
 Android may stop Termux in the background. Setting Termux battery usage to **Unrestricted** usually fixes that. You can also run `termux-wake-lock` while using the server.
 
@@ -103,7 +93,7 @@ GitHub is the easiest option for local and Termux installations because it does 
 4. Copy its Client ID into **Settings → Cloud sync → GitHub** in AniManga.
 5. Choose a different device name on each installation, save, and connect.
 
-AniManga creates a private repository named `aniweb-sync-data`. The legacy repository name is intentionally retained so existing devices keep syncing. Each device writes its own sync file, and records are merged instead of replacing the complete database. The OAuth `repo` scope is required to create and update a private repository, so only connect an OAuth App you trust.
+AniManga creates a private repository named `animanga-sync-data`. Each device writes its own sync file, and records are merged instead of replacing the complete database. The OAuth `repo` scope is required to create and update a private repository, so only connect an OAuth App you trust.
 
 ### Google Drive
 
@@ -116,19 +106,14 @@ OAuth client secrets and access tokens are stored in the local SQLite database. 
 
 - `ANIMANGA_PORT=7832` changes the port.
 - `ANIMANGA_HOST=0.0.0.0` exposes the server on the local network. Only do this on a network you trust.
-- `ANIMANGA_ACCESS_TOKEN=...` enables HTTP Basic authentication. This is strongly recommended whenever the server is reachable from another device.
+- `ANIMANGA_ACCESS_TOKEN=...` enables HTTP Basic authentication. This is strongly recommended whenever the server is reachable from another device. Binding to `0.0.0.0` or `::` without a token is refused outside Docker unless you explicitly set `ANIMANGA_ALLOW_INSECURE=1`. Mutating API calls also require a same-origin browser request (or a non-browser client) so cross-site forms cannot reuse a cached password.
 - `ANIMANGA_ACCESS_USERNAME=animanga` changes the Basic-auth username.
 - `ANIMANGA_PUBLIC_URL=https://animanga.example.com` fixes the external origin used for OAuth callbacks.
-- `ANIMANGA_TRUST_PROXY=1` accepts forwarded host/protocol headers when a fixed public URL cannot be used. Enable it only behind a trusted reverse proxy that overwrites those headers.
+- `ANIMANGA_TRUST_PROXY=1` accepts forwarded host/protocol headers when a fixed public URL cannot be used. Enable it only behind a trusted reverse proxy that overwrites those headers. `ANIMANGA_PUBLIC_URL` is required when this is set.
+- `ANIMANGA_PROXY_SECRET=...` optional HMAC secret for signed `/api/proxy` URLs. Defaults to the access token, or a generated file under the data directory.
 - `ANIMANGA_CLIENT_PLAYBACK=1` forces browser playback.
-- `ANIMANGA_ANIME_RESOLVER=node` selects the built-in runtime resolver (default); use `ani-cli` to force the compatibility path.
-- `ANIMANGA_ANI_CLI_FALLBACK=1` enables the optional legacy ani-cli playback fallback (disabled by default).
 - `ANIMANGA_DATA_DIR=/path/to/data` selects the persistent application-data directory.
 - `ANIMANGA_DOWNLOAD_DIR=/path/to/downloads` changes the anime episode download directory.
-- `ANI_CLI_BIN=/path/to/ani-cli` selects a different ani-cli executable.
-- `ANI_CLI_DOWNLOAD_DIR=/path/to/downloads` remains a deprecated alias for `ANIMANGA_DOWNLOAD_DIR`.
-
-The previous `ANI_WEB_*` variable names remain supported for existing installations.
 
 The native installation requires Node 22.16 or newer. The Docker image includes a compatible Node version and all runtime dependencies.
 

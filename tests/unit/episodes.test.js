@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
   cleanTitle,
-  aniCliQueryTitle,
+  queryTitle,
   parseEpisodeCount,
   preferredName,
   normalizeMode,
@@ -20,10 +20,10 @@ test('cleanTitle strips the episode-count suffix', () => {
   assert.equal(cleanTitle('  Naruto  '), 'Naruto');
 });
 
-test('aniCliQueryTitle prefers english then name then title', () => {
-  assert.equal(aniCliQueryTitle({ englishName: 'Attack on Titan', name: 'Shingeki' }), 'Attack on Titan');
-  assert.equal(aniCliQueryTitle({ name: 'Shingeki no Kyojin' }), 'Shingeki no Kyojin');
-  assert.equal(aniCliQueryTitle({ title: 'Bleach (12 episodes)' }), 'Bleach');
+test('queryTitle prefers english then name then title', () => {
+  assert.equal(queryTitle({ englishName: 'Attack on Titan', name: 'Shingeki' }), 'Attack on Titan');
+  assert.equal(queryTitle({ name: 'Shingeki no Kyojin' }), 'Shingeki no Kyojin');
+  assert.equal(queryTitle({ title: 'Bleach (12 episodes)' }), 'Bleach');
 });
 
 test('parseEpisodeCount extracts the number', () => {

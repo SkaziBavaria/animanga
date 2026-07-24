@@ -14,8 +14,7 @@ async function requestNotificationPermission() {
 function notifyMangaReleaseWatch(watch) {
   const title = watch.matchedManga?.name || watch.matchedManga?.title || watch.query;
   const key = `animanga-manga-release-watch-${watch.id}-${watch.foundAt || ''}`;
-  const legacyKey = `ani-web-manga-release-watch-${watch.id}-${watch.foundAt || ''}`;
-  if (localStorage.getItem(key) || localStorage.getItem(legacyKey)) return;
+  if (localStorage.getItem(key)) return;
   localStorage.setItem(key, '1');
   if ('Notification' in window && Notification.permission === 'granted') {
     new Notification('Manga release found', {

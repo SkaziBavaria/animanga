@@ -43,3 +43,27 @@ test('cacheStatusLabel distinguishes live, cached and offline data', async () =>
   assert.equal(cacheStatusLabel({ cache: { cached: true, ageSeconds: 7200 } }), 'cached 2h ago');
   assert.equal(cacheStatusLabel({ offline: true, offlineAgeSeconds: 180 }), 'offline cache · 3m ago');
 });
+
+test('presentAnimeCard recomputes newCount from last watched and latest', async () => {
+  const { presentAnimeCard } = await loadUtil();
+  const presented = presentAnimeCard({
+    id: 'a',
+    watchedEpisodes: ['1', '2'],
+    lastWatched: '2',
+    latestEpisode: '5',
+  });
+  assert.equal(presented.newCount, 3);
+  assert.equal(presented.watchedCount, 2);
+});
+
+test('presentMangaCard counts unread chapters when chapter list exists', async () => {
+  const { presentMangaCard } = await loadUtil();
+  const presented = presentMangaCard({
+    id: 'm',
+    chapters: ['1', '2', '3', '4'],
+    readChapters: ['1', '2'],
+    latestChapter: '4',
+  });
+  assert.equal(presented.newCount, 2);
+  assert.equal(presented.lastRead, '2');
+});

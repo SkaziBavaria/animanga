@@ -1,5 +1,5 @@
-const SHELL_CACHE = 'animanga-shell-v48';
-const API_CACHE = 'animanga-api-v4';
+const SHELL_CACHE = 'animanga-shell-v54';
+const API_CACHE = 'animanga-api-v6';
 const ASSETS = [
   '/', '/index.html', '/styles.css', '/manifest.webmanifest', '/icon.svg', '/animanga-logo.png',
   '/js/app.js', '/js/api.js', '/js/aniskip.js', '/js/details.js', '/js/discover.js',
@@ -15,8 +15,13 @@ function isVideoOrProxy(url) {
   return url.pathname === '/api/proxy' || /^\/api\/downloads\/[^/]+\/[^/]+\/file$/.test(url.pathname);
 }
 
+function hasSignedContent(url) {
+  // Manga API responses embed short-lived HMAC proxy URLs; do not cache them.
+  return url.pathname.startsWith('/api/manga/');
+}
+
 function isCacheableApi(request, url) {
-  return request.method === 'GET' && url.pathname.startsWith('/api/') && !isVideoOrProxy(url);
+  return request.method === 'GET' && url.pathname.startsWith('/api/') && !isVideoOrProxy(url) && !hasSignedContent(url);
 }
 
 async function cachedOfflineResponse(request, cacheName) {
@@ -24,12 +29,10 @@ async function cachedOfflineResponse(request, cacheName) {
   if (!cached) return null;
   const headers = new Headers(cached.headers);
   headers.set('x-animanga-cache', 'offline');
-  headers.set('x-ani-web-cache', 'offline');
-  const cachedAt = Date.parse(headers.get('x-animanga-cached-at') || headers.get('x-ani-web-cached-at') || '');
+  const cachedAt = Date.parse(headers.get('x-animanga-cached-at') || '');
   if (Number.isFinite(cachedAt)) {
     const age = String(Math.max(0, Math.floor((Date.now() - cachedAt) / 1000)));
     headers.set('x-animanga-cache-age', age);
-    headers.set('x-ani-web-cache-age', age);
   }
   return new Response(await cached.blob(), {
     status: cached.status,
@@ -47,7 +50,6 @@ async function networkFirst(request, cacheName, fallbackRequest = null) {
       const headers = new Headers(copy.headers);
       const cachedAt = new Date().toISOString();
       headers.set('x-animanga-cached-at', cachedAt);
-      headers.set('x-ani-web-cached-at', cachedAt);
       const cachedResponse = new Response(await copy.blob(), {
         status: copy.status,
         statusText: copy.statusText,

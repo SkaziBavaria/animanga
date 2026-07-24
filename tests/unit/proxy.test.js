@@ -3,7 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { isPrivateIp, parseProxyTarget, pinnedRequestOptions, resolvePublicTarget } = require('../../lib/proxy');
+const { isPrivateIp, parseProxyTarget, pinnedRequestOptions, resolvePublicTarget, rewriteM3u8 } = require('../../lib/proxy');
 
 test('parseProxyTarget accepts http and https urls', () => {
   assert.equal(parseProxyTarget('https://cdn.example.com/video.mp4'), 'https://cdn.example.com/video.mp4');
@@ -61,4 +61,54 @@ test('connects directly to the validated address while preserving TLS and HTTP r
   assert.equal(options.servername, 'video.example');
   assert.equal(options.signal, signal);
   assert.equal('lookup' in options, false);
+});
+
+test('rewriteM3u8 rewrites relative segment URIs through the proxy', () => {
+  const playlist = [
+    '#EXTM3U',
+    '#EXT-X-VERSION:3',
+    '#EXTINF:10.0,',
+    'segment0.ts',
+    '#EXTINF:10.0,',
+    '../media/segment1.ts',
+  ].join('\n');
+  const mockProxy = (url, referrer) => `/api/proxy?url=${encodeURIComponent(url)}&referrer=${encodeURIComponent(referrer)}`;
+  const out = rewriteM3u8(
+    playlist,
+    'https://cdn.example/hls/master.m3u8',
+    'https://embed.example/',
+    mockProxy,
+  );
+  assert.match(out, /\/api\/proxy\?url=https%3A%2F%2Fcdn\.example%2Fhls%2Fsegment0\.ts/);
+  assert.match(out, /\/api\/proxy\?url=https%3A%2F%2Fcdn\.example%2Fmedia%2Fsegment1\.ts/);
+  assert.match(out, /referrer=https%3A%2F%2Fembed\.example%2F/);
+  assert.match(out, /^#EXTINF:10\.0,$/m);
+});
+
+test('rewriteM3u8 rewrites absolute segment URIs through the proxy', () => {
+  const playlist = [
+    '#EXTM3U',
+    '#EXTINF:6.0,',
+    'https://other-cdn.example/streams/seg-001.ts',
+  ].join('\n');
+  const mockProxy = (url) => `[proxy:${url}]`;
+  const out = rewriteM3u8(playlist, 'https://cdn.example/master.m3u8', 'https://ref.example/', mockProxy);
+  assert.equal(out.split('\n').pop(), '[proxy:https://other-cdn.example/streams/seg-001.ts]');
+});
+
+test('rewriteM3u8 rewrites URI attributes in HLS tags', () => {
+  const playlist = [
+    '#EXTM3U',
+    '#EXT-X-KEY:METHOD=AES-128,URI="enc.key"',
+    '#EXT-X-MAP:URI="init.mp4"',
+    '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="English",URI="audio/en.m3u8"',
+    '#EXTINF:4.0,',
+    'seg.ts',
+  ].join('\n');
+  const mockProxy = (url) => `[proxy:${url}]`;
+  const out = rewriteM3u8(playlist, 'https://cdn.example/live/playlist.m3u8', 'https://ref.example/', mockProxy);
+  assert.match(out, /URI="\[proxy:https:\/\/cdn\.example\/live\/enc\.key\]"/);
+  assert.match(out, /URI="\[proxy:https:\/\/cdn\.example\/live\/init\.mp4\]"/);
+  assert.match(out, /URI="\[proxy:https:\/\/cdn\.example\/live\/audio\/en\.m3u8\]"/);
+  assert.match(out, /^\[proxy:https:\/\/cdn\.example\/live\/seg\.ts\]$/m);
 });

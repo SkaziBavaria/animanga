@@ -13,8 +13,7 @@ async function requestNotificationPermission() {
 function notifyReleaseWatch(watch) {
   const title = watch.matchedShow?.name || watch.matchedShow?.title || watch.query;
   const key = `animanga-release-watch-${watch.id}-${watch.foundAt || ''}`;
-  const legacyKey = `ani-web-release-watch-${watch.id}-${watch.foundAt || ''}`;
-  if (localStorage.getItem(key) || localStorage.getItem(legacyKey)) return;
+  if (localStorage.getItem(key)) return;
   localStorage.setItem(key, '1');
   if ('Notification' in window && Notification.permission === 'granted') {
     new Notification('Release found', {

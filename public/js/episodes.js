@@ -9,7 +9,7 @@ import {
   isDownloadBusy,
   isDownloadLocked,
 } from './download-helpers.js';
-import { loadLibrary } from './library.js';
+import { loadLibrary, syncAnimeShow, refreshAnimeCards } from './library.js';
 import {
   openPlayback,
   resolveLocalPlayback,
@@ -17,7 +17,15 @@ import {
 } from './playback.js';
 import { usesBrowserPlayer } from './status.js';
 import { formatClock, positionFor } from './progress.js';
-import { cacheStatusLabel, escapeHtml, episodeReleaseLabel, episodeTitle, highestWatchedEpisode, nextEpisode, releasePills } from './util.js';
+import {
+  cacheStatusLabel,
+  escapeHtml,
+  episodeReleaseLabel,
+  episodeTitle,
+  nextEpisode,
+  presentAnimeCard,
+  releasePills,
+} from './util.js';
 
 export async function playShow(show, episode) {
   const localPlayback = await resolveLocalPlayback(show, episode);
@@ -58,6 +66,8 @@ export async function openEpisodes(show) {
   show.lastEpisodeTimestamp = data.lastEpisodeTimestamp || show.lastEpisodeTimestamp;
   show.offline = Boolean(data.offline);
   show.cacheStatus = cacheStatusLabel(data);
+  syncAnimeShow(presentAnimeCard(show));
+  refreshAnimeCards();
   renderEpisodeGrid(show);
 }
 
@@ -138,11 +148,15 @@ export async function toggleEpisodeWatched(show, episode) {
   });
   if (shouldWatch) delete state.positions[`${show.id}:${epText}`];
   const preservedEpisodes = show.episodes;
-  Object.assign(show, data.show || {});
+  const presented = syncAnimeShow(presentAnimeCard({
+    ...show,
+    ...(data.show || {}),
+    episodes: preservedEpisodes,
+  }));
+  if (presented) presented.episodes = preservedEpisodes;
   show.episodes = preservedEpisodes;
-  show.lastWatched = highestWatchedEpisode(show) || '';
   renderEpisodeGrid(show);
-  await loadLibrary(false);
+  refreshAnimeCards();
   toast(shouldWatch ? `Episode ${epText} marked watched` : `Episode ${epText} marked unwatched`);
 }
 

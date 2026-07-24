@@ -9,9 +9,9 @@ export async function api(path, options = {}) {
     },
   });
   const json = await res.json().catch(() => ({}));
-  if ((res.headers.get('x-animanga-cache') || res.headers.get('x-ani-web-cache')) === 'offline' && json && typeof json === 'object') {
+  if (res.headers.get('x-animanga-cache') === 'offline' && json && typeof json === 'object') {
     json.offline = true;
-    json.offlineAgeSeconds = Number(res.headers.get('x-animanga-cache-age') || res.headers.get('x-ani-web-cache-age')) || 0;
+    json.offlineAgeSeconds = Number(res.headers.get('x-animanga-cache-age')) || 0;
   }
   if (!res.ok || json.error) {
     const detail = typeof json.details === 'string'

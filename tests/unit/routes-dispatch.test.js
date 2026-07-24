@@ -6,7 +6,7 @@ const os = require('os');
 const path = require('path');
 const { Readable } = require('stream');
 
-process.env.ANI_WEB_DATA_DIR = path.join(os.tmpdir(), `ani-web-routes-${process.pid}`);
+process.env.ANIMANGA_DATA_DIR = path.join(os.tmpdir(), `animanga-routes-${process.pid}`);
 
 const { handleApi } = require('../../lib/routes');
 
@@ -62,6 +62,14 @@ test('dispatcher reaches playback and returns a consistent unknown-route respons
   const proxy = await request('/api/proxy');
   assert.equal(proxy.res.status, 400);
   assert.equal(proxy.json.error, 'Missing url');
+
+  const githubPollGet = await request('/api/sync/github/poll');
+  assert.equal(githubPollGet.res.status, 405);
+  assert.equal(githubPollGet.json.error, 'Method not allowed');
+
+  const githubPollPost = await request('/api/sync/github/poll', { method: 'POST', body: {} });
+  assert.equal(githubPollPost.res.status, 200);
+  assert.ok(Object.hasOwn(githubPollPost.json, 'deviceAuth'));
 
   const missing = await request('/api/does-not-exist');
   assert.equal(missing.res.status, 404);

@@ -17,9 +17,6 @@ Options:
   --host <address>       Listen address (default: 127.0.0.1)
   --port <number>        Listen port (default: 7831)
   --data-dir <path>      Persistent data directory
-  --resolver <mode>      node or ani-cli (default: node)
-  --ani-cli-fallback     Enable the optional legacy ani-cli playback fallback
-  --no-ani-cli-fallback  Disable the temporary ani-cli fallback
   -h, --help             Show this help
   -v, --version          Show the installed version
 `;
@@ -37,12 +34,6 @@ function configureStart(args) {
     if (arg === '--host') process.env.ANIMANGA_HOST = takeValue(args, index++, arg);
     else if (arg === '--port') process.env.ANIMANGA_PORT = takeValue(args, index++, arg);
     else if (arg === '--data-dir') process.env.ANIMANGA_DATA_DIR = path.resolve(takeValue(args, index++, arg));
-    else if (arg === '--resolver') {
-      const resolver = takeValue(args, index++, arg);
-      if (!['node', 'ani-cli'].includes(resolver)) throw new Error('--resolver must be node or ani-cli');
-      process.env.ANIMANGA_ANIME_RESOLVER = resolver;
-    } else if (arg === '--ani-cli-fallback') process.env.ANIMANGA_ANI_CLI_FALLBACK = '1';
-    else if (arg === '--no-ani-cli-fallback') process.env.ANIMANGA_ANI_CLI_FALLBACK = '0';
     else if (arg === '-h' || arg === '--help') {
       process.stdout.write(usage());
       return false;
@@ -98,9 +89,30 @@ async function doctor() {
     add('Provider crypto', false, error.message, false);
   }
 
+  const { HOST, ACCESS_TOKEN, PUBLIC_URL } = require('../lib/config');
+  const { isOpenBind } = require('../lib/bind-security');
+  const inDocker = fs.existsSync('/.dockerenv');
+  const allowInsecure = process.env.ANIMANGA_ALLOW_INSECURE === '1';
+  if (isOpenBind(HOST) && !ACCESS_TOKEN && !inDocker && !allowInsecure) {
+    add('Network bind', false, `${HOST} without ANIMANGA_ACCESS_TOKEN (server refuses to start)`, true);
+  } else if (isOpenBind(HOST) && !ACCESS_TOKEN) {
+    add('Network bind', false, `${HOST} without authentication (set ANIMANGA_ACCESS_TOKEN)`, false);
+  } else if (isOpenBind(HOST)) {
+    add('Network bind', true, `${HOST} with authentication enabled`);
+  } else {
+    add('Network bind', true, `${HOST}`);
+  }
+
+  if (PUBLIC_URL) {
+    add('Public URL', true, PUBLIC_URL, false);
+  } else if (isOpenBind(HOST)) {
+    add('Public URL', false, 'ANIMANGA_PUBLIC_URL recommended for Google OAuth and reverse proxies', false);
+  } else {
+    add('Public URL', true, 'not set (ok on localhost)', false);
+  }
+
   for (const [label, binary, missing] of [
     ['ffmpeg downloads', 'ffmpeg', 'not installed (anime downloads unavailable)'],
-    ['ani-cli legacy fallback', process.env.ANI_CLI_BIN || 'ani-cli', 'not installed (optional)'],
     ['mpv native player', 'mpv', 'not installed (optional)'],
   ]) {
     const available = executable(binary);

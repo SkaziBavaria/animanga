@@ -6,10 +6,9 @@ const path = require('node:path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ani-web-sync-config-'));
-process.env.ANI_WEB_DATA_DIR = testDir;
-process.env.ANI_CLI_HIST_DIR = path.join(testDir, 'history');
-process.env.ANI_CLI_DOWNLOAD_DIR = path.join(testDir, 'downloads');
+const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'animanga-sync-config-'));
+process.env.ANIMANGA_DATA_DIR = testDir;
+process.env.ANIMANGA_DOWNLOAD_DIR = path.join(testDir, 'downloads');
 
 const sync = require('../../lib/sync');
 const githubSync = require('../../lib/github-sync');
@@ -106,8 +105,8 @@ test('uploads one private-repo sync file per device', async () => {
   const requests = [];
   githubSync.setRawFetcher(async (url, options = {}) => {
     requests.push({ url: String(url), options });
-    if (String(url).endsWith('/repos/zafer/aniweb-sync-data')) {
-      return new Response(JSON.stringify({ name: 'aniweb-sync-data', private: true }), { status: 200 });
+    if (String(url).endsWith('/repos/zafer/animanga-sync-data')) {
+      return new Response(JSON.stringify({ name: 'animanga-sync-data', private: true }), { status: 200 });
     }
     if (String(url).endsWith('/contents/devices') && (!options.method || options.method === 'GET')) {
       return new Response(JSON.stringify({ message: 'Not Found' }), { status: 404 });
@@ -129,8 +128,8 @@ test('uploads one private-repo sync file per device', async () => {
 
 test('refuses to place sync data in a public repository', async () => {
   githubSync.setRawFetcher(async (url) => {
-    if (String(url).endsWith('/repos/zafer/aniweb-sync-data')) {
-      return new Response(JSON.stringify({ name: 'aniweb-sync-data', private: false }), { status: 200 });
+    if (String(url).endsWith('/repos/zafer/animanga-sync-data')) {
+      return new Response(JSON.stringify({ name: 'animanga-sync-data', private: false }), { status: 200 });
     }
     throw new Error(`Unexpected GitHub request: ${url}`);
   });

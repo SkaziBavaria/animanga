@@ -5,7 +5,7 @@ const path = require('node:path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-process.env.ANI_WEB_DATA_DIR = path.join(os.tmpdir(), `ani-web-manga-jobs-${process.pid}`);
+process.env.ANIMANGA_DATA_DIR = path.join(os.tmpdir(), `animanga-manga-jobs-${process.pid}`);
 
 const registry = require('../../lib/registry');
 const {

@@ -16,10 +16,7 @@ export function usesBrowserPlayer() {
 export async function loadStatus() {
   statusCache = await api('/api/status');
   const mode = statusCache.deps?.clientPlayback ? 'browser play' : 'MPV';
-  const resolver = statusCache.deps?.animeResolver === 'node'
-    ? 'AniManga resolver'
-    : `ani-cli ${statusCache.aniCliVersion || ''}`.trim();
   els.statusText.textContent = statusCache.offline
     ? `Offline · cached ${formatCacheAge(statusCache.offlineAgeSeconds)} · ${mode}`
-    : `${resolver} · ${mode}`;
+    : `AniManga · ${mode}`;
 }

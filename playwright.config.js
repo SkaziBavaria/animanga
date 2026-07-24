@@ -28,11 +28,10 @@ module.exports = defineConfig({
     reuseExistingServer: !process.env.CI,
     timeout: 30_000,
     env: {
-      ANI_WEB_HOST: '127.0.0.1',
-      ANI_WEB_PORT: String(PORT),
-      ANI_WEB_DATA_DIR: DATA_DIR,
-      ANI_CLI_HIST_DIR: path.join(DATA_DIR, 'ani-cli'),
-      ANI_CLI_DOWNLOAD_DIR: path.join(DATA_DIR, 'downloads'),
+      ANIMANGA_HOST: '127.0.0.1',
+      ANIMANGA_PORT: String(PORT),
+      ANIMANGA_DATA_DIR: DATA_DIR,
+      ANIMANGA_DOWNLOAD_DIR: path.join(DATA_DIR, 'downloads'),
     },
   },
 });
