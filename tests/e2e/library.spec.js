@@ -306,6 +306,33 @@ test.describe('Resume playback from the library card', () => {
     expect(req.postDataJSON()).toMatchObject({ id: 'a', episode: '3' });
     await expect(page.locator('#playerDialog')).toBeVisible();
   });
+
+  test('uses the signed proxy URL for remote streams', async ({ page }) => {
+    const proxyUrl = '/api/proxy?url=https%3A%2F%2Fcdn.example%2Fep.mp4&exp=9999999999&sig=testsig&referrer=https%3A%2F%2Fok.ru%2F';
+    await installApiMocks(page, {
+      library: [makeShow({
+        id: 'a',
+        name: 'Alpha',
+        title: 'Alpha (12 episodes)',
+        lastWatched: '2',
+        latestEpisode: 12,
+        watchedEpisodes: ['1', '2'],
+      })],
+      playback: {
+        url: 'https://cdn.example/ep.mp4',
+        referrer: 'https://ok.ru/',
+        proxyUrl,
+        provider: 'OK.ru',
+      },
+    });
+    await page.goto('/');
+    await page.click('.show-card[data-id="a"] button[data-action="play"]');
+    await expect(page.locator('#playerDialog')).toBeVisible();
+    await expect.poll(async () => page.locator('#playerVideo').evaluate((video) => {
+      const src = video.currentSrc || video.src || '';
+      return src.includes('/api/proxy?') && src.includes('sig=testsig');
+    })).toBe(true);
+  });
 });
 
 test.describe('Episode watched marking', () => {
