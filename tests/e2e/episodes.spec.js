@@ -81,6 +81,21 @@ test.describe('Episodes dialog', () => {
     await expect(page.locator('#episodeGrid .episode-play[data-episode="2"]')).toHaveClass(/watched/);
   });
 
+  test('marks the current episode watched when pressing next in the player', async ({ page }) => {
+    await installApiMocks(page);
+    await page.goto('/');
+    await page.click('#libraryList .show-card button[data-action="episodes"]');
+
+    await page.click('#episodeGrid .episode-play[data-episode="2"]');
+    await expect(page.locator('#playerDialog')).toBeVisible();
+    await expect(page.locator('#nextEpisodeBtn')).toBeEnabled();
+
+    const mark = page.waitForRequest((req) => req.url().endsWith('/api/mark') && req.method() === 'POST');
+    await page.click('#nextEpisodeBtn');
+    expect((await mark).postDataJSON()).toMatchObject({ episode: '2', watched: true });
+    await expect(page.locator('#episodeGrid .episode-play[data-episode="2"]')).toHaveClass(/watched/);
+  });
+
   test('does not mark the episode done when closing at an early outro timestamp', async ({ page }) => {
     await installApiMocks(page, {
       skipTimes: { op: null, ed: { start: 20, end: 40 } },
