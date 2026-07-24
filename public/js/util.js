@@ -133,18 +133,23 @@ export function presentMangaCard(manga = {}) {
   const readChapters = Array.from(new Set((manga.readChapters || []).map(String)))
     .sort((a, b) => Number(a) - Number(b) || String(a).localeCompare(String(b)));
   // Always derive from read list (matches server) so rereading an older chapter cannot lower progress.
-  const lastRead = readChapters.at(-1) || manga.lastRead || '';
+  const lastRead = readChapters
+    .filter((chapter) => Number.isFinite(Number(chapter)))
+    .sort((a, b) => Number(a) - Number(b))
+    .at(-1) || manga.lastRead || '';
   const latestChapter = manga.latestChapter || manga.chapters?.at(-1) || manga.chapterCount || null;
-  const read = new Set(readChapters);
-  let newCount = Array.isArray(manga.chapters)
-    ? manga.chapters.filter((chapter) => !read.has(String(chapter))).length
-    : 0;
-  if (!Array.isArray(manga.chapters) || !manga.chapters.length) {
-    const latest = episodeNumber(latestChapter);
-    const last = episodeNumber(lastRead);
-    newCount = Number.isFinite(latest) && Number.isFinite(last)
-      ? Math.max(0, Math.floor(latest - last))
-      : Number(manga.newCount) || 0;
+  const last = episodeNumber(lastRead);
+  const latest = episodeNumber(latestChapter);
+  let newCount;
+  if (Array.isArray(manga.chapters) && manga.chapters.length) {
+    newCount = manga.chapters.filter((chapter) => {
+      const value = Number(chapter);
+      return Number.isFinite(value) && Number.isFinite(last) && value > last;
+    }).length;
+  } else if (Number.isFinite(latest) && Number.isFinite(last)) {
+    newCount = Math.max(0, Math.floor(latest - last));
+  } else {
+    newCount = Number(manga.newCount) || 0;
   }
   return {
     ...manga,
@@ -219,11 +224,23 @@ export function releasePills(show) {
   const finished = status.includes('finished') || status.includes('completed');
   const upcoming = status.includes('not yet') || status.includes('upcoming');
   const releasing = status.includes('releasing') || status.includes('ongoing');
+  const hiatus = status.includes('hiatus');
+  const cancelled = status.includes('cancel') || status.includes('discontinu');
 
-  if (startYear) {
-    if (upcoming) pills.push(`Announced · ${startYear}`);
-    else if (finished || (!releasing && show.airedEnd)) pills.push(`${startYear}–${endYear || startYear}`);
-    else pills.push(`${startYear}–ongoing`);
+  if (upcoming) {
+    pills.push(startYear ? `Announced · ${startYear}` : 'Announced');
+  } else if (cancelled) {
+    const years = startYear
+      ? `${startYear}${endYear && endYear !== startYear ? `–${endYear}` : ''} · `
+      : '';
+    pills.push(`${years}Cancelled`);
+  } else if (hiatus) {
+    pills.push(startYear ? `Hiatus · since ${startYear}` : 'Hiatus');
+  } else if (finished || (!releasing && show.airedEnd)) {
+    if (startYear) pills.push(`${startYear}–${endYear || startYear} · Finished`);
+    else pills.push('Finished');
+  } else if (releasing || startYear) {
+    pills.push(startYear ? `Ongoing since ${startYear}` : 'Ongoing');
   }
 
   const next = show.nextAiringEpisode;

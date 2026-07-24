@@ -45,13 +45,31 @@ test('searchManga maps AllManga results and normalizes cover urls', async () => 
 
 test('popularManga uses the dedicated manga ranking with its date range', async () => {
   let receivedVariables;
-  setRawFetcher(async (_query, variables) => {
-    receivedVariables = variables;
-    return { data: { queryPopular: { total: 1, recommendations: [{ isManga: true, anyCard: { _id: 'm1', name: 'Weekly pick', availableChapters: { sub: 2 } } }] } } };
+  let calls = 0;
+  setRawFetcher(async (query, variables) => {
+    calls += 1;
+    if (query.includes('queryPopular')) {
+      receivedVariables = variables;
+      return {
+        data: {
+          queryPopular: {
+            total: 1,
+            recommendations: [{
+              isManga: true,
+              anyCard: { _id: 'm1', name: 'Weekly pick', availableChapters: { sub: 2 } },
+            }],
+          },
+        },
+      };
+    }
+    assert.match(query, /countryOfOrigin/);
+    return { data: { o0: { _id: 'm1', countryOfOrigin: 'KR' } } };
   });
   const result = await popularManga(7, { limit: 5 });
   assert.deepEqual(receivedVariables, { type: 'manga', size: 5, dateRange: 7 });
+  assert.equal(calls, 2);
   assert.equal(result.results[0].name, 'Weekly pick');
+  assert.equal(result.results[0].countryOfOrigin, 'KR');
 });
 
 test('getMangaDetails sorts chapters and exposes manga metadata', async () => {

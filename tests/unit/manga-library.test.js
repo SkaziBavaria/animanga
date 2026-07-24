@@ -35,6 +35,12 @@ test('presentManga calculates the latest reading state', () => {
   assert.equal(manga.newCount, 1);
 });
 
+test('presentManga newCount ignores unread gaps behind the furthest chapter', () => {
+  const manga = presentManga({ id: 'm1', chapters: ['1', '2', '3', '4', '5'], readChapters: ['1', '2', '4'] });
+  assert.equal(manga.lastRead, '4');
+  assert.equal(manga.newCount, 1);
+});
+
 test('creates stable manga release watches from normalized queries', () => {
   const state = { mangaReleaseWatches: {} };
   const first = createMangaReleaseWatch(state, '  Future   Story  ', 'sub');

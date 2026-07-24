@@ -67,3 +67,30 @@ test('presentMangaCard counts unread chapters when chapter list exists', async (
   assert.equal(presented.newCount, 2);
   assert.equal(presented.lastRead, '2');
 });
+
+test('releasePills labels finished, ongoing, cancelled, and announced clearly', async () => {
+  const { releasePills } = await loadUtil();
+  const dash = '\u2013';
+  const dot = '\u00b7';
+  assert.deepEqual(releasePills({
+    status: 'Finished',
+    airedStart: { year: 2015, month: 6, date: 5 },
+    airedEnd: { year: 2018, month: 2, date: 25 },
+  }), [`2015${dash}2018 ${dot} Finished`]);
+  assert.deepEqual(releasePills({
+    status: 'Releasing',
+    airedStart: { year: 2024, month: 0, date: 1 },
+  }), ['Ongoing since 2024']);
+  assert.deepEqual(releasePills({
+    status: 'Cancelled',
+    airedStart: { year: 2021, month: 0, date: 1 },
+  }), [`2021 ${dot} Cancelled`]);
+  assert.deepEqual(releasePills({
+    status: 'Not Yet Released',
+    airedStart: { year: 2027, month: 0, date: 1 },
+  }), [`Announced ${dot} 2027`]);
+  assert.deepEqual(releasePills({
+    status: 'Hiatus',
+    airedStart: { year: 2020, month: 0, date: 1 },
+  }), [`Hiatus ${dot} since 2020`]);
+});
