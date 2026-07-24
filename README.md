@@ -70,7 +70,7 @@ Docker stores the database, logs, downloaded episodes, and downloaded manga page
 
 ## Sync between devices
 
-Library entries, watched episodes, playback positions, SUB/DUB choices, and settings can be synced between installations. Video files, caches, and job logs stay local.
+Library entries, watched episodes, playback positions, SUB/DUB choices, Discover release watches (Watching), and settings can be synced between installations. Video files, caches, and job logs stay local.
 
 ### GitHub
 

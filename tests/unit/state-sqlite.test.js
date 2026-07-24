@@ -205,6 +205,64 @@ test('persists manga release watches separately from anime watches', () => {
   assert.equal(readState().releaseWatches.mw1, undefined);
 });
 
+test('release watches sync across devices for anime and manga', () => {
+  const state = readState();
+  state.releaseWatches.aw1 = {
+    id: 'aw1',
+    query: 'Upcoming Anime',
+    mode: 'sub',
+    status: 'watching',
+    updatedAt: '2099-05-01T00:00:00.000Z',
+  };
+  state.mangaReleaseWatches.mw2 = {
+    id: 'mw2',
+    query: 'Upcoming Manga',
+    language: 'sub',
+    status: 'watching',
+    updatedAt: '2099-05-01T00:00:00.000Z',
+  };
+  saveState(state);
+
+  const records = syncBundle().records;
+  assert.equal(records.some((record) => record.kind === 'release_watch' && record.key === 'aw1'), true);
+  assert.equal(records.some((record) => record.kind === 'manga_release_watch' && record.key === 'mw2'), true);
+
+  mergeSyncBundles([{
+    version: 1,
+    deviceId: 'phone',
+    records: [
+      {
+        kind: 'release_watch',
+        key: 'aw-remote',
+        value: { id: 'aw-remote', query: 'Remote Anime', mode: 'dub', status: 'found', matchedShow: { id: 's9', name: 'Remote Show' } },
+        updatedAt: '2099-05-02T00:00:00.000Z',
+        deviceId: 'phone',
+      },
+      {
+        kind: 'manga_release_watch',
+        key: 'mw-remote',
+        value: { id: 'mw-remote', query: 'Remote Manga', language: 'raw', status: 'watching' },
+        updatedAt: '2099-05-02T00:00:00.000Z',
+        deviceId: 'phone',
+      },
+      {
+        kind: 'release_watch',
+        key: 'aw1',
+        value: null,
+        updatedAt: '2099-05-03T00:00:00.000Z',
+        deviceId: 'phone',
+      },
+    ],
+  }]);
+
+  const next = readState();
+  assert.equal(next.releaseWatches.aw1, undefined);
+  assert.equal(next.releaseWatches['aw-remote'].query, 'Remote Anime');
+  assert.equal(next.releaseWatches['aw-remote'].matchedShow.name, 'Remote Show');
+  assert.equal(next.mangaReleaseWatches['mw-remote'].language, 'raw');
+  assert.equal(next.mangaReleaseWatches.mw2.query, 'Upcoming Manga');
+});
+
 test('creates a consistent SQLite backup', async () => {
   const result = await createDatabaseBackup({ force: true });
   const backupFile = path.join(BACKUP_DIR, result.file);
