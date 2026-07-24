@@ -412,7 +412,14 @@ async function installApiMocks(page, overrides = {}) {
 
     // --- library mutations ---
     if (p === '/api/track' && method === 'POST') {
-      const show = { ...body(), tracked: true, archived: false };
+      const payload = body();
+      const show = {
+        ...payload,
+        tracked: true,
+        archived: false,
+        watchedEpisodes: payload.watchedEpisodes || [],
+        lastWatched: payload.lastWatched || '',
+      };
       library = [...library.filter((item) => item.id !== show.id), show];
       return route.fulfill(jsonBody({ show }));
     }
