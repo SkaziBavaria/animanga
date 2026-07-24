@@ -99,7 +99,8 @@ export async function updateShowMode(show, mode) {
     method: 'PATCH',
     body: JSON.stringify({ mode }),
   });
-  syncAnimeShow(data.show || { ...show, mode });
+  // Keep the known id/metadata even if the API returns a partial show payload.
+  syncAnimeShow({ ...show, ...(data.show || {}), id: show.id, mode });
   refreshAnimeCards();
   toast(`Using ${String(mode).toUpperCase()} for ${show.name || show.title}`);
 }
