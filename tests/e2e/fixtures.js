@@ -436,8 +436,52 @@ async function installApiMocks(page, overrides = {}) {
       const show = idx >= 0 ? library[idx] : { id, ...patch };
       return route.fulfill(jsonBody({ show }));
     }
-    if (p === '/api/mark' && method === 'POST') return route.fulfill(jsonBody({ show: { ...body(), tracked: true } }));
-    if (p === '/api/mark-range' && method === 'POST') return route.fulfill(jsonBody({ show: { ...body(), tracked: true } }));
+    if (p === '/api/mark' && method === 'POST') {
+      const payload = body();
+      const idx = library.findIndex((item) => item.id === payload.id);
+      const existing = idx >= 0 ? library[idx] : { id: payload.id };
+      const watched = new Set((existing.watchedEpisodes || []).map(String));
+      const ep = String(payload.episode || '');
+      if (payload.watched === false) watched.delete(ep);
+      else watched.add(ep);
+      const show = {
+        ...existing,
+        ...payload,
+        tracked: true,
+        watchedEpisodes: Array.from(watched),
+        lastWatched: Array.from(watched).sort((a, b) => Number(a) - Number(b)).at(-1) || '',
+      };
+      if (idx >= 0) library[idx] = show;
+      else library.push(show);
+      return route.fulfill(jsonBody({ show }));
+    }
+    if (p === '/api/mark-range' && method === 'POST') {
+      const payload = body();
+      const idx = library.findIndex((item) => item.id === payload.id);
+      const existing = idx >= 0 ? library[idx] : { id: payload.id };
+      const target = Number(payload.episode);
+      const source = (existing.episodes || []).length
+        ? existing.episodes.map(String)
+        : Number.isFinite(target) && target > 0
+          ? Array.from({ length: Math.floor(target) }, (_, index) => String(index + 1))
+          : [String(payload.episode || '')].filter(Boolean);
+      const through = Number.isFinite(target)
+        ? source.filter((ep) => Number.isFinite(Number(ep)) && Number(ep) <= target)
+        : source;
+      if (payload.episode && !through.map(String).includes(String(payload.episode))) {
+        through.push(String(payload.episode));
+      }
+      const show = {
+        ...existing,
+        ...payload,
+        tracked: true,
+        watchedEpisodes: through.map(String),
+        lastWatched: through.map(String).at(-1) || '',
+      };
+      if (idx >= 0) library[idx] = show;
+      else library.push(show);
+      return route.fulfill(jsonBody({ show }));
+    }
 
     // --- release watches ---
     if (p === '/api/release-watches' && method === 'POST') {

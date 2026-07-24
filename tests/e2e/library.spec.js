@@ -307,3 +307,59 @@ test.describe('Resume playback from the library card', () => {
     await expect(page.locator('#playerDialog')).toBeVisible();
   });
 });
+
+test.describe('Episode watched marking', () => {
+  test('offers to mark earlier unwatched episodes and unmarks only the selected episode', async ({ page }) => {
+    await installApiMocks(page, {
+      library: [makeShow({
+        id: 'lib1',
+        name: 'Library Test Show',
+        watchedEpisodes: ['1'],
+        lastWatched: '1',
+        latestEpisode: 3,
+        episodeCount: 3,
+      })],
+    });
+    await page.goto('/');
+    await page.click('#libraryList .show-card button[data-action="episodes"]');
+    await expect(page.locator('#showDialog')).toBeVisible();
+    await expect(page.locator('#episodeGrid .episode-row-wrap')).toHaveCount(3);
+
+    const mark = page.waitForRequest((item) => item.url().endsWith('/api/mark-range') && item.method() === 'POST');
+    await page.click('#episodeGrid [data-episode="3"] [data-action="episode-watched"]');
+    await expect(page.locator('#animeWatchConfirmDialog')).toBeVisible();
+    await expect(page.locator('#animeWatchConfirmMessage')).toContainText('1 earlier unwatched episode found');
+    await page.click('#animeWatchConfirmDialog button[value="yes"]');
+    expect((await mark).postDataJSON()).toMatchObject({ id: 'lib1', episode: '3' });
+    await expect(page.locator('#episodeGrid [data-episode="2"] .episode-watch')).toHaveClass(/active/);
+    await expect(page.locator('#episodeGrid [data-episode="3"] .episode-watch')).toHaveClass(/active/);
+
+    const unmark = page.waitForRequest((item) => item.url().endsWith('/api/mark') && item.method() === 'POST');
+    await page.click('#episodeGrid [data-episode="3"] [data-action="episode-watched"]');
+    expect((await unmark).postDataJSON()).toMatchObject({ id: 'lib1', episode: '3', watched: false });
+    await expect(page.locator('#episodeGrid [data-episode="2"] .episode-watch')).toHaveClass(/active/);
+    await expect(page.locator('#episodeGrid [data-episode="3"] .episode-watch')).not.toHaveClass(/active/);
+  });
+
+  test('marks only the selected episode when the earlier-episode prompt is declined', async ({ page }) => {
+    await installApiMocks(page, {
+      library: [makeShow({
+        id: 'lib1',
+        name: 'Library Test Show',
+        watchedEpisodes: ['1'],
+        lastWatched: '1',
+        latestEpisode: 3,
+        episodeCount: 3,
+      })],
+    });
+    await page.goto('/');
+    await page.click('#libraryList .show-card button[data-action="episodes"]');
+    const mark = page.waitForRequest((item) => item.url().endsWith('/api/mark') && item.method() === 'POST');
+    await page.click('#episodeGrid [data-episode="3"] [data-action="episode-watched"]');
+    await expect(page.locator('#animeWatchConfirmDialog')).toBeVisible();
+    await page.click('#animeWatchConfirmDialog button[value="no"]');
+    expect((await mark).postDataJSON()).toMatchObject({ episode: '3', watched: true });
+    await expect(page.locator('#episodeGrid [data-episode="2"] .episode-watch')).not.toHaveClass(/active/);
+    await expect(page.locator('#episodeGrid [data-episode="3"] .episode-watch')).toHaveClass(/active/);
+  });
+});
