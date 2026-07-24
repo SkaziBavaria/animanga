@@ -489,6 +489,12 @@ function startVideoPlayback() {
   });
 }
 
+function closeBlockingDialogs() {
+  // Nested modal dialogs are unreliable across browsers; match manga reader.
+  if (els.dialog?.open) els.dialog.close();
+  if (els.detailsDialog?.open) els.detailsDialog.close();
+}
+
 function openBrowserPlayback(show, episode, playback) {
   currentContext = { showId: show.id, episode: String(episode) };
   currentShow = show;
@@ -529,6 +535,7 @@ function openBrowserPlayback(show, episode, playback) {
     els.playerVideo.onerror = failPlayback;
   }
 
+  closeBlockingDialogs();
   if (!els.playerDialog.open) els.playerDialog.showModal();
   focusPlayerStage();
   startVideoPlayback();
@@ -564,6 +571,10 @@ export async function resolveMpvPlayback(show, episode) {
     url: data.playback.url,
     title: `${show.name || show.title || 'Video'} ep ${episode}`,
     referrer: data.playback.referrer,
+    // Signed proxy path from the server — required; unsigned /api/proxy is rejected.
+    proxyUrl: data.playback.proxyUrl,
+    provider: data.playback.provider,
+    quality: data.playback.quality,
   };
 }
 
