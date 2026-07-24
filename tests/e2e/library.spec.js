@@ -135,6 +135,41 @@ test.describe('Library filtering & sorting', () => {
     await expect(page.locator('#toast')).toContainText('Removed from library');
   });
 
+  test('hides archived shows from the active library by default', async ({ page }) => {
+    await installApiMocks(page, {
+      library: [
+        makeShow({ id: 'a', name: 'Alpha', title: 'Alpha (12 episodes)', archived: false }),
+        makeShow({ id: 'z', name: 'Zulu', title: 'Zulu (12 episodes)', archived: true }),
+      ],
+    });
+    await page.goto('/');
+    await expect(page.locator('#libraryList .show-card')).toHaveCount(1);
+    await expect(page.locator('#libraryList')).toContainText('Alpha');
+    await expect(page.locator('#libraryList')).not.toContainText('Zulu');
+
+    await page.selectOption('#libraryFilter', 'archived');
+    await expect(page.locator('#libraryList .show-card')).toHaveCount(1);
+    await expect(page.locator('#libraryList')).toContainText('Zulu');
+
+    await page.selectOption('#libraryFilter', 'all');
+    await expect(page.locator('#libraryList .show-card')).toHaveCount(2);
+  });
+
+  test('archives and unarchives a show from the library card', async ({ page }) => {
+    const archive = page.waitForRequest((req) => /\/api\/shows\/a$/.test(req.url()) && req.method() === 'PATCH');
+    await page.locator('.show-card[data-id="a"] button[data-action="archive"]').click();
+    expect((await archive).postDataJSON()).toEqual({ archived: true });
+    await expect(page.locator('#toast')).toContainText('Archived');
+    await expect(page.locator('.show-card[data-id="a"]')).toHaveCount(0);
+
+    await page.selectOption('#libraryFilter', 'archived');
+    await expect(page.locator('.show-card[data-id="a"]')).toContainText('Archived');
+    const unarchive = page.waitForRequest((req) => /\/api\/shows\/a$/.test(req.url()) && req.method() === 'PATCH');
+    await page.locator('.show-card[data-id="a"] button[data-action="unarchive"]').click();
+    expect((await unarchive).postDataJSON()).toEqual({ archived: false });
+    await expect(page.locator('#toast')).toContainText('Moved back to active library');
+  });
+
   test('refresh button reloads the library', async ({ page }) => {
     const refresh = page.waitForRequest((req) => req.url().includes('/api/library?refresh=1'));
     await page.click('#refreshBtn');

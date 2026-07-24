@@ -48,6 +48,22 @@ test.describe('Downloads panel', () => {
     await page.locator('.download-card[data-episode="1"] button[data-action="delete-download"]').click();
     await del;
     await expect(page.locator('#toast')).toContainText('Download deleted');
+    await expect(page.locator('#downloadsList .download-card[data-episode="1"]')).toHaveCount(0);
+  });
+
+  test('deleting from the episode list removes the Settings downloads card', async ({ page }) => {
+    await page.click('.tab[data-section="library"]');
+    await page.click('#libraryList .show-card button[data-action="episodes"]');
+    await expect(page.locator('#episodeGrid .episode-delete[data-episode="1"]')).toBeVisible();
+    await page.locator('#episodeGrid .episode-delete[data-episode="1"]').click();
+    await expect(page.locator('#toast')).toContainText('Episode 1 deleted');
+    await expect(page.locator('#episodeGrid .episode-delete[data-episode="1"]')).toHaveCount(0);
+
+    await page.click('#closeDialogBtn');
+    await page.click('.tab[data-view="settingsView"]');
+    await page.click('.advanced-panel summary');
+    await expect(page.locator('#downloadsList .download-card[data-episode="1"]')).toHaveCount(0);
+    await expect(page.locator('#downloadsList .download-card[data-episode="2"]')).toHaveCount(1);
   });
 
   test('refresh button reloads downloads', async ({ page }) => {
