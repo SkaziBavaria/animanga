@@ -63,7 +63,7 @@ function nextSeasonPill(show) {
   if (episodeCount > 0 || status.includes('finished') || status.includes('releasing')) {
     return '<span class="pill sequel released" title="A sequel is available now">Sequel available</span>';
   }
-  return '<span class="pill sequel">Sequel</span>';
+  return '<span class="pill sequel" title="This title has a sequel">Has sequel</span>';
 }
 
 export function noSearchResultsHtml(query) {

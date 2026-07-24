@@ -49,6 +49,44 @@ test('searchAnime maps edges and drops entries without episodes', async () => {
   assert.equal(results[0].episodeCount, 12);
 });
 
+test('searchAnime enriches sequel nextSeason for discovery pills', async () => {
+  let call = 0;
+  allanime.setRawFetcher(async () => {
+    call += 1;
+    if (call === 1) {
+      return JSON.stringify({
+        data: {
+          shows: {
+            edges: [{
+              _id: 's1',
+              name: 'Season One',
+              availableEpisodes: { sub: 12 },
+              relatedShows: [{ showId: 's2', relation: 'sequel' }],
+            }],
+          },
+        },
+      });
+    }
+    return JSON.stringify({
+      data: {
+        s0: {
+          _id: 's2',
+          name: 'Season Two',
+          status: 'Upcoming',
+          availableEpisodes: { sub: 0 },
+          episodeCount: 0,
+        },
+      },
+    });
+  });
+  const results = await allanime.searchAnime('season', 'sub');
+  assert.equal(results.length, 1);
+  assert.equal(results[0].hasNextSeason, true);
+  assert.equal(results[0].nextSeason?.id, 's2');
+  assert.equal(results[0].nextSeason?.status, 'Upcoming');
+  assert.equal(call, 2);
+});
+
 test('searchAnime returns empty for a blank query without calling the network', async () => {
   allanime.setRawFetcher(async () => {
     throw new Error('should not be called');
