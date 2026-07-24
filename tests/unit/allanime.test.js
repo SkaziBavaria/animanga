@@ -51,7 +51,7 @@ test('searchAnime maps edges and drops entries without episodes', async () => {
 
 test('searchAnime enriches sequel nextSeason for discovery pills', async () => {
   let call = 0;
-  allanime.setRawFetcher(async () => {
+  allanime.setRawFetcher(async (query) => {
     call += 1;
     if (call === 1) {
       return JSON.stringify({
@@ -67,9 +67,22 @@ test('searchAnime enriches sequel nextSeason for discovery pills', async () => {
         },
       });
     }
+    if (String(query).includes('s0: show')) {
+      return JSON.stringify({
+        data: {
+          s0: {
+            _id: 's2',
+            name: 'Season Two',
+            status: 'Upcoming',
+            availableEpisodes: { sub: 0 },
+            episodeCount: 0,
+          },
+        },
+      });
+    }
     return JSON.stringify({
       data: {
-        s0: {
+        show: {
           _id: 's2',
           name: 'Season Two',
           status: 'Upcoming',
@@ -85,6 +98,91 @@ test('searchAnime enriches sequel nextSeason for discovery pills', async () => {
   assert.equal(results[0].nextSeason?.id, 's2');
   assert.equal(results[0].nextSeason?.status, 'Upcoming');
   assert.equal(call, 2);
+});
+
+test('searchAnime keeps partial sequel enrichment when a chunk is rate-limited', async () => {
+  let call = 0;
+  allanime.setRawFetcher(async () => {
+    call += 1;
+    if (call === 1) {
+      return JSON.stringify({
+        data: {
+          shows: {
+            edges: [
+              {
+                _id: 'a1',
+                name: 'Alpha',
+                availableEpisodes: { sub: 12 },
+                relatedShows: [{ showId: 'a2', relation: 'sequel' }],
+              },
+              {
+                _id: 'b1',
+                name: 'Bravo',
+                availableEpisodes: { sub: 12 },
+                relatedShows: [{ showId: 'b2', relation: 'sequel' }],
+              },
+            ],
+          },
+        },
+      });
+    }
+    return JSON.stringify({
+      data: {
+        s0: {
+          _id: 'a2',
+          name: 'Alpha 2',
+          status: 'Not Yet Released',
+          availableEpisodes: { sub: 0 },
+          episodeCount: 0,
+        },
+        s1: null,
+      },
+      errors: [{ message: 'Too many requests, please try again in 10 seconds.', path: ['s1'] }],
+    });
+  });
+  const results = await allanime.searchAnime('pair', 'sub');
+  assert.equal(results.length, 2);
+  assert.equal(results[0].nextSeason?.status, 'Not Yet Released');
+  assert.equal(results[1].nextSeason, undefined);
+  assert.equal(call, 2);
+});
+
+test('resolveSequelSummaries recovers rate-limited sequels individually', async () => {
+  let call = 0;
+  allanime.setRawFetcher(async (query, variables = {}) => {
+    call += 1;
+    if (String(query).includes('s0: show')) {
+      return JSON.stringify({
+        data: {
+          s0: {
+            _id: 'a2',
+            name: 'Alpha 2',
+            status: 'Not Yet Released',
+            availableEpisodes: { sub: 0 },
+            episodeCount: 0,
+          },
+          s1: null,
+        },
+        errors: [{ message: 'Too many requests', path: ['s1'] }],
+      });
+    }
+    assert.equal(variables.showId, 'b2');
+    return JSON.stringify({
+      data: {
+        show: {
+          _id: 'b2',
+          name: 'Bravo 2',
+          status: 'Finished',
+          availableEpisodes: { sub: 12 },
+          episodeCount: 12,
+        },
+      },
+    });
+  });
+  const byId = await allanime.resolveSequelSummaries(['a2', 'b2'], 'sub');
+  assert.equal(byId.get('a2')?.status, 'Not Yet Released');
+  assert.equal(byId.get('b2')?.status, 'Finished');
+  assert.ok(call >= 2);
 });
 
 test('searchAnime returns empty for a blank query without calling the network', async () => {

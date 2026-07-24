@@ -395,6 +395,9 @@ async function installApiMocks(page, overrides = {}) {
     if (p === '/api/popular' || p === '/api/recommendations') {
       return route.fulfill(jsonBody({ results: overrides.searchResults || [searchResult(null)] }));
     }
+    if (p === '/api/sequels' && method === 'POST') {
+      return route.fulfill(jsonBody({ sequels: overrides.sequels || {} }));
+    }
 
     // --- show details / episodes ---
     if (/^\/api\/shows\/[^/]+\/episodes$/.test(p)) {

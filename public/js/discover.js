@@ -5,6 +5,8 @@ import { loadDefaultMangaDiscover } from './manga.js';
 import { noSearchResultsHtml, showCard } from './shows.js';
 import { escapeHtml } from './util.js';
 
+let sequelHydrateToken = 0;
+
 function currentMode() {
   return state.settings?.mode || 'sub';
 }
@@ -16,11 +18,56 @@ function discoverFilterParams() {
   return params;
 }
 
+function sequelIdForShow(show) {
+  const related = Array.isArray(show?.relatedShows) ? show.relatedShows : [];
+  const sequel = related.find((item) => String(item?.relation || '').toLowerCase() === 'sequel');
+  return String(sequel?.showId || '').trim();
+}
+
+async function hydrateSequelPills(results, emptyHtml) {
+  const needing = (results || []).filter((show) => show?.hasNextSeason && !show?.nextSeason?.status);
+  if (!needing.length) return;
+  const ids = [...new Set(needing.map(sequelIdForShow).filter(Boolean))];
+  if (!ids.length) return;
+
+  const token = ++sequelHydrateToken;
+  try {
+    const data = await api('/api/sequels', {
+      method: 'POST',
+      body: JSON.stringify({ ids, mode: currentMode() }),
+    });
+    if (token !== sequelHydrateToken) return;
+    const sequels = data.sequels || {};
+    const updated = results.map((show) => {
+      const sequelId = sequelIdForShow(show);
+      const next = sequelId ? sequels[sequelId] : null;
+      if (!next?.status && !Number(next?.episodeCount)) return show;
+      return {
+        ...show,
+        hasNextSeason: true,
+        nextSeason: {
+          ...(show.nextSeason || {}),
+          ...next,
+          relation: 'sequel',
+        },
+      };
+    });
+    if (token !== sequelHydrateToken) return;
+    state.searchResults = updated;
+    els.searchResults.innerHTML = updated.length
+      ? updated.map((show) => showCard(show, 'search')).join('')
+      : emptyHtml;
+  } catch {
+    // Keep the initial cards; pills stay neutral until the next browse.
+  }
+}
+
 function renderSearchResults(results, emptyHtml) {
   state.searchResults = results;
   els.searchResults.innerHTML = results.length
     ? results.map((show) => showCard(show, 'search')).join('')
     : emptyHtml;
+  hydrateSequelPills(results, emptyHtml);
 }
 
 export function refreshSearchResults() {
