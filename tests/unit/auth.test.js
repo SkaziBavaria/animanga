@@ -85,15 +85,33 @@ test('rejects oversized and ambiguously separated authorization headers', () => 
   assert.equal(basicCredentials(`Basic  ${Buffer.from('animanga:secret').toString('base64')}`), null);
 });
 
-test('exempts only the Google OAuth callback from Basic auth', () => {
+test('exempts Google OAuth callback and signed media proxy URLs from Basic auth', () => {
   const { requireAuthentication, isAuthExempt, GOOGLE_CALLBACK_PATH } = loadAuth({ token: 'secret' });
   assert.equal(isAuthExempt(GOOGLE_CALLBACK_PATH, 'GET'), true);
   assert.equal(isAuthExempt('/api/sync/google/connect', 'GET'), false);
   assert.equal(isAuthExempt(GOOGLE_CALLBACK_PATH, 'POST'), false);
+  assert.equal(isAuthExempt('/api/proxy', 'GET'), false);
+  assert.equal(isAuthExempt('/api/proxy', 'GET', new URLSearchParams('url=https://example.com/a.mp4')), false);
+  assert.equal(
+    isAuthExempt('/api/proxy', 'GET', new URLSearchParams('url=https://example.com/a.mp4&exp=1&sig=abc')),
+    true,
+  );
 
   const callbackRes = response();
   assert.equal(requireAuthentication(request('', { method: 'GET' }), callbackRes, GOOGLE_CALLBACK_PATH), true);
   assert.equal(callbackRes.headersSent, false);
+
+  const proxyRes = response();
+  assert.equal(
+    requireAuthentication(
+      request('', { method: 'GET' }),
+      proxyRes,
+      '/api/proxy',
+      new URLSearchParams('url=https://example.com/a.mp4&exp=1&sig=abc'),
+    ),
+    true,
+  );
+  assert.equal(proxyRes.headersSent, false);
 
   const apiRes = response();
   assert.equal(requireAuthentication(request('', { method: 'GET' }), apiRes, '/api/sync'), false);
