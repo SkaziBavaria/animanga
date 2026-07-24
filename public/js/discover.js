@@ -72,12 +72,12 @@ async function hydrateSequelPills(results, emptyHtml) {
       });
       if (changed && !paint()) return;
       if (offset + chunkSize < ids.length) {
-        // AllAnime rate-limits dense sequel lookups; wait longer when a chunk under-fills.
+        // Upstream rate-limits dense sequel lookups; wait longer when a chunk under-fills.
         const got = chunk.filter((id) => sequels[id]?.status || Number(sequels[id]?.episodeCount) > 0).length;
         await new Promise((resolve) => setTimeout(resolve, got < chunk.length ? 10_000 : 1_200));
       }
     } catch {
-      // Keep whatever colored pills we already have; cool down before the next chunk.
+      // Keep existing sequel pills and cool down before the next chunk.
       if (offset + chunkSize < ids.length) {
         await new Promise((resolve) => setTimeout(resolve, 10_000));
       }

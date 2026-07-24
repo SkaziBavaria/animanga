@@ -6,6 +6,8 @@ const {
   decodeSourceUrl,
   collectClockLinks,
   selectQuality,
+  sourceProviderId,
+  isAllowedSource,
   resolveMp4Upload,
   resolveOkRu,
   setFetchForTests,
@@ -50,6 +52,30 @@ test('selectQuality uses exact, lower, best and worst quality choices', () => {
   assert.equal(selectQuality(links, 'worst').quality, 480);
   assert.equal(selectQuality(links, '720p').quality, 720);
   assert.equal(selectQuality(links, '900').quality, 720);
+});
+
+test('allowlists Default, Yt-mp4, S-mp4, and Mp4Upload sources', () => {
+  assert.equal(sourceProviderId({ sourceName: 'Default', sourceUrl: '--abc' }), 'Default');
+  assert.equal(sourceProviderId({ sourceName: 'Yt-mp4', sourceUrl: 'https://tools.fast4speed.rsvp/x' }), 'Yt-mp4');
+  assert.equal(sourceProviderId({ sourceName: 'S-mp4', sourceUrl: 'https://cdn.example/ep.mp4' }), 'S-mp4');
+  assert.equal(sourceProviderId({ sourceName: 'Mp4Upload', sourceUrl: 'https://mp4upload.com/embed-x' }), 'Mp4Upload');
+  assert.equal(sourceProviderId({ sourceName: 'Mp4', sourceUrl: 'https://mp4upload.com/embed-x' }), 'Mp4Upload');
+  assert.equal(sourceProviderId({ sourceName: 'Ok', sourceUrl: 'https://ok.ru/videoembed/1' }), null);
+  assert.equal(isAllowedSource({ sourceName: 'Ok', sourceUrl: 'https://ok.ru/videoembed/1' }), false);
+  assert.equal(isAllowedSource({ sourceName: 'Default', sourceUrl: '--abc' }), true);
+});
+
+test('selectQuality prefers Default then Yt-mp4 when quality ties', () => {
+  const links = [
+    { url: 'https://cdn.example/mp4.mp4', quality: 1080, provider: 'Mp4Upload' },
+    { url: 'https://cdn.example/default.mp4', quality: 1080, provider: 'Default' },
+    { url: 'https://cdn.example/yt.mp4', quality: 1080, provider: 'Yt-mp4' },
+  ];
+  assert.equal(selectQuality(links, 'best').provider, 'Default');
+  assert.equal(selectQuality([
+    { url: 'https://cdn.example/mp4.mp4', quality: null, provider: 'Mp4Upload' },
+    { url: 'https://cdn.example/yt.mp4', quality: null, provider: 'Yt-mp4' },
+  ], 'best').provider, 'Yt-mp4');
 });
 
 test('extracts the direct MP4 URL from Mp4Upload HTML', async () => {

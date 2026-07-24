@@ -62,8 +62,7 @@ async function playAdjacent(dir) {
   if (!currentShow || !currentContext) return;
   const target = adjacentEpisode(currentShow, currentContext.episode, dir);
   if (!target) return;
-  // Next means "done with this episode" (same idea as autoplay-after-ended).
-  // Previous only saves resume progress.
+  // Next marks the episode watched (like finishing via autoplay). Previous only saves resume progress.
   if (dir === 1) markEpisodeFinished();
   else persistProgress();
   const show = currentShow;
@@ -493,7 +492,7 @@ function startVideoPlayback() {
 }
 
 function closeBlockingDialogs() {
-  // Nested modal dialogs are unreliable across browsers; match manga reader.
+  // Nested modal dialogs are unreliable across browsers; keep a single player dialog.
   if (els.dialog?.open) els.dialog.close();
   if (els.detailsDialog?.open) els.detailsDialog.close();
 }
