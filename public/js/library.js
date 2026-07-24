@@ -7,6 +7,7 @@ import {
   hasNewEpisodeToContinue,
   hasStarted,
   isCompleted,
+  matchesLibraryQuery,
   presentAnimeCard,
   progressRatio,
 } from './util.js';
@@ -24,7 +25,7 @@ function filterLibrary(shows) {
     if (state.libraryFilter === 'caughtup') return isCompleted(show);
     if (state.libraryFilter === 'notstarted') return !hasStarted(show);
     return true;
-  });
+  }).filter((show) => matchesLibraryQuery(show, state.libraryQuery));
 }
 
 function sortShows(sort) {
@@ -52,9 +53,12 @@ export function renderLibrary() {
   }
 
   const shows = filterLibrary(state.library).sort(sortShows(state.librarySort));
+  const emptyLabel = String(state.libraryQuery || '').trim()
+    ? 'No shows match this search.'
+    : 'No shows match this filter.';
   els.libraryList.innerHTML = shows.length
     ? shows.map((show) => showCard(show, 'library')).join('')
-    : '<div class="empty">No shows match this filter.</div>';
+    : `<div class="empty">${emptyLabel}</div>`;
 }
 
 export function refreshAnimeCards() {

@@ -9,8 +9,10 @@ import { loadStatus } from './status.js';
 import { bindSyncControls, loadSyncConfig, startAutoSync } from './sync.js';
 import { bindMangaControls, loadMangaLibrary } from './manga.js';
 import { bindMangaReleaseWatches, checkMangaReleaseWatches, loadMangaReleaseWatches } from './manga-release-watches.js';
-import { switchMediaMode } from './discover.js';
+import { switchMediaMode, switchView } from './discover.js';
+import { els } from './dom.js';
 import { state } from './state.js';
+import { applyUiPrefsToState, syncLibraryControls } from './ui-prefs.js';
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js')
@@ -18,11 +20,14 @@ if ('serviceWorker' in navigator) {
     .catch((error) => reportBackgroundError('Service worker registration failed', error));
 }
 
+const savedUiPrefs = applyUiPrefsToState(state);
 bindEvents();
 bindSyncControls();
 bindMangaControls();
 bindMangaReleaseWatches();
+syncLibraryControls(els, state);
 switchMediaMode(state.mediaMode);
+if (savedUiPrefs.nav === 'settings') switchView('settingsView');
 startAutoSync();
 
 (async function init() {

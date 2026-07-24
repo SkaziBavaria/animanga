@@ -3,6 +3,7 @@ import { els } from './dom.js';
 import { state } from './state.js';
 import { loadDefaultMangaDiscover } from './manga.js';
 import { noSearchResultsHtml, showCard } from './shows.js';
+import { writeUiPrefs } from './ui-prefs.js';
 import { escapeHtml } from './util.js';
 
 let sequelHydrateToken = 0;
@@ -163,6 +164,7 @@ export function loadDefaultDiscover() {
 export function switchView(id) {
   document.querySelectorAll('.view').forEach((view) => view.classList.toggle('active', view.id === id));
   document.querySelectorAll('.tab').forEach((tab) => tab.classList.toggle('active', tab.dataset.view === id));
+  if (id === 'settingsView') writeUiPrefs({ nav: 'settings' });
   if (id === 'searchView') loadDefaultDiscover();
   if (id === 'mangaDiscoverView') loadDefaultMangaDiscover();
 }
@@ -174,6 +176,7 @@ function viewFor(section) {
 
 export function switchSection(section) {
   state.activeSection = section === 'discover' ? 'discover' : 'library';
+  writeUiPrefs({ nav: state.activeSection });
   const id = viewFor(state.activeSection);
   switchView(id);
   document.querySelectorAll('.tab').forEach((tab) => tab.classList.toggle('active', tab.dataset.section === state.activeSection));

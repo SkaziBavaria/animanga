@@ -7,7 +7,8 @@ import {
   saveMangaProgress,
 } from './progress.js';
 import { state } from './state.js';
-import { escapeHtml, nextEpisode, presentMangaCard, stripDescription } from './util.js';
+import { writeUiPrefs } from './ui-prefs.js';
+import { escapeHtml, matchesLibraryQuery, nextEpisode, presentMangaCard, stripDescription } from './util.js';
 
 function compareChapters(a, b) {
   return Number(a) - Number(b) || String(a).localeCompare(String(b));
@@ -153,7 +154,7 @@ function filterMangaLibrary(mangas) {
     if (state.mangaLibraryFilter === 'caughtup') return mangaHasStarted(manga) && Number(manga.newCount) <= 0;
     if (state.mangaLibraryFilter === 'notstarted') return !mangaHasStarted(manga);
     return true;
-  });
+  }).filter((manga) => matchesLibraryQuery(manga, state.mangaLibraryQuery));
 }
 
 function mangaCard(manga, source) {
@@ -244,9 +245,12 @@ export function renderMangaLibrary() {
     return;
   }
   const mangas = filterMangaLibrary(state.mangaLibrary).sort(sortMangaLibrary(state.mangaLibrarySort || 'new'));
+  const emptyLabel = String(state.mangaLibraryQuery || '').trim()
+    ? 'No manga match this search.'
+    : 'No manga match this filter.';
   els.mangaLibraryList.innerHTML = mangas.length
     ? mangas.map((manga) => mangaCard(manga, 'library')).join('')
-    : '<div class="empty">No manga match this filter.</div>';
+    : `<div class="empty">${emptyLabel}</div>`;
 }
 
 function findManga(card) {
@@ -963,10 +967,17 @@ async function deleteAllMangaDownloads(manga) {
 export function bindMangaControls() {
   els.mangaLibraryFilter?.addEventListener('change', () => {
     state.mangaLibraryFilter = els.mangaLibraryFilter.value;
+    writeUiPrefs({ mangaLibraryFilter: state.mangaLibraryFilter });
     renderMangaLibrary();
   });
   els.mangaLibrarySort?.addEventListener('change', () => {
     state.mangaLibrarySort = els.mangaLibrarySort.value;
+    writeUiPrefs({ mangaLibrarySort: state.mangaLibrarySort });
+    renderMangaLibrary();
+  });
+  els.mangaLibrarySearchInput?.addEventListener('input', () => {
+    state.mangaLibraryQuery = els.mangaLibrarySearchInput.value;
+    writeUiPrefs({ mangaLibraryQuery: state.mangaLibraryQuery });
     renderMangaLibrary();
   });
   document.addEventListener('change', async (event) => {

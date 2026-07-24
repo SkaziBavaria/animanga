@@ -49,6 +49,24 @@ test.describe('Manga', () => {
     await expect(page.locator('#mangaLibraryList .manga-card')).toHaveCount(2);
   });
 
+  test('filters the manga library list by search query', async ({ page }) => {
+    await installApiMocks(page, {
+      mangaLibrary: [
+        { ...MANGA, id: 'm1', name: 'One Piece', archived: false },
+        { ...MANGA, id: 'm2', name: 'Spy x Family', archived: false },
+      ],
+    });
+    await page.goto('/');
+    if ((await page.locator('#mediaModeLabel').textContent()) !== 'Manga') {
+      await page.click('#mediaSwitchBtn');
+    }
+    await expect(page.locator('#mangaLibraryList .manga-card')).toHaveCount(2);
+    await page.fill('#mangaLibrarySearchInput', 'spy');
+    await expect(page.locator('#mangaLibraryList .manga-card')).toHaveCount(1);
+    await expect(page.locator('#mangaLibraryList')).toContainText('Spy x Family');
+    await expect(page.locator('#mangaLibraryList')).not.toContainText('One Piece');
+  });
+
   test('archives and unarchives manga from the library card', async ({ page }) => {
     const archive = page.waitForRequest((req) => /\/api\/manga\/manga1$/.test(req.url()) && req.method() === 'PATCH');
     await page.locator('.manga-card[data-manga-id="manga1"] button[data-action="manga-archive"]').click();
