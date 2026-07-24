@@ -31,34 +31,56 @@ async function hydrateSequelPills(results, emptyHtml) {
   if (!ids.length) return;
 
   const token = ++sequelHydrateToken;
-  try {
-    const data = await api('/api/sequels', {
-      method: 'POST',
-      body: JSON.stringify({ ids, mode: currentMode() }),
-    });
-    if (token !== sequelHydrateToken) return;
-    const sequels = data.sequels || {};
-    const updated = results.map((show) => {
-      const sequelId = sequelIdForShow(show);
-      const next = sequelId ? sequels[sequelId] : null;
-      if (!next?.status && !Number(next?.episodeCount)) return show;
-      return {
-        ...show,
-        hasNextSeason: true,
-        nextSeason: {
-          ...(show.nextSeason || {}),
-          ...next,
-          relation: 'sequel',
-        },
-      };
-    });
-    if (token !== sequelHydrateToken) return;
-    state.searchResults = updated;
-    els.searchResults.innerHTML = updated.length
-      ? updated.map((show) => showCard(show, 'search')).join('')
+  let current = results;
+  const chunkSize = 5;
+
+  const paint = () => {
+    if (token !== sequelHydrateToken) return false;
+    state.searchResults = current;
+    els.searchResults.innerHTML = current.length
+      ? current.map((show) => showCard(show, 'search')).join('')
       : emptyHtml;
-  } catch {
-    // Keep the initial cards; pills stay neutral until the next browse.
+    return true;
+  };
+
+  for (let offset = 0; offset < ids.length; offset += chunkSize) {
+    if (token !== sequelHydrateToken) return;
+    const chunk = ids.slice(offset, offset + chunkSize);
+    try {
+      const data = await api('/api/sequels', {
+        method: 'POST',
+        body: JSON.stringify({ ids: chunk, mode: currentMode() }),
+      });
+      if (token !== sequelHydrateToken) return;
+      const sequels = data.sequels || {};
+      let changed = false;
+      current = current.map((show) => {
+        const sequelId = sequelIdForShow(show);
+        const next = sequelId ? sequels[sequelId] : null;
+        if (!next?.status && !Number(next?.episodeCount)) return show;
+        changed = true;
+        return {
+          ...show,
+          hasNextSeason: true,
+          nextSeason: {
+            ...(show.nextSeason || {}),
+            ...next,
+            relation: 'sequel',
+          },
+        };
+      });
+      if (changed && !paint()) return;
+      if (offset + chunkSize < ids.length) {
+        // AllAnime rate-limits dense sequel lookups; wait longer when a chunk under-fills.
+        const got = chunk.filter((id) => sequels[id]?.status || Number(sequels[id]?.episodeCount) > 0).length;
+        await new Promise((resolve) => setTimeout(resolve, got < chunk.length ? 10_000 : 1_200));
+      }
+    } catch {
+      // Keep whatever colored pills we already have; cool down before the next chunk.
+      if (offset + chunkSize < ids.length) {
+        await new Promise((resolve) => setTimeout(resolve, 10_000));
+      }
+    }
   }
 }
 

@@ -224,11 +224,23 @@ export function releasePills(show) {
   const finished = status.includes('finished') || status.includes('completed');
   const upcoming = status.includes('not yet') || status.includes('upcoming');
   const releasing = status.includes('releasing') || status.includes('ongoing');
+  const hiatus = status.includes('hiatus');
+  const cancelled = status.includes('cancel') || status.includes('discontinu');
 
-  if (startYear) {
-    if (upcoming) pills.push(`Announced · ${startYear}`);
-    else if (finished || (!releasing && show.airedEnd)) pills.push(`${startYear}–${endYear || startYear}`);
-    else pills.push(`${startYear}–ongoing`);
+  if (upcoming) {
+    pills.push(startYear ? `Announced · ${startYear}` : 'Announced');
+  } else if (cancelled) {
+    const years = startYear
+      ? `${startYear}${endYear && endYear !== startYear ? `–${endYear}` : ''} · `
+      : '';
+    pills.push(`${years}Cancelled`);
+  } else if (hiatus) {
+    pills.push(startYear ? `Hiatus · since ${startYear}` : 'Hiatus');
+  } else if (finished || (!releasing && show.airedEnd)) {
+    if (startYear) pills.push(`${startYear}–${endYear || startYear} · Finished`);
+    else pills.push('Finished');
+  } else if (releasing || startYear) {
+    pills.push(startYear ? `Ongoing since ${startYear}` : 'Ongoing');
   }
 
   const next = show.nextAiringEpisode;

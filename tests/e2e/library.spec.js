@@ -75,7 +75,7 @@ test.describe('Library filtering & sorting', () => {
   test('shows a compact year range instead of separate start and last-episode pills', async ({ page }) => {
     const meta = page.locator('.show-card[data-id="a"] .show-meta');
     await expect(meta.locator('.pill.schedule')).toHaveCount(1);
-    await expect(meta.locator('.pill.schedule')).toHaveText('2015–2018');
+    await expect(meta.locator('.pill.schedule')).toHaveText('2015–2018 · Finished');
     await expect(meta).not.toContainText('Started');
     await expect(meta).not.toContainText('Last ep');
   });
@@ -83,7 +83,7 @@ test.describe('Library filtering & sorting', () => {
   test('estimates the next episode when AllAnime only provides a broadcast interval', async ({ page }) => {
     const schedule = page.locator('.show-card[data-id="b"] .pill.schedule');
     await expect(schedule).toHaveCount(2);
-    await expect(schedule.nth(0)).toHaveText('2024–ongoing');
+    await expect(schedule.nth(0)).toHaveText('Ongoing since 2024');
     await expect(schedule.nth(1)).toContainText('Expected ep 13');
   });
 

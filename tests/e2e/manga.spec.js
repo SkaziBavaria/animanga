@@ -85,8 +85,9 @@ test.describe('Manga', () => {
 
     await expect(page.locator('#mangaLibraryList')).not.toContainText('Status unknown');
     await expect(page.locator('#mangaLibraryList')).not.toContainText('2020');
-    await expect(page.locator('#mangaLibraryList')).toContainText('Recently updated');
-    await expect(page.locator('#mangaLibraryList')).toContainText('Ch 3 · 0 days ago');
+    await expect(page.locator('#mangaLibraryList')).not.toContainText('Recently updated');
+    const chapterPill = page.locator('#mangaLibraryList .pill.schedule.hot');
+    await expect(chapterPill).toContainText('Ch 3 · 0 days ago');
   });
 
   test('labels manga origins with compact country codes', async ({ page }) => {
