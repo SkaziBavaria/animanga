@@ -72,7 +72,7 @@ test.describe('Manga', () => {
       airedStart: { year: 2020 },
       lastChapterDate: {
         year: now.getUTCFullYear(),
-        month: now.getUTCMonth() + 1,
+        month: now.getUTCMonth(),
         date: now.getUTCDate(),
       },
     };
