@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#111318">
+    <title>AniManga</title>
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="topbar-brand">
+          <button id="mediaSwitchBtn" class="brand-switch" type="button" title="Switch to manga" aria-label="Currently showing anime. Switch to manga">
+            <img class="brand-logo" src="/animanga-logo.png" alt="AniManga" width="600" height="240">
+            <span id="mediaModeLabel">Anime</span>
+          </button>
+          <p class="brand-status">
+            <span id="statusText">Starting...</span>
+            <a id="updateNotice" class="update-notice" hidden target="_blank" rel="noopener noreferrer"></a>
+          </p>
+        </div>
+        <button id="refreshBtn" class="icon-button" type="button" title="Refresh library" aria-label="Refresh library">↻</button>
+      </header>
+
+      <main>
+        <section id="libraryView" class="view active" aria-labelledby="libraryTitle">
+          <div class="section-head">
+            <h2 id="libraryTitle">Library</h2>
+            <span id="libraryCount" class="counter">0</span>
+          </div>
+          <div class="library-tools">
+            <select id="libraryFilter" aria-label="Filter library">
+              <option value="all">All shows</option>
+              <option value="continue">Up next</option>
+              <option value="caughtup">Caught up</option>
+              <option value="notstarted">Not started</option>
+            </select>
+            <select id="librarySort" aria-label="Sort library">
+              <option value="new">New first</option>
+              <option value="recent">Recently watched</option>
+              <option value="progress">Progress</option>
+              <option value="az">A-Z</option>
+            </select>
+          </div>
+          <div id="libraryList" class="show-list"></div>
+        </section>
+
+        <section id="searchView" class="view" aria-labelledby="searchTitle">
+          <div class="section-head">
+            <h2 id="searchTitle">Discover</h2>
+          </div>
+          <form id="searchForm" class="search-row">
+            <input id="searchInput" name="q" type="search" autocomplete="off" placeholder="Search anime">
+            <button type="submit">Search</button>
+          </form>
+          <div class="browse-row" aria-label="Browse anime">
+            <button class="browse-button" data-recommended="1" type="button">For you</button>
+            <button class="browse-button" data-popular-range="0" type="button">Popular</button>
+            <button class="browse-button" data-popular-range="1" type="button">Hot</button>
+            <button class="browse-button" data-popular-range="7" type="button">Week</button>
+            <button class="browse-button" data-popular-range="30" type="button">Month</button>
+          </div>
+          <details id="genreFilter" class="genre-filter">
+            <summary id="genreFilterSummary">Filters · All</summary>
+            <div class="genre-filter-panel">
+              <label class="discover-filter-field discover-year-field" for="discoverYearFilter">
+                <span>Release year</span>
+                <input id="discoverYearFilter" type="number" inputmode="numeric" min="1917" max="2100" placeholder="Any year">
+              </label>
+              <div class="genre-options">
+                <label><input type="checkbox" value="Action">Action</label>
+                <label><input type="checkbox" value="Adventure">Adventure</label>
+                <label><input type="checkbox" value="Comedy">Comedy</label>
+                <label><input type="checkbox" value="Drama">Drama</label>
+                <label><input type="checkbox" value="Fantasy">Fantasy</label>
+                <label><input type="checkbox" value="Horror">Horror</label>
+                <label><input type="checkbox" value="Josei">Josei</label>
+                <label><input type="checkbox" value="Magic">Magic</label>
+                <label><input type="checkbox" value="Mystery">Mystery</label>
+                <label><input type="checkbox" value="Psychological">Psychological</label>
+                <label><input type="checkbox" value="Romance">Romance</label>
+                <label><input type="checkbox" value="Sci-Fi">Sci-Fi</label>
+                <label><input type="checkbox" value="Seinen">Seinen</label>
+                <label><input type="checkbox" value="Shoujo">Shoujo</label>
+                <label><input type="checkbox" value="Shounen">Shounen</label>
+                <label><input type="checkbox" value="Slice of Life">Slice of Life</label>
+                <label><input type="checkbox" value="Sports">Sports</label>
+                <label><input type="checkbox" value="Supernatural">Supernatural</label>
+                <label><input type="checkbox" value="Thriller">Thriller</label>
+              </div>
+              <div class="genre-filter-actions">
+                <button id="genreClearBtn" class="secondary small-button" type="button">Clear</button>
+                <button id="genreApplyBtn" class="primary small-button" type="button">Apply</button>
+              </div>
+            </div>
+          </details>
+          <div class="section-head compact watch-head">
+            <div class="watch-title">
+              <h2>Watching</h2>
+              <span id="releaseWatchesCount" class="counter">0</span>
+            </div>
+            <div class="inline-actions">
+              <button id="releaseWatchesCheckBtn" class="small-button" type="button">Check</button>
+              <button id="releaseWatchesToggleBtn" class="small-button" type="button">Show</button>
+            </div>
+          </div>
+          <div id="releaseWatchesList" class="watch-list" hidden></div>
+          <div id="searchResults" class="show-list"></div>
+        </section>
+
+        <section id="mangaLibraryView" class="view" aria-labelledby="mangaLibraryTitle">
+          <div class="section-head">
+            <h2 id="mangaLibraryTitle">Library</h2>
+            <span id="mangaCount" class="counter">0</span>
+          </div>
+          <div id="mangaLibraryList" class="show-list"></div>
+        </section>
+
+        <section id="mangaDiscoverView" class="view" aria-labelledby="mangaDiscoverTitle">
+          <div class="section-head">
+            <h2 id="mangaDiscoverTitle">Discover</h2>
+          </div>
+          <form id="mangaSearchForm" class="search-row">
+            <input id="mangaSearchInput" name="q" type="search" autocomplete="off" placeholder="Search manga">
+            <button type="submit">Search</button>
+          </form>
+          <div class="browse-row" aria-label="Browse manga">
+            <button class="manga-browse-button" data-manga-recommended="1" type="button">For you</button>
+            <button class="manga-browse-button" data-manga-popular-range="0" type="button">Popular</button>
+            <button class="manga-browse-button" data-manga-popular-range="1" type="button">Hot</button>
+            <button class="manga-browse-button" data-manga-popular-range="7" type="button">Week</button>
+            <button class="manga-browse-button" data-manga-popular-range="30" type="button">Month</button>
+            <button id="mangaLatestBtn" class="manga-browse-button active" data-manga-sort="Latest_Update" type="button">Latest</button>
+          </div>
+          <details id="mangaGenreFilter" class="genre-filter">
+            <summary id="mangaGenreFilterSummary">Filters · All</summary>
+            <div class="genre-filter-panel">
+              <label class="discover-filter-field discover-year-field" for="mangaYearFilter">
+                <span>Release year</span>
+                <input id="mangaYearFilter" type="number" inputmode="numeric" min="1900" max="2100" placeholder="Any year">
+              </label>
+              <div class="genre-options">
+                <label><input type="checkbox" value="Action">Action</label>
+                <label><input type="checkbox" value="Adventure">Adventure</label>
+                <label><input type="checkbox" value="Comedy">Comedy</label>
+                <label><input type="checkbox" value="Drama">Drama</label>
+                <label><input type="checkbox" value="Fantasy">Fantasy</label>
+                <label><input type="checkbox" value="Horror">Horror</label>
+                <label><input type="checkbox" value="Josei">Josei</label>
+                <label><input type="checkbox" value="Mystery">Mystery</label>
+                <label><input type="checkbox" value="Psychological">Psychological</label>
+                <label><input type="checkbox" value="Romance">Romance</label>
+                <label><input type="checkbox" value="Sci-Fi">Sci-Fi</label>
+                <label><input type="checkbox" value="Seinen">Seinen</label>
+                <label><input type="checkbox" value="Shoujo">Shoujo</label>
+                <label><input type="checkbox" value="Shounen">Shounen</label>
+                <label><input type="checkbox" value="Slice of Life">Slice of Life</label>
+                <label><input type="checkbox" value="Sports">Sports</label>
+                <label><input type="checkbox" value="Supernatural">Supernatural</label>
+                <label><input type="checkbox" value="Thriller">Thriller</label>
+              </div>
+              <div class="genre-filter-actions">
+                <button id="mangaGenreClearBtn" class="secondary small-button" type="button">Clear</button>
+                <button id="mangaGenreApplyBtn" class="primary small-button" type="button">Apply</button>
+              </div>
+            </div>
+          </details>
+          <div class="section-head compact watch-head">
+            <div class="watch-title">
+              <h2>Watching</h2>
+              <span id="mangaReleaseWatchesCount" class="counter">0</span>
+            </div>
+            <div class="inline-actions">
+              <button id="mangaReleaseWatchesCheckBtn" class="small-button" type="button">Check</button>
+              <button id="mangaReleaseWatchesToggleBtn" class="small-button" type="button">Show</button>
+            </div>
+          </div>
+          <div id="mangaReleaseWatchesList" class="watch-list" hidden></div>
+          <div id="mangaSearchResults" class="show-list"></div>
+        </section>
+
+        <section id="settingsView" class="view" aria-labelledby="settingsTitle">
+          <div class="section-head">
+            <h2 id="settingsTitle">Settings</h2>
+          </div>
+          <form id="settingsForm" class="panel settings-grid">
+            <label>
+              <span>Mode</span>
+              <select name="mode">
+                <option value="sub">Sub</option>
+                <option value="dub">Dub</option>
+              </select>
+            </label>
+            <label>
+              <span>Quality</span>
+              <select name="quality">
+                <option value="best">Best</option>
+                <option value="1080">1080p</option>
+                <option value="720">720p</option>
+                <option value="480">480p</option>
+                <option value="worst">Worst</option>
+              </select>
+            </label>
+            <label class="switch-row">
+              <span>Auto-skip intro</span>
+              <input name="skipIntro" type="checkbox">
+            </label>
+            <label class="switch-row">
+              <span>Auto-mark watched on finish</span>
+              <input name="autoTrackPlayed" type="checkbox">
+            </label>
+            <button type="submit">Save</button>
+          </form>
+
+          <section class="panel sync-panel" aria-labelledby="syncTitle">
+            <div class="section-head compact">
+              <div>
+                <h2 id="syncTitle">Cloud sync</h2>
+                <p id="syncStatus" class="sync-status">Not configured</p>
+              </div>
+            </div>
+            <label class="sync-provider-row">
+              <span>Sync provider</span>
+              <select id="syncProvider">
+                <option value="github">GitHub</option>
+                <option value="google">Google Drive</option>
+              </select>
+            </label>
+
+            <form id="githubSyncForm" class="sync-form" data-sync-provider="github">
+              <label>
+                <span>Device name</span>
+                <input name="deviceName" type="text" autocomplete="off" placeholder="Phone or PC">
+              </label>
+              <label>
+                <span>GitHub OAuth Client ID</span>
+                <input name="clientId" type="text" autocomplete="off" placeholder="OAuth App Client ID">
+              </label>
+              <small class="sync-help">Create a GitHub OAuth App with Device Flow enabled. No public callback or client secret is needed. AniManga creates a private <code>animanga-sync-data</code> repository. GitHub grants the app <code>repo</code> access so it can create and update that private repository.</small>
+              <div id="githubDeviceAuth" class="device-auth" hidden>
+                <span>Open <a id="githubDeviceUrl" href="https://github.com/login/device" target="_blank" rel="noreferrer">GitHub device login</a> and enter:</span>
+                <strong id="githubDeviceCode"></strong>
+              </div>
+              <div class="sync-actions">
+                <button type="submit">Save</button>
+                <button id="githubConnectBtn" class="secondary" type="button">Connect GitHub</button>
+                <button id="githubDisconnectBtn" class="danger" type="button">Disconnect</button>
+              </div>
+            </form>
+
+            <form id="syncForm" class="sync-form">
+              <label>
+                <span>Device name</span>
+                <input name="deviceName" type="text" autocomplete="off" placeholder="Phone or PC">
+              </label>
+              <label>
+                <span>OAuth Client ID</span>
+                <input name="clientId" type="text" autocomplete="off" placeholder="…apps.googleusercontent.com">
+              </label>
+              <label>
+                <span>OAuth Client Secret</span>
+                <input name="clientSecret" type="password" autocomplete="new-password" placeholder="Leave blank to keep saved secret">
+              </label>
+              <label>
+                <span>Authorized redirect URI</span>
+                <input name="callbackUrl" type="text" readonly>
+              </label>
+              <small class="sync-help">Add the redirect URI above to a Google Cloud Web OAuth client, then save and connect. Only library state, watched episodes, progress and settings are synced—not video files.</small>
+              <div class="sync-actions">
+                <button id="syncSaveBtn" type="submit">Save</button>
+                <button id="syncConnectBtn" class="secondary" type="button">Connect Google</button>
+                <button id="syncDisconnectBtn" class="danger" type="button">Disconnect</button>
+              </div>
+            </form>
+            <div class="sync-run-row">
+              <button id="syncNowBtn" class="secondary" type="button">Sync now</button>
+              <small>Syncs library, watched episodes, progress and settings—not video files.</small>
+            </div>
+          </section>
+
+          <details class="advanced-panel">
+            <summary>Advanced</summary>
+            <div class="section-head compact">
+              <h2>Downloads</h2>
+              <div class="inline-actions">
+                <button id="downloadsBtn" class="small-button" type="button">Refresh</button>
+              </div>
+            </div>
+            <div id="downloadsList" class="downloads-list"></div>
+
+            <div class="section-head compact">
+              <h2>Logs</h2>
+              <div class="inline-actions">
+                <button id="jobsBtn" class="small-button" type="button">Fetch</button>
+                <button id="clearJobsBtn" class="small-button danger" type="button">Clear</button>
+              </div>
+            </div>
+            <div id="jobsList" class="jobs-list"></div>
+          </details>
+        </section>
+      </main>
+
+      <nav class="tabbar" aria-label="Primary navigation">
+        <button class="tab active" data-section="library" type="button">Library</button>
+        <button class="tab" data-section="discover" type="button">Discover</button>
+        <button class="tab" data-view="settingsView" type="button">Settings</button>
+      </nav>
+    </div>
+
+    <dialog id="showDialog">
+      <div class="dialog-head">
+        <div>
+          <h2 id="dialogTitle"></h2>
+          <p id="dialogMeta"></p>
+        </div>
+        <button id="closeDialogBtn" class="icon-button" type="button" title="Close" aria-label="Close">×</button>
+      </div>
+      <div class="episode-toolbar">
+        <button id="downloadAllBtn" class="secondary" type="button">Download all</button>
+        <button id="deleteAllDownloadsBtn" class="danger" type="button">Delete all</button>
+      </div>
+      <div id="episodeGrid" class="episode-list"></div>
+    </dialog>
+
+    <dialog id="detailsDialog">
+      <div class="dialog-head">
+        <div>
+          <h2 id="detailsTitle"></h2>
+          <p id="detailsMeta"></p>
+        </div>
+        <button id="closeDetailsBtn" class="icon-button" type="button" title="Close" aria-label="Close">×</button>
+      </div>
+      <div id="detailsBody" class="details-body"></div>
+    </dialog>
+
+    <dialog id="mangaDialog" class="manga-dialog">
+      <div class="dialog-head">
+        <div>
+          <h2 id="mangaDialogTitle"></h2>
+          <p id="mangaDialogMeta"></p>
+        </div>
+        <button id="closeMangaDialogBtn" class="icon-button" type="button" title="Close" aria-label="Close">×</button>
+      </div>
+      <div id="mangaDialogBody" class="manga-dialog-body"></div>
+      <div id="mangaChapterTools" class="chapter-toolbar" hidden>
+        <input id="mangaChapterTarget" type="text" inputmode="decimal" autocomplete="off" placeholder="Chapter e.g. 1100" aria-label="Chapter number">
+        <button id="mangaChapterJumpBtn" class="secondary" type="button">Jump</button>
+      </div>
+      <div id="mangaDownloadTools" class="chapter-download-tools" hidden>
+        <div class="chapter-download-summary">
+          <button id="mangaDownloadToggleBtn" class="secondary" type="button" aria-expanded="false" aria-controls="mangaDownloadPanel">Download chapters</button>
+          <div id="mangaDownloadStatus" class="chapter-download-status" aria-live="polite"></div>
+          <button id="mangaCancelDownloadBtn" class="small-button danger" type="button" hidden>Cancel</button>
+        </div>
+        <div id="mangaDownloadPanel" class="chapter-download-panel" hidden>
+          <p class="chapter-download-label">Starting from your next unread chapter</p>
+          <div class="chapter-download-actions" role="group" aria-label="Number of chapters">
+            <button class="small-button secondary manga-download-quick" data-count="5" type="button" aria-pressed="false">Next 5</button>
+            <button class="small-button secondary manga-download-quick" data-count="10" type="button" aria-pressed="true">Next 10</button>
+            <button class="small-button secondary manga-download-quick" data-count="25" type="button" aria-pressed="false">Next 25</button>
+            <button id="mangaDownloadCustomBtn" class="small-button secondary" type="button" aria-expanded="false" aria-controls="mangaDownloadCustomRange">Custom range…</button>
+          </div>
+          <div id="mangaDownloadCustomRange" class="chapter-download-range" hidden>
+            <label>From <input id="mangaDownloadFrom" type="text" inputmode="decimal" autocomplete="off" aria-label="First chapter to download"></label>
+            <label>To <input id="mangaDownloadTo" type="text" inputmode="decimal" autocomplete="off" aria-label="Last chapter to download"></label>
+          </div>
+          <button id="mangaDownloadRangeBtn" class="primary" type="button">Download 10 chapters</button>
+        </div>
+      </div>
+      <div id="chapterGrid" class="episode-list chapter-list"></div>
+    </dialog>
+
+    <dialog id="mangaReadConfirmDialog" class="compact-confirm-dialog" aria-labelledby="mangaReadConfirmTitle">
+      <form method="dialog">
+        <h2 id="mangaReadConfirmTitle">Mark earlier chapters?</h2>
+        <p id="mangaReadConfirmMessage"></p>
+        <div class="compact-confirm-actions">
+          <button class="secondary" type="submit" value="no" autofocus>No</button>
+          <button class="primary" type="submit" value="yes">Yes</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="mangaReaderDialog" class="manga-reader-dialog">
+      <div class="manga-reader-head">
+        <div>
+          <h2 id="mangaReaderTitle">Reading</h2>
+          <p id="mangaReaderMeta"></p>
+        </div>
+        <div class="inline-actions">
+          <button id="mangaDownloadChapterBtn" class="icon-button" type="button" title="Download chapter" aria-label="Download chapter">↓</button>
+          <button id="mangaFullscreenBtn" class="icon-button" type="button" title="Fullscreen" aria-label="Enter fullscreen">⛶</button>
+          <button id="closeMangaReaderBtn" class="icon-button" type="button" title="Close reader" aria-label="Close reader">×</button>
+        </div>
+      </div>
+      <div id="mangaReaderPages" class="manga-reader-pages"></div>
+      <div class="manga-reader-nav">
+        <button id="mangaPrevChapterBtn" class="secondary" type="button">‹ Previous</button>
+        <button id="mangaNextChapterBtn" class="primary" type="button">Next ›</button>
+      </div>
+    </dialog>
+
+    <dialog id="playerDialog">
+      <div class="dialog-head">
+        <div>
+          <h2 id="playerTitle">Playing</h2>
+          <p class="player-hint">Streamed via AniManga · close when done</p>
+        </div>
+        <button id="closePlayerBtn" class="icon-button" type="button" title="Close" aria-label="Close">×</button>
+      </div>
+      <div class="player-stage" id="playerStage" tabindex="-1">
+        <video id="playerVideo" playsinline></video>
+        <div class="gesture-zone gesture-left" aria-hidden="true"></div>
+        <div class="gesture-zone gesture-right" aria-hidden="true"></div>
+        <div class="player-osd" id="playerOsd" aria-hidden="true"></div>
+        <button id="skipButton" class="skip-button" type="button" hidden></button>
+        <div class="center-controls" id="centerControls">
+          <button id="prevEpisodeBtn" class="video-control-button previous-button" type="button" title="Previous episode" aria-label="Previous episode"></button>
+          <button id="playPauseBtn" class="video-control-button play-center-button is-paused" type="button" title="Play" aria-label="Play"></button>
+          <button id="nextEpisodeBtn" class="video-control-button next-button" type="button" title="Next episode" aria-label="Next episode"></button>
+        </div>
+        <div class="video-controls" id="videoControls">
+          <span id="playerTime" class="player-time">0:00 / 0:00</span>
+          <input id="playerSeek" class="player-seek" type="range" min="0" max="1000" value="0" step="1" aria-label="Seek">
+          <button id="muteBtn" class="video-control-button volume-button" type="button" title="Mute" aria-label="Mute"></button>
+          <input id="playerVolume" class="player-volume" type="range" min="0" max="1" value="1" step="0.01" aria-label="Volume">
+          <button id="playerFullscreenBtn" class="video-control-button fullscreen-button" type="button" title="Fullscreen" aria-label="Fullscreen"></button>
+        </div>
+      </div>
+      <div class="player-controls">
+        <label class="player-autoplay">
+          <input id="autoplayNext" type="checkbox" checked>
+          <span>Autoplay next</span>
+        </label>
+      </div>
+    </dialog>
+
+    <div id="toast" class="toast" role="status" aria-live="polite" popover="manual"></div>
+    <script type="module" src="/js/app.js"></script>
+  </body>
+</html>

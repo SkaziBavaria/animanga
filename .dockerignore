@@ -1,0 +1,11 @@
+data/
+node_modules/
+.git/
+.github/
+docker-compose.yml
+README.md
+LICENSE
+tests/
+playwright.config.js
+playwright-report/
+test-results/
