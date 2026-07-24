@@ -9,10 +9,15 @@ export function escapeHtml(value) {
 }
 
 export function stripDescription(value) {
-  const withBreaks = String(value || '').replace(/<br\s*\/?>/gi, '\n');
-  const withoutTags = withBreaks.replace(/<[^>]+>/g, '');
+  let text = String(value || '').replace(/<br\s*\/?>/gi, '\n');
+  // Repeat until stable so nested/crafted tags cannot reassemble (CodeQL).
+  let previous;
+  do {
+    previous = text;
+    text = text.replace(/<[^>]*>/g, '');
+  } while (text !== previous);
   const textarea = document.createElement('textarea');
-  textarea.innerHTML = withoutTags;
+  textarea.innerHTML = text;
   return textarea.value.replace(/\n{3,}/g, '\n\n').trim();
 }
 
@@ -254,6 +259,8 @@ export function busyLabel(action) {
     play: 'Starting...',
     download: 'Starting...',
     track: 'Saving...',
+    archive: 'Archiving...',
+    unarchive: 'Restoring...',
     remove: 'Removing...',
     episodes: 'Fetching...',
     details: 'Fetching...',

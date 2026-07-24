@@ -14,10 +14,18 @@ const { setRawFetcher } = require('../../lib/allmanga');
 test.afterEach(() => setRawFetcher());
 
 test('mergeManga preserves read chapters while refreshing metadata', () => {
-  const state = { mangas: { m1: { id: 'm1', name: 'Old', readChapters: ['1'] } } };
+  const state = { mangas: { m1: { id: 'm1', name: 'Old', readChapters: ['1'], archived: true } } };
   const manga = mergeManga(state, { id: 'm1', name: 'New', chapters: ['1', '2'] });
   assert.equal(manga.name, 'New');
   assert.deepEqual(manga.readChapters, ['1']);
+  assert.equal(manga.archived, true);
+});
+
+test('mergeManga defaults archived to false and accepts archive updates', () => {
+  const state = { mangas: {} };
+  const created = mergeManga(state, { id: 'm2', name: 'Fresh' });
+  assert.equal(created.archived, false);
+  assert.equal(mergeManga(state, { id: 'm2', archived: true }).archived, true);
 });
 
 test('presentManga calculates the latest reading state', () => {

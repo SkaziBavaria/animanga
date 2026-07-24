@@ -16,6 +16,8 @@ const DEFAULT_SETTINGS = {
   quality: 'best',
   skipIntro: false,
   autoTrackPlayed: true,
+  clientPlayback: true,
+  downloadConcurrency: 2,
 };
 
 const LIBRARY_SHOW = {
@@ -117,8 +119,8 @@ async function installApiMocks(page, overrides = {}) {
     deps: { node: 'test', mpv: false, androidActivityManager: false, clientPlayback: true, animeResolver: 'node' },
     ...(overrides.status || {}),
   };
-  const library = overrides.library || [LIBRARY_SHOW];
-  const downloads = overrides.downloads || {};
+  let library = [...(overrides.library || [LIBRARY_SHOW])];
+  let downloads = { ...(overrides.downloads || {}) };
   const positions = overrides.positions || {};
   const mangaPositions = { ...(overrides.mangaPositions || {}) };
   const mangaPages = overrides.mangaPages || [{ number: 1, url: 'https://images.example/page-1.webp' }];
@@ -128,7 +130,7 @@ async function installApiMocks(page, overrides = {}) {
   const relations = overrides.relations || [];
   const localPlayback = overrides.localPlayback || null;
   const skipTimes = overrides.skipTimes || { op: null, ed: null };
-  let mangaLibrary = overrides.mangaLibrary || [MANGA];
+  let mangaLibrary = [...(overrides.mangaLibrary || [MANGA])];
   const mangaResults = overrides.mangaResults || [MANGA];
   let mangaDownloads = overrides.mangaDownloads || [];
   let mangaDownloadJobs = [];
@@ -353,18 +355,24 @@ async function installApiMocks(page, overrides = {}) {
     }
     if (/^\/api\/manga\/[^/]+$/.test(p) && method === 'PATCH') {
       const id = p.split('/').pop();
-      const language = body().language === 'raw' ? 'raw' : 'sub';
+      const patch = body();
       const current = mangaLibrary.find((item) => item.id === id) || MANGA;
-      const chapters = language === 'raw' ? ['1', '2'] : MANGA.chapters;
-      const manga = {
-        ...current,
-        language,
-        chapters,
-        chapterCount: MANGA.chapterCounts[language],
-        latestChapter: MANGA.latestChapters[language],
-        lastChapterDate: MANGA.lastChapterDates[language],
-      };
+      let manga = { ...current, ...patch };
+      if (Object.hasOwn(patch, 'language')) {
+        const language = patch.language === 'raw' ? 'raw' : 'sub';
+        const chapters = language === 'raw' ? ['1', '2'] : MANGA.chapters;
+        manga = {
+          ...manga,
+          language,
+          chapters,
+          chapterCount: MANGA.chapterCounts[language],
+          latestChapter: MANGA.latestChapters[language],
+          lastChapterDate: MANGA.lastChapterDates[language],
+        };
+      }
+      if (Object.hasOwn(patch, 'archived')) manga.archived = Boolean(patch.archived);
       mangaLibrary = mangaLibrary.map((item) => item.id === id ? manga : item);
+      if (!mangaLibrary.some((item) => item.id === id)) mangaLibrary = [...mangaLibrary, manga];
       return route.fulfill(jsonBody({ manga: presentMockManga(manga) }));
     }
     if (p === '/api/library') return route.fulfill(jsonBody({ shows: library }));
@@ -403,9 +411,22 @@ async function installApiMocks(page, overrides = {}) {
     }
 
     // --- library mutations ---
-    if (p === '/api/track' && method === 'POST') return route.fulfill(jsonBody({ show: { ...body(), tracked: true } }));
+    if (p === '/api/track' && method === 'POST') {
+      const payload = body();
+      const show = {
+        ...payload,
+        tracked: true,
+        archived: false,
+        watchedEpisodes: payload.watchedEpisodes || [],
+        lastWatched: payload.lastWatched || '',
+      };
+      library = [...library.filter((item) => item.id !== show.id), show];
+      return route.fulfill(jsonBody({ show }));
+    }
     if (/^\/api\/shows\/[^/]+$/.test(p) && method === 'DELETE') {
-      return route.fulfill(jsonBody({ show: { id: p.split('/').pop(), tracked: false } }));
+      const id = decodeURIComponent(p.split('/').pop());
+      library = library.filter((item) => item.id !== id);
+      return route.fulfill(jsonBody({ show: { id, tracked: false } }));
     }
     if (/^\/api\/shows\/[^/]+$/.test(p) && method === 'PATCH') {
       const id = p.split('/').pop();
@@ -433,10 +454,20 @@ async function installApiMocks(page, overrides = {}) {
       return route.fulfill(jsonBody({ error: 'Downloaded episode not found' }, 404));
     }
     if (/^\/api\/downloads\/[^/]+\/[^/]+$/.test(p) && method === 'DELETE') {
-      return route.fulfill(jsonBody({ download: { status: 'deleted' } }));
+      const parts = p.split('/');
+      const key = `${decodeURIComponent(parts[3])}:${decodeURIComponent(parts[4])}`;
+      delete downloads[key];
+      return route.fulfill(jsonBody({ download: { key, status: 'deleted' } }));
     }
     if (/^\/api\/downloads\/[^/]+$/.test(p) && method === 'DELETE') {
-      return route.fulfill(jsonBody({ deleted: 1, cancelled: 0 }));
+      const showId = decodeURIComponent(p.split('/').pop());
+      let deleted = 0;
+      for (const key of Object.keys(downloads)) {
+        if (downloads[key]?.showId !== showId) continue;
+        delete downloads[key];
+        deleted += 1;
+      }
+      return route.fulfill(jsonBody({ deleted, cancelled: 0 }));
     }
     if (p === '/api/download' && method === 'POST') {
       return route.fulfill(jsonBody({ job: { id: 'job1', status: 'queued' }, download: { key: 'lib1:1', status: 'queued' } }));

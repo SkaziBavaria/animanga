@@ -11,8 +11,15 @@ import {
   progressRatio,
 } from './util.js';
 
+function isArchived(show) {
+  return Boolean(show?.archived);
+}
+
 function filterLibrary(shows) {
   return shows.filter((show) => {
+    if (state.libraryFilter === 'archived') return isArchived(show);
+    if (state.libraryFilter === 'all') return true;
+    if (isArchived(show)) return false;
     if (state.libraryFilter === 'continue') return hasStarted(show) && hasNewEpisodeToContinue(show);
     if (state.libraryFilter === 'caughtup') return isCompleted(show);
     if (state.libraryFilter === 'notstarted') return !hasStarted(show);
@@ -33,7 +40,12 @@ function sortShows(sort) {
 }
 
 export function renderLibrary() {
-  els.libraryCount.textContent = state.library.length;
+  const activeCount = state.library.filter((show) => !isArchived(show)).length;
+  els.libraryCount.textContent = state.libraryFilter === 'archived'
+    ? state.library.filter(isArchived).length
+    : state.libraryFilter === 'all'
+      ? state.library.length
+      : activeCount;
   if (!state.library.length) {
     els.libraryList.innerHTML = '<div class="empty">Your library is empty. Search for an anime and press Track.</div>';
     return;
@@ -92,6 +104,16 @@ export async function removeShow(show) {
   await api(`/api/shows/${encodeURIComponent(show.id)}`, { method: 'DELETE' });
   toast('Removed from library');
   await loadLibrary(false);
+}
+
+export async function setShowArchived(show, archived) {
+  const data = await api(`/api/shows/${encodeURIComponent(show.id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ archived: Boolean(archived) }),
+  });
+  syncAnimeShow({ ...show, ...(data.show || {}), id: show.id, archived: Boolean(archived) });
+  refreshAnimeCards();
+  toast(archived ? 'Archived' : 'Moved back to active library');
 }
 
 export async function updateShowMode(show, mode) {

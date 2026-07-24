@@ -11,7 +11,10 @@ export function positionFor(showId, episode) {
 
 export function latestPositionForShow(show) {
   const showId = typeof show === 'string' ? show : show?.id;
-  const watched = new Set((typeof show === 'object' ? show.watchedEpisodes : []).map(String));
+  const watchedEpisodes = typeof show === 'object' && show
+    ? (show.watchedEpisodes || [])
+    : [];
+  const watched = new Set(watchedEpisodes.map(String));
   const entries = Object.values(state.positions || {}).filter((entry) => (
     entry.showId === showId && !watched.has(String(entry.episode))
   ));

@@ -407,6 +407,10 @@ body.manga-reader-fullscreen-active .app-shell {
   align-items: start;
 }
 
+.show-card.archived {
+  opacity: 0.72;
+}
+
 .show-thumb {
   width: 72px;
   aspect-ratio: 2 / 3;
@@ -798,6 +802,17 @@ select {
   display: grid;
   gap: 12px;
   padding: 13px;
+}
+
+.settings-field {
+  display: grid;
+  gap: 6px;
+}
+
+.settings-help {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .sync-panel {
@@ -1195,6 +1210,16 @@ dialog::backdrop {
   grid-template-columns: 1fr 1fr;
   gap: 8px;
   margin-bottom: 10px;
+}
+
+.details-actions {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.details-actions[hidden] {
+  display: none;
 }
 
 .chapter-toolbar {

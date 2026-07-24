@@ -11,7 +11,14 @@ process.env.ANIMANGA_DATA_DIR = DATA_DIR;
 process.env.ANIMANGA_DOWNLOAD_DIR = DOWNLOAD_DIR;
 
 const fs = require('node:fs');
-const { downloadKey, downloadStatus, isDownloadBusy, resolveDownloadPath } = require('../../lib/downloads');
+const {
+  downloadKey,
+  downloadStatus,
+  isDownloadBusy,
+  reconcileDownloads,
+  removeDownloadFiles,
+  resolveDownloadPath,
+} = require('../../lib/downloads');
 
 test('downloadKey combines show id and episode', () => {
   assert.equal(downloadKey('abc', '1'), 'abc:1');
@@ -52,4 +59,49 @@ test('resolveDownloadPath reads completed paths with spaces from logs', () => {
   fs.writeFileSync(logFile, `Download complete: ${filePath}\n`);
 
   assert.equal(resolveDownloadPath({ episode: '1', logFile }), filePath);
+});
+
+test('reconcileDownloads does not resurrect intentionally deleted downloads', () => {
+  const showDir = path.join(DOWNLOAD_DIR, 'Alpha');
+  const filePath = path.join(showDir, 'Alpha Episode 3.mp4');
+  fs.mkdirSync(showDir, { recursive: true });
+  fs.writeFileSync(filePath, 'video');
+
+  const state = {
+    shows: {
+      a: { id: 'a', name: 'Alpha', title: 'Alpha', mode: 'sub' },
+    },
+    downloads: {
+      'a:3': {
+        key: 'a:3',
+        showId: 'a',
+        episode: '3',
+        showName: 'Alpha',
+        status: 'deleted',
+        filePath,
+        downloadDir: showDir,
+        deletedAt: new Date().toISOString(),
+      },
+    },
+  };
+
+  reconcileDownloads(state);
+  assert.equal(state.downloads['a:3'].status, 'deleted');
+  assert.equal(fs.existsSync(filePath), true);
+});
+
+test('removeDownloadFiles deletes matching episode files in the show folder', () => {
+  const showDir = path.join(DOWNLOAD_DIR, 'Beta');
+  const filePath = path.join(showDir, 'Beta Episode 7.mp4');
+  fs.mkdirSync(showDir, { recursive: true });
+  fs.writeFileSync(filePath, 'video');
+
+  const removed = removeDownloadFiles({
+    episode: '7',
+    showName: 'Beta',
+    downloadDir: showDir,
+    filePath,
+  });
+  assert.equal(removed, true);
+  assert.equal(fs.existsSync(filePath), false);
 });
