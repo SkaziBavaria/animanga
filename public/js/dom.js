@@ -94,6 +94,8 @@ export const els = {
   downloadAllBtn: $('#downloadAllBtn'),
   deleteAllDownloadsBtn: $('#deleteAllDownloadsBtn'),
   closeDialogBtn: $('#closeDialogBtn'),
+  animeWatchConfirmDialog: $('#animeWatchConfirmDialog'),
+  animeWatchConfirmMessage: $('#animeWatchConfirmMessage'),
   detailsDialog: $('#detailsDialog'),
   detailsTitle: $('#detailsTitle'),
   detailsMeta: $('#detailsMeta'),
