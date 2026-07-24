@@ -52,7 +52,7 @@ const PAIRED_CHUNK = [
 ].join('\n');
 const PART_B = Buffer.alloc(32, 7).toString('base64');
 const TEST_EPOCH = 42;
-const LIVE_CHUNK = path.join(__dirname, '..', 'fixtures', 'mkissa-crypto-chunk.js');
+const LIVE_CHUNK = path.join(__dirname, '..', 'fixtures', 'mkissa-crypto-chunk.txt');
 
 test.afterEach(() => resetMkissaCryptoForTests());
 
