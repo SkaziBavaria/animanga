@@ -54,7 +54,8 @@ test('resolved playback supports byte-range access and AniSkip metadata when ava
     signal: AbortSignal.timeout(15_000),
   });
   assert.ok(response.status === 200 || response.status === 206, `playback source returned ${response.status}`);
-  assert.match(response.headers.get('content-type') || '', /video\//i);
+  // Some CDNs serve playable media as application/octet-stream instead of video/*.
+  assert.match(response.headers.get('content-type') || '', /^(video\/|application\/octet-stream\b)/i);
   await response.body?.cancel();
 
   const skip = await getSkipTimesForTitle({ cache: {} }, title, '1', 1420);
