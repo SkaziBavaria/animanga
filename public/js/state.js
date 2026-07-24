@@ -22,6 +22,7 @@ export const state = {
   activeSection: 'library',
   mangaLibrary: [],
   mangaLibraryFilter: 'active',
+  mangaLibrarySort: 'new',
   mangaResults: [],
   mangaReleaseWatches: [],
   mangaReleaseWatchesOpen: false,

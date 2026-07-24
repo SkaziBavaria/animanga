@@ -106,6 +106,7 @@ function mangaOriginLabel(value) {
   if (['JP', 'JPN', 'JAPAN'].includes(origin)) return 'JP';
   if (['KR', 'KOR', 'KOREA', 'SOUTH KOREA'].includes(origin)) return 'KR';
   if (['CN', 'CHN', 'CHINA'].includes(origin)) return 'CN';
+  if (['EN', 'ENG', 'US', 'USA', 'UK', 'GB'].includes(origin)) return 'EN';
   return '';
 }
 
@@ -172,15 +173,18 @@ function mangaCard(manga, source) {
     : `${canContinue ? 'Continue' : 'Read'} ch ${chapter}`;
   const primary = source === 'library'
     ? `<button class="primary play-action ${resume ? 'play-action-resume' : canContinue ? 'play-action-continue' : 'play-action-play'} manga-read-action" data-action="manga-read" data-chapter="${escapeHtml(chapter)}">${chapter ? escapeHtml(readLabel) : 'Chapters'}</button>`
+    : `<button class="primary play-action play-action-play" data-action="manga-chapters">${chapter ? `Read ch ${escapeHtml(chapter)}` : 'Chapters'}</button>`;
+  const trackAction = source === 'library'
+    ? ''
     : tracked
-      ? '<button class="tracked" data-action="manga-tracked" disabled>In library</button>'
-      : '<button class="primary" data-action="manga-track">Add to library</button>';
+      ? '<button class="tracked" data-action="manga-tracked" disabled>Tracked</button>'
+      : '<button class="secondary" data-action="manga-track">Track</button>';
   const libraryActions = source === 'library'
     ? `${manga.archived
       ? '<button class="secondary" data-action="manga-unarchive">Unarchive</button>'
       : '<button class="secondary" data-action="manga-archive">Archive</button>'
     }<button class="danger" data-action="manga-remove">Remove</button>`
-    : '';
+    : trackAction;
   return `
     <article class="show-card manga-card${manga.archived ? ' archived' : ''}" data-manga-id="${escapeHtml(manga.id)}" data-source="${source}">
       ${cover ? `<img class="show-thumb" src="${escapeHtml(cover)}" alt="" loading="lazy" decoding="async">` : `<div class="show-thumb placeholder">${escapeHtml(initials(manga))}</div>`}
@@ -196,11 +200,12 @@ function mangaCard(manga, source) {
           ${recentlyUpdated ? '<span class="pill hot">Recently updated</span>' : ''}
           ${manga.latestChapter ? `<span class="pill schedule">Ch ${escapeHtml(manga.latestChapter)}${latestDate ? ` · ${escapeHtml(latestDate)}` : ''}</span>` : ''}
           ${source !== 'library' && manga.score ? `<span class="pill">Score ${escapeHtml(manga.score)}</span>` : ''}
+          ${manga.recommendationReason ? `<span class="pill reason">${escapeHtml(manga.recommendationReason)}</span>` : ''}
           ${hasSequel ? '<span class="pill sequel released">Sequel available</span>' : ''}
           ${manga.refreshError ? '<span class="pill danger">Refresh failed</span>' : ''}
         </div>
       </div>
-      <div class="card-actions ${source === 'library' ? 'four' : 'three'}">
+      <div class="card-actions four">
         ${primary}
         <button class="secondary" data-action="manga-chapters">Chapters</button>
         <button class="secondary" data-action="manga-about">About</button>
@@ -209,12 +214,23 @@ function mangaCard(manga, source) {
     </article>`;
 }
 
-function findManga(card) {
-  const id = card?.dataset.mangaId;
-  if (!id) return null;
-  const primary = card.dataset.source === 'library' ? state.mangaLibrary : state.mangaResults;
-  const secondary = card.dataset.source === 'library' ? state.mangaResults : state.mangaLibrary;
-  return primary.find((item) => item.id === id) || secondary.find((item) => item.id === id) || null;
+function mangaProgressRatio(manga) {
+  const latest = Number(manga.latestChapter || manga.chapterCount);
+  const last = Number(manga.lastRead);
+  if (!Number.isFinite(last) || !Number.isFinite(latest) || latest <= 0) return 0;
+  return Math.min(1, last / latest);
+}
+
+function sortMangaLibrary(sort) {
+  return (a, b) => {
+    if (sort === 'az') return String(a.name || a.title).localeCompare(String(b.name || b.title));
+    if (sort === 'recent') return String(b.updatedAt || '').localeCompare(String(a.updatedAt || ''));
+    if (sort === 'progress') {
+      const diff = mangaProgressRatio(b) - mangaProgressRatio(a);
+      return diff || String(a.name || a.title).localeCompare(String(b.name || b.title));
+    }
+    return (Number(b.newCount) - Number(a.newCount)) || String(a.name || a.title).localeCompare(String(b.name || b.title));
+  };
 }
 
 export function renderMangaLibrary() {
@@ -228,10 +244,18 @@ export function renderMangaLibrary() {
     els.mangaLibraryList.innerHTML = '<div class="empty empty-action"><span>Your manga library is empty.</span><button class="small-button secondary" data-action="manga-open-discover" type="button">Find manga</button></div>';
     return;
   }
-  const mangas = filterMangaLibrary(state.mangaLibrary);
+  const mangas = filterMangaLibrary(state.mangaLibrary).sort(sortMangaLibrary(state.mangaLibrarySort || 'new'));
   els.mangaLibraryList.innerHTML = mangas.length
     ? mangas.map((manga) => mangaCard(manga, 'library')).join('')
     : '<div class="empty">No manga match this filter.</div>';
+}
+
+function findManga(card) {
+  const id = card?.dataset.mangaId;
+  if (!id) return null;
+  const primary = card.dataset.source === 'library' ? state.mangaLibrary : state.mangaResults;
+  const secondary = card.dataset.source === 'library' ? state.mangaResults : state.mangaLibrary;
+  return primary.find((item) => item.id === id) || secondary.find((item) => item.id === id) || null;
 }
 
 export function renderMangaResults(emptyHtml = '<div class="empty">No manga found.</div>') {
@@ -290,6 +314,11 @@ export async function searchManga(query = '', options = {}) {
 
 async function browseManga(button) {
   state.mangaDiscoverLoaded = true;
+  state.mangaGenres = [];
+  state.mangaYear = null;
+  els.mangaGenreFilter?.querySelectorAll('input[type="checkbox"]').forEach((input) => { input.checked = false; });
+  if (els.mangaYearFilter) els.mangaYearFilter.value = '';
+  updateMangaFilterSummary();
   let endpoint = '/api/manga/search?q=&sort=Latest_Update';
   if (button.dataset.mangaRecommended) endpoint = '/api/manga/recommendations';
   if (button.dataset.mangaPopularRange !== undefined) endpoint = `/api/manga/popular?range=${encodeURIComponent(button.dataset.mangaPopularRange)}`;
@@ -315,7 +344,7 @@ function updateMangaFilterSummary() {
 export async function trackManga(manga) {
   await api('/api/manga/track', { method: 'POST', body: JSON.stringify(manga) });
   await loadMangaLibrary();
-  toast('Manga added to library');
+  toast('Manga tracked');
 }
 
 async function updateMangaLanguage(manga, language) {
@@ -329,10 +358,11 @@ async function updateMangaLanguage(manga, language) {
 }
 
 async function removeManga(manga) {
-  if (!confirm(`Remove ${manga.name} from your manga library?`)) return;
+  const name = manga.name || manga.title || 'this manga';
+  if (!confirm(`Remove "${name}" from your library?\n\nYou can add it again from Search > Track.`)) return;
   await api(`/api/manga/${encodeURIComponent(manga.id)}`, { method: 'DELETE' });
   await loadMangaLibrary();
-  toast('Manga removed');
+  toast('Removed from library');
 }
 
 function isMangaTracked(manga) {
@@ -660,7 +690,7 @@ function mangaRelatedSection(relations) {
             </div>
             <div class="related-actions">
               <button class="secondary small-button" data-action="manga-related-about" type="button">About</button>
-              ${tracked ? '<button class="tracked small-button" type="button" disabled>In library</button>' : '<button class="secondary small-button" data-action="manga-related-track" type="button">Add to library</button>'}
+              ${tracked ? '<button class="tracked small-button" type="button" disabled>Tracked</button>' : '<button class="secondary small-button" data-action="manga-related-track" type="button">Track</button>'}
             </div>
           </article>`;
         }).join('')}
@@ -913,9 +943,31 @@ async function toggleChapterDownload(manga, chapter) {
   toast(downloaded ? 'Offline chapter removed' : 'Chapter downloaded for offline reading');
 }
 
+async function deleteAllMangaDownloads(manga) {
+  const chapters = Object.keys(state.mangaDownloads || {});
+  if (!chapters.length) {
+    toast('No offline chapters to delete');
+    return;
+  }
+  if (!confirm(`Delete ${chapters.length} offline chapter${chapters.length === 1 ? '' : 's'} for ${manga.name || 'this manga'}?`)) return;
+  for (const chapter of chapters) {
+    await api(`/api/manga/${encodeURIComponent(manga.id)}/chapters/${encodeURIComponent(chapter)}/download`, {
+      method: 'DELETE',
+    });
+  }
+  await loadMangaDownloads(manga);
+  if (els.mangaDialog.open) renderChapterGrid(state.activeManga || manga);
+  updateReaderControls();
+  toast('Offline chapters deleted');
+}
+
 export function bindMangaControls() {
   els.mangaLibraryFilter?.addEventListener('change', () => {
     state.mangaLibraryFilter = els.mangaLibraryFilter.value;
+    renderMangaLibrary();
+  });
+  els.mangaLibrarySort?.addEventListener('change', () => {
+    state.mangaLibrarySort = els.mangaLibrarySort.value;
     renderMangaLibrary();
   });
   document.addEventListener('change', async (event) => {
@@ -961,9 +1013,10 @@ export function bindMangaControls() {
   els.mangaGenreApplyBtn.addEventListener('click', () => {
     state.mangaGenres = Array.from(els.mangaGenreFilter.querySelectorAll('input[type="checkbox"]:checked')).map((input) => input.value);
     const year = Number(els.mangaYearFilter.value);
-    state.mangaYear = Number.isInteger(year) && year >= 1900 && year <= 2100 ? year : null;
+    state.mangaYear = Number.isInteger(year) && year >= 1917 && year <= 2100 ? year : null;
     updateMangaFilterSummary();
     els.mangaGenreFilter.open = false;
+    document.querySelectorAll('.manga-browse-button').forEach((button) => button.classList.remove('active'));
     searchManga(els.mangaSearchInput.value.trim()).catch((err) => toast(err.message));
   });
   els.mangaGenreClearBtn.addEventListener('click', () => {
@@ -973,6 +1026,7 @@ export function bindMangaControls() {
     state.mangaYear = null;
     updateMangaFilterSummary();
     els.mangaGenreFilter.open = false;
+    document.querySelectorAll('.manga-browse-button').forEach((button) => button.classList.remove('active'));
     searchManga(els.mangaSearchInput.value.trim()).catch((err) => toast(err.message));
   });
   els.closeMangaDialogBtn.addEventListener('click', () => els.mangaDialog.close());
@@ -1004,6 +1058,11 @@ export function bindMangaControls() {
   });
   els.mangaDownloadToggleBtn.addEventListener('click', () => {
     setMangaDownloadPanelOpen(els.mangaDownloadPanel.hidden);
+  });
+  els.mangaDeleteAllDownloadsBtn?.addEventListener('click', () => {
+    if (!state.activeManga) return;
+    runAction(els.mangaDeleteAllDownloadsBtn, 'Deleting…', () => deleteAllMangaDownloads(state.activeManga))
+      .catch((err) => toast(err.message));
   });
   document.querySelectorAll('.manga-download-quick').forEach((button) => {
     button.addEventListener('click', () => setQuickDownloadRange(Number(button.dataset.count)));
@@ -1038,8 +1097,10 @@ export function bindMangaControls() {
       if (button.dataset.action === 'manga-related-about') await openMangaAbout(related);
       if (button.dataset.action === 'manga-related-track') {
         await trackManga(related);
-        button.textContent = 'In library';
+        button.textContent = 'Tracked';
         button.disabled = true;
+        button.classList.add('tracked');
+        button.classList.remove('secondary');
       }
     });
   });

@@ -38,7 +38,7 @@
               <option value="caughtup">Caught up</option>
               <option value="notstarted">Not started</option>
               <option value="archived">Archived</option>
-              <option value="all">All shows</option>
+              <option value="all">All</option>
             </select>
             <select id="librarySort" aria-label="Sort library">
               <option value="new">New first</option>
@@ -64,6 +64,7 @@
             <button class="browse-button" data-popular-range="1" type="button">Hot</button>
             <button class="browse-button" data-popular-range="7" type="button">Week</button>
             <button class="browse-button" data-popular-range="30" type="button">Month</button>
+            <button id="animeLatestBtn" class="browse-button" data-anime-sort="Latest_Update" type="button">Latest</button>
           </div>
           <details id="genreFilter" class="genre-filter">
             <summary id="genreFilterSummary">Filters · All</summary>
@@ -101,7 +102,7 @@
           </details>
           <div class="section-head compact watch-head">
             <div class="watch-title">
-              <h2>Watching</h2>
+              <h2>Release watches</h2>
               <span id="releaseWatchesCount" class="counter">0</span>
             </div>
             <div class="inline-actions">
@@ -125,7 +126,13 @@
               <option value="caughtup">Caught up</option>
               <option value="notstarted">Not started</option>
               <option value="archived">Archived</option>
-              <option value="all">All manga</option>
+              <option value="all">All</option>
+            </select>
+            <select id="mangaLibrarySort" aria-label="Sort manga library">
+              <option value="new">New first</option>
+              <option value="recent">Recently read</option>
+              <option value="progress">Progress</option>
+              <option value="az">A-Z</option>
             </select>
           </div>
           <div id="mangaLibraryList" class="show-list"></div>
@@ -152,7 +159,7 @@
             <div class="genre-filter-panel">
               <label class="discover-filter-field discover-year-field" for="mangaYearFilter">
                 <span>Release year</span>
-                <input id="mangaYearFilter" type="number" inputmode="numeric" min="1900" max="2100" placeholder="Any year">
+                <input id="mangaYearFilter" type="number" inputmode="numeric" min="1917" max="2100" placeholder="Any year">
               </label>
               <div class="genre-options">
                 <label><input type="checkbox" value="Action">Action</label>
@@ -162,6 +169,7 @@
                 <label><input type="checkbox" value="Fantasy">Fantasy</label>
                 <label><input type="checkbox" value="Horror">Horror</label>
                 <label><input type="checkbox" value="Josei">Josei</label>
+                <label><input type="checkbox" value="Magic">Magic</label>
                 <label><input type="checkbox" value="Mystery">Mystery</label>
                 <label><input type="checkbox" value="Psychological">Psychological</label>
                 <label><input type="checkbox" value="Romance">Romance</label>
@@ -182,7 +190,7 @@
           </details>
           <div class="section-head compact watch-head">
             <div class="watch-title">
-              <h2>Watching</h2>
+              <h2>Release watches</h2>
               <span id="mangaReleaseWatchesCount" class="counter">0</span>
             </div>
             <div class="inline-actions">
@@ -199,6 +207,7 @@
             <h2 id="settingsTitle">Settings</h2>
           </div>
           <form id="settingsForm" class="panel settings-grid">
+            <p class="settings-help settings-scope">Playback and download settings below apply to anime. Manga reading uses chapter tools on each title.</p>
             <div class="settings-field">
               <label>
                 <span>Mode</span>
@@ -207,7 +216,7 @@
                   <option value="dub">Dub</option>
                 </select>
               </label>
-              <small class="settings-help">Default audio version for new plays and downloads. Each show can still override this.</small>
+              <small class="settings-help">Default audio version for new anime plays and downloads. Each show can still override this.</small>
             </div>
             <div class="settings-field">
               <label>
@@ -357,6 +366,8 @@
         <button id="closeDialogBtn" class="icon-button" type="button" title="Close" aria-label="Close">×</button>
       </div>
       <div class="episode-toolbar">
+        <input id="episodeJumpTarget" type="text" inputmode="decimal" autocomplete="off" placeholder="Episode e.g. 12" aria-label="Episode number">
+        <button id="episodeJumpBtn" class="secondary" type="button">Jump</button>
         <button id="downloadAllBtn" class="secondary" type="button">Download all</button>
         <button id="deleteAllDownloadsBtn" class="danger" type="button">Delete all</button>
       </div>
@@ -392,6 +403,7 @@
       <div id="mangaDownloadTools" class="chapter-download-tools" hidden>
         <div class="chapter-download-summary">
           <button id="mangaDownloadToggleBtn" class="secondary" type="button" aria-expanded="false" aria-controls="mangaDownloadPanel">Download chapters</button>
+          <button id="mangaDeleteAllDownloadsBtn" class="danger" type="button">Delete all</button>
           <div id="mangaDownloadStatus" class="chapter-download-status" aria-live="polite"></div>
           <button id="mangaCancelDownloadBtn" class="small-button danger" type="button" hidden>Cancel</button>
         </div>
