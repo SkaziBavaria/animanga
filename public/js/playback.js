@@ -464,6 +464,31 @@ function toggleMute() {
   updateVideoControls();
 }
 
+function videoErrorMessage(video) {
+  const code = Number(video?.error?.code) || 0;
+  if (code === 1) return 'Playback was aborted';
+  if (code === 2) return 'Network error while loading the stream';
+  if (code === 3) return 'This device could not decode the video';
+  if (code === 4) return 'No playable stream format for this device';
+  return video?.error?.message || 'Could not play this stream';
+}
+
+function startVideoPlayback() {
+  const video = els.playerVideo;
+  if (!video) return;
+  video.play().then(() => {
+    updateVideoControls();
+    showVideoControlsTemporarily();
+  }).catch((error) => {
+    setVideoControlsVisible(true);
+    if (error?.name === 'NotAllowedError') {
+      toast('Tap play to start');
+      return;
+    }
+    toast(error?.message || 'Could not start playback');
+  });
+}
+
 function openBrowserPlayback(show, episode, playback) {
   currentContext = { showId: show.id, episode: String(episode) };
   currentShow = show;
@@ -485,19 +510,28 @@ function openBrowserPlayback(show, episode, playback) {
   els.playerVideo.onerror = null;
   attachResume(resume);
   attachSkipTimes(show, episode);
+
+  const failPlayback = () => {
+    els.playerVideo.onerror = null;
+    setVideoControlsVisible(true);
+    toast(videoErrorMessage(els.playerVideo));
+  };
+
   els.playerVideo.src = playbackStreamUrl(playback);
   if (direct) {
     els.playerVideo.onerror = () => {
-      els.playerVideo.onerror = null;
+      els.playerVideo.onerror = failPlayback;
       attachResume(resume);
       els.playerVideo.src = proxyStreamUrl(playback);
-      els.playerVideo.play().catch(() => {});
+      startVideoPlayback();
     };
+  } else {
+    els.playerVideo.onerror = failPlayback;
   }
 
   if (!els.playerDialog.open) els.playerDialog.showModal();
   focusPlayerStage();
-  els.playerVideo.play().catch(() => {});
+  startVideoPlayback();
   updateVideoControls();
   showVideoControlsTemporarily();
 }
