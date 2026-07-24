@@ -408,7 +408,12 @@ async function installApiMocks(page, overrides = {}) {
       return route.fulfill(jsonBody({ show: { id: p.split('/').pop(), tracked: false } }));
     }
     if (/^\/api\/shows\/[^/]+$/.test(p) && method === 'PATCH') {
-      return route.fulfill(jsonBody({ show: { ...body() } }));
+      const id = p.split('/').pop();
+      const patch = body();
+      const idx = library.findIndex((item) => item.id === id);
+      if (idx >= 0) library[idx] = { ...library[idx], ...patch };
+      const show = idx >= 0 ? library[idx] : { id, ...patch };
+      return route.fulfill(jsonBody({ show }));
     }
     if (p === '/api/mark' && method === 'POST') return route.fulfill(jsonBody({ show: { ...body(), tracked: true } }));
     if (p === '/api/mark-range' && method === 'POST') return route.fulfill(jsonBody({ show: { ...body(), tracked: true } }));
