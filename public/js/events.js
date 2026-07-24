@@ -10,7 +10,7 @@ import {
 } from './downloads.js';
 import { openEpisodes, playShow, bindEpisodeDialog, toggleEpisodeWatched } from './episodes.js';
 import { loadJobs, clearJobs } from './jobs.js';
-import { loadLibrary, renderLibrary, trackShow, removeShow, updateShowMode } from './library.js';
+import { loadLibrary, renderLibrary, trackShow, removeShow, setShowArchived, updateShowMode } from './library.js';
 import { loadMangaLibrary } from './manga.js';
 import { bindPlayerDialog } from './playback.js';
 import {
@@ -57,6 +57,8 @@ function bindGlobalClicks() {
         if (action === 'play') await playShow(show, cardButton.dataset.ep || nextEpisode(show) || '1');
         if (action === 'track') await trackShow(show);
         if (action === 'tracked') toast('Already in library');
+        if (action === 'archive') await setShowArchived(show, true);
+        if (action === 'unarchive') await setShowArchived(show, false);
         if (action === 'remove') await removeShow(show);
         if (action === 'episodes') await openEpisodes(show);
         if (action === 'details') await openDetails(show);
@@ -232,8 +234,14 @@ function bindForms() {
     const payload = Object.fromEntries(form.entries());
     payload.skipIntro = els.settingsForm.elements.skipIntro.checked;
     payload.autoTrackPlayed = els.settingsForm.elements.autoTrackPlayed.checked;
+    payload.clientPlayback = els.settingsForm.elements.clientPlayback.checked;
+    if (Object.hasOwn(payload, 'downloadConcurrency')) {
+      payload.downloadConcurrency = Number(payload.downloadConcurrency);
+    }
     try {
       state.settings = await api('/api/settings', { method: 'POST', body: JSON.stringify(payload) });
+      const { loadStatus } = await import('./status.js');
+      await loadStatus().catch(() => {});
       toast('Settings saved');
     } catch (err) {
       toast(err.message);

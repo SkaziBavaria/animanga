@@ -254,6 +254,8 @@ export function busyLabel(action) {
     play: 'Starting...',
     download: 'Starting...',
     track: 'Saving...',
+    archive: 'Archiving...',
+    unarchive: 'Restoring...',
     remove: 'Removing...',
     episodes: 'Fetching...',
     details: 'Fetching...',

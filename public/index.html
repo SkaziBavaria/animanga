@@ -33,10 +33,12 @@
           </div>
           <div class="library-tools">
             <select id="libraryFilter" aria-label="Filter library">
-              <option value="all">All shows</option>
+              <option value="active">Active</option>
               <option value="continue">Up next</option>
               <option value="caughtup">Caught up</option>
               <option value="notstarted">Not started</option>
+              <option value="archived">Archived</option>
+              <option value="all">All shows</option>
             </select>
             <select id="librarySort" aria-label="Sort library">
               <option value="new">New first</option>
@@ -116,6 +118,16 @@
             <h2 id="mangaLibraryTitle">Library</h2>
             <span id="mangaCount" class="counter">0</span>
           </div>
+          <div class="library-tools">
+            <select id="mangaLibraryFilter" aria-label="Filter manga library">
+              <option value="active">Active</option>
+              <option value="continue">Up next</option>
+              <option value="caughtup">Caught up</option>
+              <option value="notstarted">Not started</option>
+              <option value="archived">Archived</option>
+              <option value="all">All manga</option>
+            </select>
+          </div>
           <div id="mangaLibraryList" class="show-list"></div>
         </section>
 
@@ -187,31 +199,57 @@
             <h2 id="settingsTitle">Settings</h2>
           </div>
           <form id="settingsForm" class="panel settings-grid">
-            <label>
-              <span>Mode</span>
-              <select name="mode">
-                <option value="sub">Sub</option>
-                <option value="dub">Dub</option>
-              </select>
-            </label>
-            <label>
-              <span>Quality</span>
-              <select name="quality">
-                <option value="best">Best</option>
-                <option value="1080">1080p</option>
-                <option value="720">720p</option>
-                <option value="480">480p</option>
-                <option value="worst">Worst</option>
-              </select>
-            </label>
-            <label class="switch-row">
-              <span>Auto-skip intro</span>
-              <input name="skipIntro" type="checkbox">
-            </label>
-            <label class="switch-row">
-              <span>Auto-mark watched on finish</span>
-              <input name="autoTrackPlayed" type="checkbox">
-            </label>
+            <div class="settings-field">
+              <label>
+                <span>Mode</span>
+                <select name="mode">
+                  <option value="sub">Sub</option>
+                  <option value="dub">Dub</option>
+                </select>
+              </label>
+              <small class="settings-help">Default audio version for new plays and downloads. Each show can still override this.</small>
+            </div>
+            <div class="settings-field">
+              <label>
+                <span>Quality</span>
+                <select name="quality">
+                  <option value="best">Best</option>
+                  <option value="1080">1080p</option>
+                  <option value="720">720p</option>
+                  <option value="480">480p</option>
+                  <option value="worst">Worst</option>
+                </select>
+              </label>
+              <small class="settings-help">Preferred stream quality. Lower values download and buffer faster.</small>
+            </div>
+            <div class="settings-field">
+              <label>
+                <span>Download concurrency</span>
+                <input name="downloadConcurrency" type="number" min="1" max="8" step="1" inputmode="numeric">
+              </label>
+              <small class="settings-help">How many episode downloads can run at once (1–8). Higher is faster but heavier on network and CPU.</small>
+            </div>
+            <div class="settings-field">
+              <label class="switch-row">
+                <span>Play in browser</span>
+                <input name="clientPlayback" type="checkbox">
+              </label>
+              <small class="settings-help">On: open episodes in the in-app player. Off: prefer an external player intent on Android (for example MPV).</small>
+            </div>
+            <div class="settings-field">
+              <label class="switch-row">
+                <span>Auto-skip intro</span>
+                <input name="skipIntro" type="checkbox">
+              </label>
+              <small class="settings-help">When skip times are available, jump past the opening automatically.</small>
+            </div>
+            <div class="settings-field">
+              <label class="switch-row">
+                <span>Auto-mark watched on finish</span>
+                <input name="autoTrackPlayed" type="checkbox">
+              </label>
+              <small class="settings-help">Mark an episode watched when playback reaches the end (or a late outro).</small>
+            </div>
             <button type="submit">Save</button>
           </form>
 
@@ -333,6 +371,7 @@
         </div>
         <button id="closeDetailsBtn" class="icon-button" type="button" title="Close" aria-label="Close">×</button>
       </div>
+      <div id="detailsActions" class="details-actions" hidden></div>
       <div id="detailsBody" class="details-body"></div>
     </dialog>
 
@@ -344,6 +383,7 @@
         </div>
         <button id="closeMangaDialogBtn" class="icon-button" type="button" title="Close" aria-label="Close">×</button>
       </div>
+      <div id="mangaDialogActions" class="details-actions" hidden></div>
       <div id="mangaDialogBody" class="manga-dialog-body"></div>
       <div id="mangaChapterTools" class="chapter-toolbar" hidden>
         <input id="mangaChapterTarget" type="text" inputmode="decimal" autocomplete="off" placeholder="Chapter e.g. 1100" aria-label="Chapter number">

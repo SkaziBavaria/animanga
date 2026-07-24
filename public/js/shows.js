@@ -88,12 +88,15 @@ export function showCard(show, source) {
   const showStatus = String(show.status || '').toLowerCase();
   const isUpcoming = showStatus.includes('not yet') || showStatus.includes('upcoming');
   const extraActions = source === 'library'
-    ? '<button class="danger" data-action="remove">Remove</button>'
+    ? `${show.archived
+      ? '<button class="secondary" data-action="unarchive">Unarchive</button>'
+      : '<button class="secondary" data-action="archive">Archive</button>'
+    }<button class="danger" data-action="remove">Remove</button>`
     : isTracked
       ? '<button class="tracked" data-action="tracked" disabled>Tracked</button>'
       : '<button class="secondary" data-action="track">Track</button>';
   return `
-    <article class="show-card" data-id="${escapeHtml(show.id)}" data-source="${source}">
+    <article class="show-card${show.archived ? ' archived' : ''}" data-id="${escapeHtml(show.id)}" data-source="${source}">
       ${thumb
         ? `<img class="show-thumb" src="${escapeHtml(thumb)}" alt="" loading="lazy" decoding="async">`
         : `<div class="show-thumb placeholder" aria-hidden="true">${escapeHtml(showInitials(show))}</div>`}
@@ -102,6 +105,7 @@ export function showCard(show, source) {
         <div class="show-meta">
           <span class="pill${hasNews ? ' hot' : ''}"${hasNews ? ` title="${escapeHtml(`${show.newCount} new episode${Number(show.newCount) === 1 ? '' : 's'} available`)}"` : ''}>${escapeHtml(progressLabel(show, source))}</span>
           ${modeSelector(show)}
+          ${show.archived ? '<span class="pill">Archived</span>' : ''}
           ${downloadedCount ? `<span class="pill downloaded">↓ ${downloadedCount} saved</span>` : ''}
           ${schedulePills.map((pill, index) => `<span class="pill schedule${isUpcoming && index === 0 ? ' upcoming' : ''}">${escapeHtml(pill)}</span>`).join('')}
           ${nextSeasonPill(show)}
@@ -109,7 +113,7 @@ export function showCard(show, source) {
           ${show.refreshError ? `<span class="pill danger">Refresh failed</span>` : ''}
         </div>
       </div>
-      <div class="card-actions three">
+      <div class="card-actions ${source === 'library' ? 'four' : 'three'}">
         <button class="primary ${playActionClass(playLabel)}" data-action="play" data-ep="${escapeHtml(next)}">${escapeHtml(playText)}</button>
         <button class="secondary" data-action="episodes">Episodes</button>
         <button class="secondary" data-action="details">About</button>
