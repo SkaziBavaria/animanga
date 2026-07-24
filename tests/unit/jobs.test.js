@@ -10,8 +10,10 @@ process.env.ANIMANGA_DATA_DIR = path.join(os.tmpdir(), `animanga-unit-${process.
 const { clientPlaybackEnabled } = require('../../lib/playback-mode');
 const { startBackgroundTask } = require('../../lib/jobs');
 
-test('clientPlaybackEnabled respects the explicit env flag', () => {
+test('clientPlaybackEnabled defaults to browser playback', () => {
   const prev = process.env.ANIMANGA_CLIENT_PLAYBACK;
+  delete process.env.ANIMANGA_CLIENT_PLAYBACK;
+  assert.equal(clientPlaybackEnabled(), true);
   process.env.ANIMANGA_CLIENT_PLAYBACK = '1';
   assert.equal(clientPlaybackEnabled(), true);
   process.env.ANIMANGA_CLIENT_PLAYBACK = '0';

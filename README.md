@@ -100,7 +100,7 @@ OAuth client secrets and access tokens are stored in the local SQLite database. 
 - `ANIMANGA_PUBLIC_URL=https://animanga.example.com` fixes the external origin used for OAuth callbacks.
 - `ANIMANGA_TRUST_PROXY=1` accepts forwarded host/protocol headers when a fixed public URL cannot be used. Enable it only behind a trusted reverse proxy that overwrites those headers. `ANIMANGA_PUBLIC_URL` is required when this is set.
 - `ANIMANGA_PROXY_SECRET=...` optional HMAC secret for signed `/api/proxy` URLs. Defaults to the access token, or a generated file under the data directory.
-- `ANIMANGA_CLIENT_PLAYBACK=1` forces browser playback.
+- `ANIMANGA_CLIENT_PLAYBACK=0` prefers the Android MPV intent instead of the in-browser player.
 - `ANIMANGA_DATA_DIR=/path/to/data` selects the persistent application-data directory.
 - `ANIMANGA_DOWNLOAD_DIR=/path/to/downloads` changes the anime episode download directory.
 

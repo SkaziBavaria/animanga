@@ -9,8 +9,10 @@ export function isAndroid() {
 }
 
 export function usesBrowserPlayer() {
-  if (statusCache?.deps?.clientPlayback) return true;
-  return !isAndroid() && !statusCache?.deps?.androidActivityManager;
+  if (statusCache?.deps && 'clientPlayback' in statusCache.deps) {
+    return Boolean(statusCache.deps.clientPlayback);
+  }
+  return true;
 }
 
 function renderUpdateNotice(update) {
