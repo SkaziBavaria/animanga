@@ -9,4 +9,4 @@ if [ ! -f /data/.animanga-node-owner ]; then
   chown node:node /data/.animanga-node-owner
 fi
 
-exec gosu node "$@"
+exec setpriv --reuid=node --regid=node --init-groups -- "$@"

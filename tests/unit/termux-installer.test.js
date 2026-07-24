@@ -16,6 +16,13 @@ test('Termux and Docker provide ffmpeg downloads without installing ani-cli', ()
   assert.match(dockerfile, /FROM node:24-bookworm-slim/);
   assert.match(dockerfile, /ENTRYPOINT \["animanga-entrypoint"\]/);
   assert.match(dockerfile, /HEALTHCHECK/);
+  assert.match(dockerfile, /\/usr\/local\/lib\/node_modules\/npm/);
+  assert.doesNotMatch(dockerfile, /\bgosu\b/);
+  assert.match(fs.readFileSync(path.join(root, 'scripts', 'docker-entrypoint.sh'), 'utf8'), /setpriv/);
+  assert.match(
+    fs.readFileSync(path.join(root, '.github', 'workflows', 'container-security.yml'), 'utf8'),
+    /only-fixed:\s*true/,
+  );
   assert.match(installer, /pkg install -y .*ffmpeg/);
   assert.match(installer, /command -v ffmpeg/);
   assert.doesNotMatch(dockerfile, /pystardust|patch-ani-cli|\/usr\/local\/bin\/ani-cli/);
