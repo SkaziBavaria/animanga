@@ -103,6 +103,20 @@ test('metadata records cannot overwrite a separate tracking decision', () => {
   assert.equal(show.tracked, false);
 });
 
+test('archive preference survives newer show metadata sync', () => {
+  mergeSyncBundles([{
+    version: 1,
+    deviceId: 'phone',
+    records: [
+      { kind: 'archive', key: 'shelf', value: { archived: true }, updatedAt: '2099-02-01T00:00:00.000Z', deviceId: 'phone' },
+      { kind: 'show', key: 'shelf', value: { id: 'shelf', name: 'Shelf title', archived: false }, updatedAt: '2099-03-01T00:00:00.000Z', deviceId: 'phone' },
+    ],
+  }]);
+  const show = readState().shows.shelf;
+  assert.equal(show.name, 'Shelf title');
+  assert.equal(show.archived, true);
+});
+
 test('a stale metadata save cannot overwrite an atomic watched update', () => {
   const staleRefresh = readState();
   updateShowWatched('legacy', (watched) => watched.add('9'));
@@ -131,6 +145,20 @@ test('manga tracking and per-chapter read state are syncable', () => {
   const records = syncBundle().records;
   assert.equal(records.some((record) => record.kind === 'manga' && record.key === 'm1'), true);
   assert.equal(records.some((record) => record.kind === 'manga_read' && record.key === 'm1:1'), true);
+});
+
+test('manga archive preference survives newer manga metadata sync', () => {
+  mergeSyncBundles([{
+    version: 1,
+    deviceId: 'phone',
+    records: [
+      { kind: 'manga_archive', key: 'shelf-manga', value: { archived: true }, updatedAt: '2099-02-01T00:00:00.000Z', deviceId: 'phone' },
+      { kind: 'manga', key: 'shelf-manga', value: { id: 'shelf-manga', name: 'Shelf manga', archived: false }, updatedAt: '2099-03-01T00:00:00.000Z', deviceId: 'phone' },
+    ],
+  }]);
+  const manga = readState().mangas['shelf-manga'];
+  assert.equal(manga.name, 'Shelf manga');
+  assert.equal(manga.archived, true);
 });
 
 test('manga page progress persists, syncs, and clears when read', () => {

@@ -5,21 +5,45 @@ const path = require('node:path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-process.env.ANIMANGA_DATA_DIR = path.join(os.tmpdir(), `animanga-unit-${process.pid}`);
+process.env.ANIMANGA_DATA_DIR = path.join(os.tmpdir(), `animanga-playback-unit-${process.pid}`);
 
 const { clientPlaybackEnabled } = require('../../lib/playback-mode');
-const { startBackgroundTask } = require('../../lib/jobs');
+const { downloadConcurrencyLimit, startBackgroundTask } = require('../../lib/jobs');
+const { readState, saveState } = require('../../lib/state');
+const { settingsPatch } = require('../../lib/validation');
 
-test('clientPlaybackEnabled defaults to browser playback', () => {
-  const prev = process.env.ANIMANGA_CLIENT_PLAYBACK;
-  delete process.env.ANIMANGA_CLIENT_PLAYBACK;
+test('clientPlaybackEnabled follows live settings', () => {
+  const state = readState();
+  state.settings.clientPlayback = true;
+  saveState(state);
   assert.equal(clientPlaybackEnabled(), true);
-  process.env.ANIMANGA_CLIENT_PLAYBACK = '1';
-  assert.equal(clientPlaybackEnabled(), true);
-  process.env.ANIMANGA_CLIENT_PLAYBACK = '0';
+
+  state.settings.clientPlayback = false;
+  saveState(state);
   assert.equal(clientPlaybackEnabled(), false);
-  if (prev === undefined) delete process.env.ANIMANGA_CLIENT_PLAYBACK;
-  else process.env.ANIMANGA_CLIENT_PLAYBACK = prev;
+
+  state.settings.clientPlayback = true;
+  saveState(state);
+});
+
+test('downloadConcurrencyLimit follows live settings', () => {
+  const state = readState();
+  state.settings.downloadConcurrency = 4;
+  saveState(state);
+  assert.equal(downloadConcurrencyLimit(), 4);
+
+  state.settings.downloadConcurrency = 1;
+  saveState(state);
+  assert.equal(downloadConcurrencyLimit(), 1);
+});
+
+test('settingsPatch accepts playback and concurrency fields', () => {
+  assert.deepEqual(settingsPatch({ clientPlayback: false, downloadConcurrency: 3 }), {
+    clientPlayback: false,
+    downloadConcurrency: 3,
+  });
+  assert.throws(() => settingsPatch({ downloadConcurrency: 0 }), /1 to 8/);
+  assert.throws(() => settingsPatch({ clientPlayback: 'yes' }), /boolean/);
 });
 
 test('background download tasks use the shared queue and report completion', async () => {

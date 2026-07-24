@@ -25,6 +25,45 @@ test.describe('Manga', () => {
     await expect(page.locator('#mangaCount')).toHaveText('1');
   });
 
+  test('hides archived manga from the active library by default', async ({ page }) => {
+    await installApiMocks(page, {
+      mangaLibrary: [
+        { ...MANGA, id: 'active1', name: 'Active Manga', archived: false },
+        { ...MANGA, id: 'archived1', name: 'Archived Manga', archived: true },
+      ],
+    });
+    await page.goto('/');
+    if ((await page.locator('#mediaModeLabel').textContent()) !== 'Manga') {
+      await page.click('#mediaSwitchBtn');
+    }
+    await expect(page.locator('#mangaLibraryView')).toHaveClass(/active/);
+    await expect(page.locator('#mangaLibraryList .manga-card')).toHaveCount(1);
+    await expect(page.locator('#mangaLibraryList')).toContainText('Active Manga');
+    await expect(page.locator('#mangaLibraryList')).not.toContainText('Archived Manga');
+
+    await page.selectOption('#mangaLibraryFilter', 'archived');
+    await expect(page.locator('#mangaLibraryList .manga-card')).toHaveCount(1);
+    await expect(page.locator('#mangaLibraryList')).toContainText('Archived Manga');
+
+    await page.selectOption('#mangaLibraryFilter', 'all');
+    await expect(page.locator('#mangaLibraryList .manga-card')).toHaveCount(2);
+  });
+
+  test('archives and unarchives manga from the library card', async ({ page }) => {
+    const archive = page.waitForRequest((req) => /\/api\/manga\/manga1$/.test(req.url()) && req.method() === 'PATCH');
+    await page.locator('.manga-card[data-manga-id="manga1"] button[data-action="manga-archive"]').click();
+    expect((await archive).postDataJSON()).toEqual({ archived: true });
+    await expect(page.locator('#toast')).toContainText('Archived');
+    await expect(page.locator('.manga-card[data-manga-id="manga1"]')).toHaveCount(0);
+
+    await page.selectOption('#mangaLibraryFilter', 'archived');
+    await expect(page.locator('.manga-card[data-manga-id="manga1"]')).toContainText('Archived');
+    const unarchive = page.waitForRequest((req) => /\/api\/manga\/manga1$/.test(req.url()) && req.method() === 'PATCH');
+    await page.locator('.manga-card[data-manga-id="manga1"] button[data-action="manga-unarchive"]').click();
+    expect((await unarchive).postDataJSON()).toEqual({ archived: false });
+    await expect(page.locator('#toast')).toContainText('Moved back to active library');
+  });
+
   test('uses recent chapter activity instead of an unknown lifecycle status', async ({ page }) => {
     const now = new Date();
     const manga = {
@@ -360,6 +399,7 @@ test.describe('Manga', () => {
     await expect(page.locator('#mangaDownloadTools')).toBeHidden();
     await expect(page.locator('#chapterGrid')).toBeEmpty();
     await expect(page.locator('#mangaDialogBody')).toContainText('A manga synopsis');
+    await expect(page.locator('#mangaDialogActions button[data-action="manga-details-untrack"]')).toBeVisible();
     await expect(page.locator('#mangaDialogBody .details-cover')).toHaveAttribute('src', /api\/proxy/);
     await expect(page.locator('#mangaDialogBody .related-item')).toContainText('Manga Test Sequel');
     await expect(page.locator('#mangaDialogBody .related-item .pill.hot')).toHaveText('Sequel');

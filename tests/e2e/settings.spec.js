@@ -21,15 +21,24 @@ test.describe('Settings & logs', () => {
 
   test('loads existing settings into the form', async ({ page }) => {
     await installApiMocks(page, {
-      settings: { mode: 'dub', quality: '720', skipIntro: true, autoTrackPlayed: false },
+      settings: {
+        mode: 'dub',
+        quality: '720',
+        skipIntro: true,
+        autoTrackPlayed: false,
+        clientPlayback: false,
+        downloadConcurrency: 4,
+      },
     });
     await page.goto('/');
     await page.click('.tab[data-view="settingsView"]');
 
     await expect(page.locator('#settingsForm select[name="mode"]')).toHaveValue('dub');
     await expect(page.locator('#settingsForm select[name="quality"]')).toHaveValue('720');
+    await expect(page.locator('#settingsForm input[name="downloadConcurrency"]')).toHaveValue('4');
     await expect(page.locator('#settingsForm input[name="skipIntro"]')).toBeChecked();
     await expect(page.locator('#settingsForm input[name="autoTrackPlayed"]')).not.toBeChecked();
+    await expect(page.locator('#settingsForm input[name="clientPlayback"]')).not.toBeChecked();
   });
 
   test('saves updated settings', async ({ page }) => {
@@ -38,11 +47,18 @@ test.describe('Settings & logs', () => {
     await page.click('.tab[data-view="settingsView"]');
     await page.selectOption('#settingsForm select[name="mode"]', 'dub');
     await page.locator('#settingsForm input[name="skipIntro"]').check();
+    await page.locator('#settingsForm input[name="clientPlayback"]').uncheck();
+    await page.fill('#settingsForm input[name="downloadConcurrency"]', '3');
 
     const saveRequest = page.waitForRequest((req) => req.url().endsWith('/api/settings') && req.method() === 'POST');
     await page.click('#settingsForm button[type="submit"]');
     const req = await saveRequest;
-    expect(req.postDataJSON()).toMatchObject({ mode: 'dub', skipIntro: true });
+    expect(req.postDataJSON()).toMatchObject({
+      mode: 'dub',
+      skipIntro: true,
+      clientPlayback: false,
+      downloadConcurrency: 3,
+    });
     await expect(page.locator('#toast')).toContainText('Settings saved');
   });
 

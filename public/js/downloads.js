@@ -48,6 +48,7 @@ export async function deleteEpisodeDownload(show, episode) {
   await api(`/api/downloads/${encodeURIComponent(show.id)}/${encodeURIComponent(episode)}`, { method: 'DELETE' });
   toast(`Episode ${episode} deleted`);
   await loadDownloads();
+  pokeJobsSoon();
 }
 
 export async function deleteAllEpisodeDownloads(show) {
@@ -56,6 +57,7 @@ export async function deleteAllEpisodeDownloads(show) {
   const data = await api(`/api/downloads/${encodeURIComponent(show.id)}`, { method: 'DELETE' });
   toast(`${data.deleted || 0} downloads removed${data.cancelled ? `, ${data.cancelled} cancelled` : ''}`);
   await loadDownloads();
+  pokeJobsSoon();
 }
 
 export async function deleteDownload(showId, episode) {
@@ -64,6 +66,7 @@ export async function deleteDownload(showId, episode) {
   await api(`/api/downloads/${encodeURIComponent(showId)}/${encodeURIComponent(episode)}`, { method: 'DELETE' });
   toast('Download deleted');
   await loadDownloads();
+  pokeJobsSoon();
 }
 
 export function renderDownloads() {

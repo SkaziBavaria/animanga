@@ -17,6 +17,7 @@ test('mergeShow preserves useful metadata when a refresh returns empty fields', 
         latestEpisode: '12',
         episodes: ['1', '2', '12'],
         watchedEpisodes: ['1'],
+        archived: true,
       },
     },
   };
@@ -37,6 +38,15 @@ test('mergeShow preserves useful metadata when a refresh returns empty fields', 
   assert.equal(merged.episodeCount, 12);
   assert.equal(merged.latestEpisode, '12');
   assert.deepEqual(merged.episodes, ['1', '2', '12']);
+  assert.equal(merged.archived, true);
+});
+
+test('mergeShow defaults archived to false and accepts explicit archive updates', () => {
+  const state = { settings: { mode: 'sub' }, shows: {} };
+  const created = mergeShow(state, { id: 'fresh', name: 'Fresh' });
+  assert.equal(created.archived, false);
+  const archived = mergeShow(state, { id: 'fresh', archived: true });
+  assert.equal(archived.archived, true);
 });
 
 test('presentShow lets sequel data override a stale false flag', () => {
