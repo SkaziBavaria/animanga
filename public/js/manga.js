@@ -64,7 +64,16 @@ function mangaDate(value) {
   let date;
   if (typeof value === 'object') {
     if (!Number(value.year)) return null;
-    date = new Date(Date.UTC(Number(value.year), Math.max(0, Number(value.month || 1) - 1), Number(value.date || 1)));
+    // AllManga months are 0-indexed (January = 0), same as AllAnime.
+    const month = Number.isFinite(Number(value.month)) ? Number(value.month) : 0;
+    date = new Date(Date.UTC(
+      Number(value.year),
+      month,
+      Number(value.date) || 1,
+      Number.isFinite(Number(value.hour)) ? Number(value.hour) : 0,
+      Number.isFinite(Number(value.minute)) ? Number(value.minute) : 0,
+      Number.isFinite(Number(value.second)) ? Number(value.second) : 0,
+    ));
   } else date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
 }
