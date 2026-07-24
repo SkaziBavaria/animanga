@@ -63,6 +63,17 @@ export async function browsePopular(range, label) {
   renderSearchResults(data.results || [], '<div class="empty">No results.</div>');
 }
 
+export async function browseLatest(sort = 'Latest_Update') {
+  state.discoverLoaded = true;
+  els.searchResults.innerHTML = '<div class="empty">Loading Latest...</div>';
+  const params = new URLSearchParams({
+    mode: currentMode(),
+    sort: String(sort || 'Latest_Update'),
+  });
+  const data = await api(`/api/search?${params.toString()}`);
+  renderSearchResults(data.results || [], '<div class="empty">No results.</div>');
+}
+
 export async function browseRecommended() {
   state.discoverLoaded = true;
   els.searchResults.innerHTML = '<div class="empty">Finding recommendations...</div>';

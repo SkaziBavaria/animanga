@@ -226,4 +226,27 @@ export async function toggleEpisodeWatched(show, episode) {
 
 export function bindEpisodeDialog() {
   els.closeDialogBtn.addEventListener('click', () => els.dialog.close());
+  els.episodeJumpBtn?.addEventListener('click', () => {
+    const show = state.activeShow;
+    if (!show?.episodes?.length) return;
+    const target = String(els.episodeJumpTarget?.value || '').trim();
+    if (!target) return;
+    const match = show.episodes.map(String).find((episode) => episode === target)
+      || show.episodes.map(String).find((episode) => Number(episode) === Number(target));
+    if (!match) {
+      toast(`Episode ${target} not found`);
+      return;
+    }
+    const row = els.episodeGrid.querySelector(`[data-episode="${CSS.escape(match)}"]`);
+    if (!row) return;
+    els.episodeGrid.querySelectorAll('.episode-jump-highlight').forEach((item) => item.classList.remove('episode-jump-highlight'));
+    row.classList.add('episode-jump-highlight');
+    row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  });
+  els.episodeJumpTarget?.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      els.episodeJumpBtn?.click();
+    }
+  });
 }

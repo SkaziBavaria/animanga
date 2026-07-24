@@ -60,7 +60,7 @@ export function renderMangaReleaseWatches() {
           <span>${escapeHtml(`Last check: ${checked}`)}</span>
         </div>
         <div class="watch-actions">
-          ${found && watch.matchedManga?.id ? '<button class="small-button secondary" data-action="manga-watch-track" type="button">Add to library</button>' : ''}
+          ${found && watch.matchedManga?.id ? '<button class="small-button secondary" data-action="manga-watch-track" type="button">Track</button>' : ''}
           <button class="small-button danger" data-action="delete-manga-watch" type="button">Remove</button>
         </div>
       </article>`;

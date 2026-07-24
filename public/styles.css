@@ -815,6 +815,11 @@ select {
   line-height: 1.45;
 }
 
+.settings-scope {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
 .sync-panel {
   margin-top: 14px;
   padding: 13px;
@@ -1207,7 +1212,7 @@ dialog::backdrop {
 
 .episode-toolbar {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1.2fr) auto auto auto;
   gap: 8px;
   margin-bottom: 10px;
 }
@@ -1303,7 +1308,8 @@ dialog::backdrop {
   accent-color: var(--accent);
 }
 
-.chapter-row.chapter-jump-highlight {
+.chapter-row.chapter-jump-highlight,
+.episode-row-wrap.episode-jump-highlight {
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
