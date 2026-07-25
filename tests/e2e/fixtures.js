@@ -104,7 +104,7 @@ function presentMockManga(manga) {
  * be exercised end-to-end without ani-cli or the AllAnime API.
  *
  * Supported overrides: settings, library, downloads, positions, mangaPositions, releaseWatches,
- * searchResults, jobs, relations, playbackStatus (for local playback lookup), status.
+ * searchResults, jobs, relations, playback, playbackStatus (for local playback lookup), status.
  *
  * @param {import('@playwright/test').Page} page
  * @param {object} [overrides]
@@ -525,7 +525,12 @@ async function installApiMocks(page, overrides = {}) {
 
     // --- playback ---
     if (p === '/api/play' && method === 'POST') {
-      return route.fulfill(jsonBody({ job: { status: 'done' }, playback: { url: '/e2e-blank.mp4', title: 'E2E playback' } }));
+      const playback = {
+        url: '/e2e-blank.mp4',
+        title: 'E2E playback',
+        ...(overrides.playback || {}),
+      };
+      return route.fulfill(jsonBody({ job: { status: 'done' }, playback }));
     }
     return route.fulfill(jsonBody({}));
   });

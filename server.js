@@ -27,7 +27,7 @@ process.on('uncaughtException', (error) => {
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || `${HOST}:${PORT}`}`);
-  if (!requireAuthentication(req, res, url.pathname)) return;
+  if (!requireAuthentication(req, res, url.pathname, url.searchParams)) return;
   if (url.pathname.startsWith('/api/')) {
     handleApi(req, res, url).catch((err) => {
       if (!res.headersSent) {

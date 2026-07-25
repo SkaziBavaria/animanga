@@ -14,6 +14,7 @@ const { setFetchTextForTests } = require('../../lib/mkissa-crypto');
 
 const LEGACY_MASK = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 const CURRENT_MASK = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+const PAIRED_MASK = 'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc';
 const TEST_EPOCH = 42;
 
 test.afterEach(() => resetMangaCryptoForTests());
@@ -38,6 +39,14 @@ test('extractClientCrypto reads mask and buildId from the mkissa crypto chunk sh
   ].join('\n');
   assert.equal(extractClientCrypto(current).maskHex, CURRENT_MASK);
   assert.equal(extractClientCrypto(current).buildId, '12');
+
+  const paired = [
+    'noise aaReq',
+    `const qa=_t(230)!=="string"?"${PAIRED_MASK}":"",gr=_t(230)!=="string"?"65":"";`,
+  ].join('\n');
+  assert.equal(extractClientCrypto(paired).maskHex, PAIRED_MASK);
+  assert.equal(extractClientCrypto(paired).buildId, '65');
+  assert.equal(extractClientCrypto(paired).format, 'paired-ternary');
 });
 
 test('aaRequest builds a versioned AES-GCM blob', () => {
