@@ -127,6 +127,33 @@ test.describe('Library filtering & sorting', () => {
     expect(titles).toEqual(['Alpha', 'Bravo', 'Charlie']);
   });
 
+  test('filters the library list by search query', async ({ page }) => {
+    await page.fill('#librarySearchInput', 'brav');
+    await expect(page.locator('#libraryList .show-card')).toHaveCount(1);
+    await expect(page.locator('#libraryList')).toContainText('Bravo');
+    await expect(page.locator('#libraryList')).not.toContainText('Alpha');
+
+    await page.fill('#librarySearchInput', 'zzz');
+    await expect(page.locator('#libraryList')).toContainText('No shows match this search.');
+  });
+
+  test('restores library filter sort search and active tab after reload', async ({ page }) => {
+    await page.selectOption('#libraryFilter', 'continue');
+    await page.selectOption('#librarySort', 'az');
+    await page.fill('#librarySearchInput', 'alph');
+    await page.click('.tab[data-section="discover"]');
+    await expect(page.locator('#searchView')).toHaveClass(/active/);
+
+    await page.reload();
+    await expect(page.locator('#searchView')).toHaveClass(/active/);
+    await page.click('.tab[data-section="library"]');
+    await expect(page.locator('#libraryFilter')).toHaveValue('continue');
+    await expect(page.locator('#librarySort')).toHaveValue('az');
+    await expect(page.locator('#librarySearchInput')).toHaveValue('alph');
+    await expect(page.locator('#libraryList .show-card')).toHaveCount(1);
+    await expect(page.locator('#libraryList')).toContainText('Alpha');
+  });
+
   test('removes a show from the library', async ({ page }) => {
     page.on('dialog', (dialog) => dialog.accept());
     const del = page.waitForRequest((req) => /\/api\/shows\/a$/.test(req.url()) && req.method() === 'DELETE');

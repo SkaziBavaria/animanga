@@ -20,6 +20,7 @@ import {
   watchRelease,
 } from './release-watches.js';
 import { findShow } from './shows.js';
+import { writeUiPrefs } from './ui-prefs.js';
 import { busyLabel, nextEpisode } from './util.js';
 
 function bindGlobalClicks() {
@@ -197,10 +198,17 @@ function bindLibraryControls() {
   els.mediaSwitchBtn.addEventListener('click', () => switchMediaMode());
   els.libraryFilter.addEventListener('change', () => {
     state.libraryFilter = els.libraryFilter.value;
+    writeUiPrefs({ libraryFilter: state.libraryFilter });
     renderLibrary();
   });
   els.librarySort.addEventListener('change', () => {
     state.librarySort = els.librarySort.value;
+    writeUiPrefs({ librarySort: state.librarySort });
+    renderLibrary();
+  });
+  els.librarySearchInput?.addEventListener('input', () => {
+    state.libraryQuery = els.librarySearchInput.value;
+    writeUiPrefs({ libraryQuery: state.libraryQuery });
     renderLibrary();
   });
 }

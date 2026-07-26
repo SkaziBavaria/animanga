@@ -44,6 +44,15 @@ test('cacheStatusLabel distinguishes live, cached and offline data', async () =>
   assert.equal(cacheStatusLabel({ offline: true, offlineAgeSeconds: 180 }), 'offline cache · 3m ago');
 });
 
+test('matchesLibraryQuery matches name englishName and title case-insensitively', async () => {
+  const { matchesLibraryQuery } = await loadUtil();
+  const item = { name: 'Spy x Family', englishName: 'SPY×FAMILY', title: 'Spy Family (12 episodes)' };
+  assert.equal(matchesLibraryQuery(item, ''), true);
+  assert.equal(matchesLibraryQuery(item, 'spy'), true);
+  assert.equal(matchesLibraryQuery(item, 'FAMILY'), true);
+  assert.equal(matchesLibraryQuery(item, 'zzz'), false);
+});
+
 test('presentAnimeCard recomputes newCount from last watched and latest', async () => {
   const { presentAnimeCard } = await loadUtil();
   const presented = presentAnimeCard({
