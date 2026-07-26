@@ -10,7 +10,7 @@ export function escapeHtml(value) {
 
 export function stripDescription(value) {
   let text = String(value || '').replace(/<br\s*\/?>/gi, '\n');
-  // Repeat until stable so nested/crafted tags cannot reassemble (CodeQL).
+  // Repeat until stable so nested/crafted tags cannot reassemble.
   let previous;
   do {
     previous = text;

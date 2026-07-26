@@ -100,8 +100,8 @@ function presentMockManga(manga) {
 }
 
 /**
- * Installs deterministic mocks for every /api/* route so the real frontend can
- * be exercised end-to-end without ani-cli or the AllAnime API.
+ * Installs deterministic mocks for every /api/* route so the frontend can be
+ * exercised end-to-end without upstream anime/manga network calls.
  *
  * Supported overrides: settings, library, downloads, positions, mangaPositions, releaseWatches,
  * searchResults, jobs, relations, playback, playbackStatus (for local playback lookup), status.
