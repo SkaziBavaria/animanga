@@ -7,7 +7,7 @@ const assert = require('node:assert/strict');
 
 const root = path.join(__dirname, '..', '..');
 
-test('Docker image provides ffmpeg downloads without ani-cli', () => {
+test('Docker image provides ffmpeg downloads via the built-in runtime', () => {
   const dockerfile = fs.readFileSync(path.join(root, 'Dockerfile'), 'utf8');
   assert.match(dockerfile, /ca-certificates ffmpeg/);
   assert.match(dockerfile, /FROM node:24-bookworm-slim/);

@@ -65,7 +65,7 @@ function mangaDate(value) {
   let date;
   if (typeof value === 'object') {
     if (!Number(value.year)) return null;
-    // AllManga months are 0-indexed (January = 0), same as AllAnime.
+    // Upstream months are 0-indexed (January = 0).
     const month = Number.isFinite(Number(value.month)) ? Number(value.month) : 0;
     date = new Date(Date.UTC(
       Number(value.year),
