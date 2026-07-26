@@ -45,6 +45,17 @@ export function hasStarted(show) {
   return Number.isFinite(episodeNumber(show.lastWatched));
 }
 
+/** Case-insensitive library title match against name / englishName / title. */
+export function matchesLibraryQuery(item, query) {
+  const needle = String(query || '').trim().toLowerCase();
+  if (!needle) return true;
+  const haystack = [item?.englishName, item?.name, item?.title]
+    .filter(Boolean)
+    .join('\n')
+    .toLowerCase();
+  return haystack.includes(needle);
+}
+
 export function latestEpisodeNumber(show) {
   const latest = episodeNumber(show.latestEpisode || show.episodeCount);
   return Number.isFinite(latest) ? latest : null;
