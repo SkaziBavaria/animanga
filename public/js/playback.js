@@ -62,7 +62,10 @@ async function playAdjacent(dir) {
   if (!currentShow || !currentContext) return;
   const target = adjacentEpisode(currentShow, currentContext.episode, dir);
   if (!target) return;
-  persistProgress();
+  // Next means "done with this episode" (same idea as autoplay-after-ended).
+  // Previous only saves resume progress.
+  if (dir === 1) markEpisodeFinished();
+  else persistProgress();
   const show = currentShow;
   try {
     const { playShow } = await import('./episodes.js');
