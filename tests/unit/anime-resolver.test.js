@@ -8,10 +8,22 @@ const {
   selectQuality,
   sourceProviderId,
   isAllowedSource,
+  isOkRuSource,
+  pickPlaybackFromSources,
   resolveMp4Upload,
   resolveOkRu,
   setFetchForTests,
 } = require('../../lib/anime-resolver');
+
+function okRuEmbedHtml({ height = 1080, url = 'https://cdn.ok.example/video' } = {}) {
+  const metadata = JSON.stringify({
+    movie: { height },
+    videos: [{ name: 'full', url }],
+    ondemandHls: 'https://cdn.ok.example/master.m3u8',
+  });
+  const options = JSON.stringify({ flashvars: { metadata } }).replace(/"/g, '&quot;');
+  return `<div data-options="${options}"></div>`;
+}
 
 function encodeSourceUrl(value) {
   return `--${Buffer.from(value).toString('hex').match(/../g).map((pair) => (Number.parseInt(pair, 16) ^ 0x38).toString(16).padStart(2, '0')).join('')}`;
@@ -62,7 +74,33 @@ test('allowlists Default, Yt-mp4, S-mp4, and Mp4Upload sources', () => {
   assert.equal(sourceProviderId({ sourceName: 'Mp4', sourceUrl: 'https://mp4upload.com/embed-x' }), 'Mp4Upload');
   assert.equal(sourceProviderId({ sourceName: 'Ok', sourceUrl: 'https://ok.ru/videoembed/1' }), null);
   assert.equal(isAllowedSource({ sourceName: 'Ok', sourceUrl: 'https://ok.ru/videoembed/1' }), false);
+  assert.equal(isOkRuSource({ sourceName: 'Ok', sourceUrl: 'https://ok.ru/videoembed/1' }), true);
   assert.equal(isAllowedSource({ sourceName: 'Default', sourceUrl: '--abc' }), true);
+});
+
+test('falls back to OK.ru only when preferred hosts yield nothing', async () => {
+  let okFetches = 0;
+  setFetchForTests(async (url) => {
+    if (String(url).includes('ok.ru')) {
+      okFetches += 1;
+      return { ok: true, text: async () => okRuEmbedHtml() };
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  });
+
+  const preferred = await pickPlaybackFromSources([
+    { sourceName: 'Default', sourceUrl: 'https://cdn.example/ep.mp4', quality: '1080' },
+    { sourceName: 'Ok', sourceUrl: 'https://ok.ru/videoembed/123' },
+  ], 'best');
+  assert.equal(preferred.provider, 'Default');
+  assert.equal(okFetches, 0);
+
+  const fallback = await pickPlaybackFromSources([
+    { sourceName: 'Ok', sourceUrl: 'https://ok.ru/videoembed/123' },
+  ], 'best');
+  assert.equal(fallback.provider, 'OK.ru');
+  assert.equal(fallback.url, 'https://cdn.ok.example/video');
+  assert.equal(okFetches, 1);
 });
 
 test('selectQuality prefers Default then Yt-mp4 when quality ties', () => {
@@ -92,18 +130,10 @@ test('extracts the direct MP4 URL from Mp4Upload HTML', async () => {
 });
 
 test('extracts a directly streamable OK.ru MP4 source', async () => {
-  const metadata = JSON.stringify({
-    movie: { height: 1080 },
-    videos: [{ name: 'full', url: 'https://cdn.ok.example/video' }],
-    ondemandHls: 'https://cdn.ok.example/master.m3u8',
-  });
-  const options = JSON.stringify({ flashvars: { metadata } }).replace(/"/g, '&quot;');
-  setFetchForTests(async () => {
-    return {
-      ok: true,
-      text: async () => `<div data-options="${options}"></div>`,
-    };
-  });
+  setFetchForTests(async () => ({
+    ok: true,
+    text: async () => okRuEmbedHtml(),
+  }));
 
   assert.deepEqual(await resolveOkRu('https://ok.ru/videoembed/123'), [{
     url: 'https://cdn.ok.example/video',
