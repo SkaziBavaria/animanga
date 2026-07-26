@@ -16,7 +16,9 @@ test('Docker image provides ffmpeg downloads without ani-cli', () => {
   assert.match(dockerfile, /\/usr\/local\/lib\/node_modules\/npm/);
   assert.doesNotMatch(dockerfile, /\bgosu\b/);
   assert.doesNotMatch(dockerfile, /ANI_CLI|ani-cli/);
-  assert.match(fs.readFileSync(path.join(root, 'scripts', 'docker-entrypoint.sh'), 'utf8'), /setpriv/);
+  const entrypoint = fs.readFileSync(path.join(root, 'scripts', 'docker-entrypoint.sh'), 'utf8');
+  assert.match(entrypoint, /setpriv/);
+  assert.match(entrypoint, /export HOME=\/home\/node/);
   assert.match(
     fs.readFileSync(path.join(root, '.github', 'workflows', 'container-security.yml'), 'utf8'),
     /only-fixed:\s*true/,
