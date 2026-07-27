@@ -51,7 +51,7 @@ test('extractClientCrypto reads mask and buildId from the mkissa crypto chunk sh
 
 test('aaRequest builds a versioned AES-GCM blob', () => {
   const key = crypto.randomBytes(32).toString('hex');
-  const token = aaRequest('query { chapterPages }', { key, epoch: TEST_EPOCH, buildId: '12' });
+  const token = aaRequest('query { chapterPages }', { key, epoch: TEST_EPOCH, buildId: '12', lane: 'k9' });
   const bytes = Buffer.from(token, 'base64');
   assert.equal(bytes[0], 1);
   assert.ok(bytes.length > 1 + 12 + 16);
@@ -63,18 +63,18 @@ test('encryptedGraphql heals with a new candidate after response decryption fail
   const maskB = CURRENT_MASK;
   setFetchTextForTests(async (url) => {
     if (url === 'https://mkissa.to/') {
-      return [
-        `<script>window.__aaCrypto={"epoch":${TEST_EPOCH},"partB":"${partB}"};</script>`,
-        'import("https://cdn.example/_app/immutable/entry/app.x.js")',
-      ].join('\n');
+      return 'import("https://cdn.example/_app/immutable/entry/app.x.js")';
     }
     if (url.endsWith('app.x.js')) return 'deps["../chunks/crypto.js"]';
     if (url.includes('/chunks/crypto.js')) {
       return [
         'aaReq',
-        `const A=fn(1)!=="string"?"${maskA}":"",buildA="10";`,
-        `const B=fn(2)!=="string"?"${maskB}":"",buildB="11";`,
+        `const A=fn(1)!=="string"?"${maskA}":"",ln="10";`,
+        `const B=fn(2)!=="string"?"${maskB}":"",ln="11";`,
       ].join('\n');
+    }
+    if (String(url).includes('/client-crypto/v1/bootstrap')) {
+      return JSON.stringify({ epoch: TEST_EPOCH, partB, k: 'k9' });
     }
     throw new Error(`unexpected crypto URL: ${url}`);
   });
