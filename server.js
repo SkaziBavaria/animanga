@@ -17,6 +17,31 @@ const { shutdownJobs } = require('./lib/jobs');
 ensureDataDir();
 startBackupSchedule();
 
+// Best-effort provider ID migrations (non-blocking).
+setTimeout(() => {
+  try {
+    const { readState, saveState } = require('./lib/state');
+    const { migrateLibraryToAnidb } = require('./lib/anidb-migrate');
+    const { migrateLibraryToComicK } = require('./lib/comick-migrate');
+    const state = readState();
+    Promise.all([
+      migrateLibraryToAnidb(state, { limit: 25 }),
+      migrateLibraryToComicK(state, { limit: 25 }),
+    ])
+      .then(([animeReport, mangaReport]) => {
+        if (animeReport.migrated || animeReport.needsRematch || mangaReport.migrated || mangaReport.needsRematch) {
+          saveState(state);
+          console.log(`[migration] anime=${animeReport.migrated}/${animeReport.needsRematch} manga=${mangaReport.migrated}/${mangaReport.needsRematch}`);
+        }
+      })
+      .catch((error) => {
+        console.warn('[anidb] library migration skipped:', error.message || error);
+      });
+  } catch (error) {
+    console.warn('[anidb] library migration unavailable:', error.message || error);
+  }
+}, 2_500).unref();
+
 process.on('unhandledRejection', (reason) => {
   console.error('Unhandled promise rejection:', reason);
 });

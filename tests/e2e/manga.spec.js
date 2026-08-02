@@ -120,6 +120,9 @@ test.describe('Manga', () => {
       body: JSON.stringify({ mangas }),
     }));
     await page.reload();
+    if ((await page.locator('#mediaModeLabel').textContent()) !== 'Manga') {
+      await page.click('#mediaSwitchBtn');
+    }
 
     await expect(page.locator('.manga-card[data-manga-id="jp"] .show-meta').getByText('JP', { exact: true })).toBeVisible();
     await expect(page.locator('.manga-card[data-manga-id="kr"] .show-meta').getByText('KR', { exact: true })).toBeVisible();

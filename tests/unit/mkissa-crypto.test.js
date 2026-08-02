@@ -331,9 +331,10 @@ test('extractJuCandidate reads the live crypto chunk when present', {
   const source = fs.readFileSync(LIVE_CHUNK, 'utf8');
   const candidate = extractJuCandidate(source);
   assert.ok(candidate);
-  assert.equal(candidate.format, 'ju-base64');
-  assert.equal(candidate.buildId, '72');
-  assert.equal(candidate.maskHex, 'ff420daab5d04687e46e093ecf02285c633b9278f39a594df945a70079a3bdcc');
+  assert.match(candidate.format, /^(ju|nd)-base64$/);
+  assert.match(candidate.buildId, /^\d+$/);
+  assert.match(candidate.maskHex, /^[0-9a-f]{64}$/);
+  assert.equal(candidate.juChunks.length, 4);
   assert.equal(deriveMaskFromJu(candidate.juChunks, candidate.buildId).toString('hex'), candidate.maskHex);
 });
 

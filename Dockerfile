@@ -1,8 +1,19 @@
 FROM node:24-bookworm-slim
 
+ARG TARGETARCH
+ENV CURL_IMPERSONATE_VERSION=v1.5.6
+
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
-    ca-certificates ffmpeg \
+    ca-certificates curl ffmpeg \
+  && case "$TARGETARCH" in \
+       amd64) CI_ARCH=x86_64 ;; \
+       arm64) CI_ARCH=aarch64 ;; \
+       *) echo "unsupported arch: $TARGETARCH" >&2; exit 1 ;; \
+     esac \
+  && curl -fsSL "https://github.com/lexiforest/curl-impersonate/releases/download/${CURL_IMPERSONATE_VERSION}/curl-impersonate-${CURL_IMPERSONATE_VERSION}.${CI_ARCH}-linux-gnu.tar.gz" \
+       | tar -xz -C /usr/local/bin \
+  && chmod 0755 /usr/local/bin/curl_chrome136 /usr/local/bin/curl-impersonate \
   && rm -rf /var/lib/apt/lists/* \
   && rm -rf \
     /usr/local/lib/node_modules/npm \
