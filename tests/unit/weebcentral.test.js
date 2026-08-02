@@ -17,6 +17,11 @@ test('parseSearchResults extracts Weeb Central titles', () => {
   assert.deepEqual(parseSearchResults(html), [{ id: '01ABC', slug: 'Naruto', name: 'Naruto' }]);
 });
 
+test('parseSearchResults decodes entities only once', () => {
+  const results = parseSearchResults('<a href="https://weebcentral.com/series/ABC/title"><img alt="Fish &amp; Chips &amp;quot;Special&amp;quot; cover"></a>');
+  assert.equal(results[0].name, 'Fish & Chips &quot;Special&quot;');
+});
+
 test('parseChapterRows extracts chapter ids and decimal numbers', () => {
   const html = `
     <a href="/chapters/01FIRST"><span><span>Chapter 1</span></span></a>

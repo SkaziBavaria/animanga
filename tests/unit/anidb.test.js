@@ -74,6 +74,11 @@ test('parseSearchResults extracts slug ids and titles', () => {
   assert.match(results[0].thumbnail, /op\.jpg$/);
 });
 
+test('HTML text decoding is single-pass and safely removes nested title markup', () => {
+  const page = anidb.parseShowPage('<h1><span>Fish &amp; Chips &amp;quot;Special&amp;quot;</span></h1>', 'fallback-1');
+  assert.equal(page.name, 'Fish & Chips &quot;Special&quot;');
+});
+
 test('parseEpisodeList reads JSON episode maps', () => {
   const episodes = anidb.parseEpisodeList(EPISODES_JSON);
   assert.deepEqual(episodes.map((item) => [item.id, item.number, item.title]), [
