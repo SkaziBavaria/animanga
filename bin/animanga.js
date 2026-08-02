@@ -61,7 +61,7 @@ async function doctor() {
     add('SQLite', false, error.message);
   }
 
-  const { DATA_DIR, ALLANIME_API } = require('../lib/config');
+  const { DATA_DIR, ANIDB_ORIGIN } = require('../lib/config');
   try {
     fs.mkdirSync(DATA_DIR, { recursive: true });
     const probe = path.join(DATA_DIR, `.doctor-${process.pid}`);
@@ -72,21 +72,29 @@ async function doctor() {
     add('Data directory', false, `${DATA_DIR}: ${error.message}`);
   }
 
+  const { resolveCurlImpersonateBinary } = require('../lib/anidb-fetch');
+  const curlBinary = resolveCurlImpersonateBinary();
+  add(
+    'curl-impersonate',
+    Boolean(curlBinary),
+    curlBinary || 'missing (required for anidb.app Cloudflare bypass)',
+    true,
+  );
+
   try {
-    const response = await fetch(ALLANIME_API, { method: 'HEAD', signal: AbortSignal.timeout(10_000) });
-    add('AllAnime API', response.status < 500, `HTTP ${response.status}`, false);
+    const { fetchAnidbText } = require('../lib/anidb-fetch');
+    const body = await fetchAnidbText(`${ANIDB_ORIGIN}/browse?q=one`, { timeoutMs: 15_000 });
+    add('anidb.app', body.length > 0, `${ANIDB_ORIGIN} reachable`, false);
   } catch (error) {
-    add('AllAnime API', false, error.message, false);
+    add('anidb.app', false, error.message, false);
   }
 
   try {
-    const cryptoConfig = await require('../lib/mkissa-crypto').resolveCompleteCryptoConfig({
-      forceRefresh: true,
-      allowLastVerifiedFallback: false,
-    });
-    add('Provider crypto', true, `epoch ${cryptoConfig.epoch}, build ${cryptoConfig.buildId}`, false);
+    const { searchManga } = require('../lib/allmanga');
+    const result = await searchManga('naruto', { limit: 1 });
+    add('ComicK API', result.results?.length > 0, `${result.results?.[0]?.name || 'ok'}`, false);
   } catch (error) {
-    add('Provider crypto', false, error.message, false);
+    add('ComicK API', false, error.message, false);
   }
 
   const { HOST, ACCESS_TOKEN, PUBLIC_URL } = require('../lib/config');

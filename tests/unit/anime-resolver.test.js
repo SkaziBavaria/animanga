@@ -3,60 +3,12 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
-  decodeSourceUrl,
-  collectClockLinks,
+  resolveEpisodePlayback,
   selectQuality,
-  sourceProviderId,
-  isAllowedSource,
-  isOkRuSource,
-  pickPlaybackFromSources,
-  resolveMp4Upload,
-  resolveOkRu,
   setFetchForTests,
 } = require('../../lib/anime-resolver');
 
-function okRuEmbedHtml({ height = 1080, url = 'https://cdn.ok.example/video' } = {}) {
-  const metadata = JSON.stringify({
-    movie: { height },
-    videos: [{ name: 'full', url }],
-    ondemandHls: 'https://cdn.ok.example/master.m3u8',
-  });
-  const options = JSON.stringify({ flashvars: { metadata } }).replace(/"/g, '&quot;');
-  return `<div data-options="${options}"></div>`;
-}
-
-function encodeSourceUrl(value) {
-  return `--${Buffer.from(value).toString('hex').match(/../g).map((pair) => (Number.parseInt(pair, 16) ^ 0x38).toString(16).padStart(2, '0')).join('')}`;
-}
-
 test.afterEach(() => setFetchForTests(null));
-
-test('decodes AllAnime XOR source paths and adds the clock JSON suffix', () => {
-  assert.equal(decodeSourceUrl(encodeSourceUrl('/apivtwo/clock?id=abc')), '/apivtwo/clock.json?id=abc');
-  assert.equal(decodeSourceUrl('https://cdn.example/video.mp4'), 'https://cdn.example/video.mp4');
-});
-
-test('collects playable links and inherited referrers from clock payloads', () => {
-  const links = [];
-  collectClockLinks({
-    Referer: 'https://embed.example/',
-    links: [
-      { link: 'https://cdn.example/720.mp4', resolutionStr: '720' },
-      { hls: true, url: 'https://cdn.example/master.m3u8', hardsub_lang: 'en-US' },
-      { dash: true, link: 'https://api.example/dash.json', rawUrls: { vids: [] } },
-    ],
-  }, links);
-  assert.deepEqual(links.map((link) => ({ url: link.url, quality: link.quality, referrer: link.referrer })), [
-    { url: 'https://cdn.example/720.mp4', quality: 720, referrer: 'https://embed.example/' },
-    { url: 'https://cdn.example/master.m3u8', quality: null, referrer: 'https://embed.example/' },
-  ]);
-});
-
-test('ignores DASH descriptor endpoints that a video element cannot play', () => {
-  const links = [];
-  collectClockLinks({ dash: true, link: 'https://allanime.day/apiak/sk.json', rawUrls: { vids: [] } }, links);
-  assert.deepEqual(links, []);
-});
 
 test('selectQuality uses exact, lower, best and worst quality choices', () => {
   const links = [1080, 720, 480].map((quality) => ({ url: `https://cdn.example/${quality}.mp4`, quality }));
@@ -66,79 +18,50 @@ test('selectQuality uses exact, lower, best and worst quality choices', () => {
   assert.equal(selectQuality(links, '900').quality, 720);
 });
 
-test('allowlists Default, Yt-mp4, S-mp4, and Mp4Upload sources', () => {
-  assert.equal(sourceProviderId({ sourceName: 'Default', sourceUrl: '--abc' }), 'Default');
-  assert.equal(sourceProviderId({ sourceName: 'Yt-mp4', sourceUrl: 'https://tools.fast4speed.rsvp/x' }), 'Yt-mp4');
-  assert.equal(sourceProviderId({ sourceName: 'S-mp4', sourceUrl: 'https://cdn.example/ep.mp4' }), 'S-mp4');
-  assert.equal(sourceProviderId({ sourceName: 'Mp4Upload', sourceUrl: 'https://mp4upload.com/embed-x' }), 'Mp4Upload');
-  assert.equal(sourceProviderId({ sourceName: 'Mp4', sourceUrl: 'https://mp4upload.com/embed-x' }), 'Mp4Upload');
-  assert.equal(sourceProviderId({ sourceName: 'Ok', sourceUrl: 'https://ok.ru/videoembed/1' }), null);
-  assert.equal(isAllowedSource({ sourceName: 'Ok', sourceUrl: 'https://ok.ru/videoembed/1' }), false);
-  assert.equal(isOkRuSource({ sourceName: 'Ok', sourceUrl: 'https://ok.ru/videoembed/1' }), true);
-  assert.equal(isAllowedSource({ sourceName: 'Default', sourceUrl: '--abc' }), true);
-});
-
-test('falls back to OK.ru only when preferred hosts yield nothing', async () => {
-  let okFetches = 0;
+test('resolveEpisodePlayback follows anidb episode -> languages -> embed -> m3u8', async () => {
   setFetchForTests(async (url) => {
-    if (String(url).includes('ok.ru')) {
-      okFetches += 1;
-      return { ok: true, text: async () => okRuEmbedHtml() };
+    const value = String(url);
+    if (value.includes('/api/frontend/anime/21/episodes')) {
+      return JSON.stringify([{ id: 55, number: 1 }]);
     }
-    throw new Error(`unexpected fetch: ${url}`);
+    if (value.includes('/api/frontend/episode/55/languages')) {
+      return JSON.stringify([{ lang: 'jpn', embed_url: 'https://embed.example/player' }]);
+    }
+    if (value.includes('embed.example/player')) {
+      return "player.setup({ file: 'https://cdn.example/master.m3u8' });";
+    }
+    if (value.includes('cdn.example/master.m3u8')) {
+      return [
+        '#EXTM3U',
+        '#EXT-X-STREAM-INF:RESOLUTION=1280x720',
+        'https://cdn.example/720.m3u8',
+        '#EXT-X-STREAM-INF:RESOLUTION=1920x1080',
+        'https://cdn.example/1080.m3u8',
+      ].join('\n');
+    }
+    throw new Error(`unexpected url ${value}`);
   });
 
-  const preferred = await pickPlaybackFromSources([
-    { sourceName: 'Default', sourceUrl: 'https://cdn.example/ep.mp4', quality: '1080' },
-    { sourceName: 'Ok', sourceUrl: 'https://ok.ru/videoembed/123' },
-  ], 'best');
-  assert.equal(preferred.provider, 'Default');
-  assert.equal(okFetches, 0);
-
-  const fallback = await pickPlaybackFromSources([
-    { sourceName: 'Ok', sourceUrl: 'https://ok.ru/videoembed/123' },
-  ], 'best');
-  assert.equal(fallback.provider, 'OK.ru');
-  assert.equal(fallback.url, 'https://cdn.ok.example/video');
-  assert.equal(okFetches, 1);
+  const playback = await resolveEpisodePlayback({
+    showId: 'one-piece-21',
+    episode: '1',
+    mode: 'sub',
+    quality: 'best',
+  });
+  assert.equal(playback.url, 'https://cdn.example/1080.m3u8');
+  assert.equal(playback.provider, 'anidb');
+  assert.equal(playback.quality, 1080);
 });
 
-test('selectQuality prefers Default then Yt-mp4 when quality ties', () => {
-  const links = [
-    { url: 'https://cdn.example/mp4.mp4', quality: 1080, provider: 'Mp4Upload' },
-    { url: 'https://cdn.example/default.mp4', quality: 1080, provider: 'Default' },
-    { url: 'https://cdn.example/yt.mp4', quality: 1080, provider: 'Yt-mp4' },
-  ];
-  assert.equal(selectQuality(links, 'best').provider, 'Default');
-  assert.equal(selectQuality([
-    { url: 'https://cdn.example/mp4.mp4', quality: null, provider: 'Mp4Upload' },
-    { url: 'https://cdn.example/yt.mp4', quality: null, provider: 'Yt-mp4' },
-  ], 'best').provider, 'Yt-mp4');
-});
-
-test('extracts the direct MP4 URL from Mp4Upload HTML', async () => {
-  setFetchForTests(async () => ({
-    ok: true,
-    text: async () => '<script>player({ src: "https://cdn.example/video.mp4" })</script>',
-  }));
-  assert.deepEqual(await resolveMp4Upload('https://mp4upload.com/embed-test.html'), [{
-    url: 'https://cdn.example/video.mp4',
-    quality: null,
-    referrer: 'https://www.mp4upload.com',
-    provider: 'Mp4Upload',
-  }]);
-});
-
-test('extracts a directly streamable OK.ru MP4 source', async () => {
-  setFetchForTests(async () => ({
-    ok: true,
-    text: async () => okRuEmbedHtml(),
-  }));
-
-  assert.deepEqual(await resolveOkRu('https://ok.ru/videoembed/123'), [{
-    url: 'https://cdn.ok.example/video',
-    quality: 1080,
-    referrer: 'https://ok.ru/videoembed/123',
-    provider: 'OK.ru',
-  }]);
+test('resolveEpisodePlayback fails clearly when dub language is missing', async () => {
+  setFetchForTests(async (url) => {
+    const value = String(url);
+    if (value.includes('/episodes')) return JSON.stringify([{ id: 9, number: 1 }]);
+    if (value.includes('/languages')) return JSON.stringify([{ lang: 'jpn', embed_url: 'https://embed.example/sub' }]);
+    throw new Error(`unexpected url ${value}`);
+  });
+  await assert.rejects(
+    () => resolveEpisodePlayback({ showId: 'demo-1', episode: 1, mode: 'dub' }),
+    /No dub sources/
+  );
 });

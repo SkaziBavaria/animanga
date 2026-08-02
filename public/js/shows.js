@@ -60,7 +60,7 @@ function nextSeasonPill(show) {
   if (status.includes('not yet') || status.includes('upcoming')) {
     return '<span class="pill sequel upcoming" title="A sequel has been announced">Sequel announced</span>';
   }
-  if (episodeCount > 0 || status.includes('finished') || status.includes('releasing')) {
+  if (episodeCount > 0 || status.includes('finished') || status.includes('releasing') || status.includes('ongoing')) {
     return '<span class="pill sequel released" title="A sequel is available now">Sequel available</span>';
   }
   return '<span class="pill sequel" title="This title has a sequel">Has sequel</span>';

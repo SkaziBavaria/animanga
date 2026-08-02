@@ -1,19 +1,29 @@
 # AniManga
 
-AniManga is a self-hosted anime player and manga reader. Anime and manga metadata, pages, browser playback, and downloads are resolved by the Node server. Episode downloads are written with ffmpeg.
+AniManga is a self-hosted anime player and manga reader. Anime metadata and streams come from [anidb.app](https://anidb.app) (same provider family as ani-cli v5). Manga catalog uses [ComicK](https://comick.dev) and chapter images are read through Weeb Central with direct curl-impersonate HTML requests (no client-crypto or browser solver). Episode downloads are written with ffmpeg.
 
 The player runs in the browser, so you can also install the site as a PWA from Chrome.
 
 ## Install with npm
 
-You need Node 22.16 or newer. Install ffmpeg as well if you want to download anime episodes; manga downloads do not require it.
+You need Node 22.16 or newer, plus **curl-impersonate** for anime, ComicK and manga chapter pages (protected hosts; plain `curl`/`fetch` is often blocked). Install ffmpeg as well if you want to download anime episodes.
 
 ```sh
 npm install -g animanga
 animanga start
 ```
 
-Open [http://localhost:7831](http://localhost:7831). AniManga stores application data in the platform user-data directory, not inside the global npm package. Run `animanga doctor` to check Node, storage, provider crypto, and optional playback tools.
+Open [http://localhost:7831](http://localhost:7831). AniManga stores application data in the platform user-data directory, not inside the global npm package. Run `animanga doctor` to check Node, storage, curl-impersonate, manga crypto, and optional playback tools.
+
+### curl-impersonate (required for anime)
+
+Install a Chrome/Firefox impersonation binary from [lexiforest/curl-impersonate](https://github.com/lexiforest/curl-impersonate/releases) and put it on `PATH`, or set:
+
+```sh
+ANIMANGA_CURL_IMPERSONATE=/path/to/curl_chrome136
+```
+
+AniManga looks for `curl_chrome136`, `curl_firefox135`, `curl_chrome116`, and similar names. Without it, search/play against anidb.app fails with a Cloudflare error.
 
 Useful CLI options:
 
@@ -22,7 +32,7 @@ animanga start --host 0.0.0.0 --port 7831
 animanga start --data-dir /path/to/data
 ```
 
-The npm package does not install or modify system programs. Browser playback and manga work through the built-in Node adapters. Anime episode downloads use the `ffmpeg` executable available on your system.
+The npm package does not install or modify system programs. Browser playback and manga work through the built-in Node adapters. Anime requires curl-impersonate on the host. Episode downloads use the `ffmpeg` executable available on your system.
 
 To update later:
 
@@ -66,7 +76,7 @@ git pull --ff-only
 docker compose up -d --build
 ```
 
-Docker stores the database, logs, downloaded episodes, and downloaded manga pages in the local `data/` directory. Rebuilding or restarting the container does not remove them. On the first start of the hardened image, existing files in that directory are assigned to the container's unprivileged `node` user; the application process itself does not run as root. The image includes a healthcheck and ffmpeg.
+Docker stores the database, logs, downloaded episodes, and downloaded manga pages in the local `data/` directory. Rebuilding or restarting the container does not remove them. On the first start of the hardened image, existing files in that directory are assigned to the container's unprivileged `node` user; the application process itself does not run as root. The image includes a healthcheck, ffmpeg, and curl-impersonate.
 
 ## Sync between devices
 
@@ -104,8 +114,13 @@ OAuth client secrets and access tokens are stored in the local SQLite database. 
 - `ANIMANGA_DOWNLOAD_CONCURRENCY=2` seeds how many episode downloads run at once (1–8). Change it later under Settings → Download concurrency.
 - `ANIMANGA_DATA_DIR=/path/to/data` selects the persistent application-data directory.
 - `ANIMANGA_DOWNLOAD_DIR=/path/to/downloads` changes the anime episode download directory.
+- `ANIMANGA_CURL_IMPERSONATE=/path/to/curl_chrome136` selects the curl-impersonate binary used for anidb.app / ComicK.
+- `ANIMANGA_ANIDB_ORIGIN=https://anidb.app` overrides the anime provider origin.
+- `ANIMANGA_COMICK_API=https://api.comick.dev` overrides the ComicK API origin.
 
-The native installation requires Node 22.16 or newer. The Docker image includes a compatible Node version and all runtime dependencies.
+Existing libraries that still use old AllAnime ids are remapped to anidb slugs by title on startup / library load. Shows that cannot be matched are kept and marked `needsRematch`.
+
+The native installation requires Node 22.16 or newer and curl-impersonate for anime. The Docker image includes a compatible Node version, ffmpeg, and curl-impersonate.
 
 ## Development checks
 
@@ -130,4 +145,4 @@ npm run test:smoke:npm
 npm run test:smoke:docker
 ```
 
-`RUN_CONTRACT=1 npm run test:contract` runs the slower live-provider checks. They verify current AllAnime/AllManga crypto, manga page decryption, browser playback, byte-range video access, and AniSkip. These checks are scheduled separately because upstream availability is outside AniManga's control.
+`RUN_CONTRACT=1 npm run test:contract` runs the slower live-provider checks. They verify ComicK/Weeb Central manga pages, browser playback, byte-range video access, and AniSkip. These checks are scheduled separately because upstream availability is outside AniManga's control.

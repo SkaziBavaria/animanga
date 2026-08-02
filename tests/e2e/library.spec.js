@@ -80,7 +80,7 @@ test.describe('Library filtering & sorting', () => {
     await expect(meta).not.toContainText('Last ep');
   });
 
-  test('estimates the next episode when AllAnime only provides a broadcast interval', async ({ page }) => {
+  test('estimates the next episode when only a broadcast interval is provided', async ({ page }) => {
     const schedule = page.locator('.show-card[data-id="b"] .pill.schedule');
     await expect(schedule).toHaveCount(2);
     await expect(schedule.nth(0)).toHaveText('Ongoing since 2024');

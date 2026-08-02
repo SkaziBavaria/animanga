@@ -61,19 +61,14 @@ test('creates stable manga release watches from normalized queries', () => {
 });
 
 test('marks a manga release watch found when search starts returning a manga', async () => {
-  setRawFetcher(async () => ({
-    data: {
-      mangas: {
-        pageInfo: { total: 1 },
-        edges: [{
-          _id: 'future-1',
-          name: 'Future Story',
-          availableChapters: { sub: 1 },
-          lastChapterInfo: { sub: { chapterString: '1' } },
-        }],
-      },
-    },
-  }));
+  setRawFetcher(async () => ([{
+    hid: 'futureHid1',
+    slug: 'future-1',
+    title: 'Future Story',
+    last_chapter: 1,
+    chapter_count: 1,
+    status: 1,
+  }]));
   const state = { mangaReleaseWatches: {} };
   const watch = createMangaReleaseWatch(state, 'Future Story', 'sub');
   const checked = await checkMangaReleaseWatch(state, watch);
