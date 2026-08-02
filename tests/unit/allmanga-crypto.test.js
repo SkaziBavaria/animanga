@@ -1,28 +1,27 @@
 'use strict';
 
+// Legacy mkissa crypto helpers are kept for reference/tests, but manga runtime no longer uses them.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('crypto');
 const {
-  deriveMangaKey,
+  deriveKey,
   extractClientCrypto,
-  aaRequest,
-  encryptedGraphql,
-  resetMangaCryptoForTests,
-} = require('../../lib/allmanga');
-const { setFetchTextForTests } = require('../../lib/mkissa-crypto');
+  buildAaRequest,
+  resetMkissaCryptoForTests,
+} = require('../../lib/mkissa-crypto');
 
 const LEGACY_MASK = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 const CURRENT_MASK = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
 const PAIRED_MASK = 'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc';
 const TEST_EPOCH = 42;
 
-test.afterEach(() => resetMangaCryptoForTests());
+test.afterEach(() => resetMkissaCryptoForTests());
 
-test('deriveMangaKey XORs the client mask with partB', () => {
+test('deriveKey XORs the client mask with partB', () => {
   const mask = Buffer.alloc(32, 0x0f);
   const partB = Buffer.alloc(32, 0xf0);
-  assert.equal(deriveMangaKey(mask, partB).toString('hex'), Buffer.alloc(32, 0xff).toString('hex'));
+  assert.equal(deriveKey(mask, partB).toString('hex'), Buffer.alloc(32, 0xff).toString('hex'));
 });
 
 test('extractClientCrypto reads mask and buildId from the mkissa crypto chunk shape', () => {
@@ -49,51 +48,10 @@ test('extractClientCrypto reads mask and buildId from the mkissa crypto chunk sh
   assert.equal(extractClientCrypto(paired).format, 'paired-ternary');
 });
 
-test('aaRequest builds a versioned AES-GCM blob', () => {
+test('buildAaRequest builds a versioned AES-GCM blob', () => {
   const key = crypto.randomBytes(32).toString('hex');
-  const token = aaRequest('query { chapterPages }', { key, epoch: TEST_EPOCH, buildId: '12', lane: 'k9' });
+  const token = buildAaRequest('query { chapterPages }', { key, epoch: TEST_EPOCH, buildId: '12', lane: 'k9' });
   const bytes = Buffer.from(token, 'base64');
   assert.equal(bytes[0], 1);
   assert.ok(bytes.length > 1 + 12 + 16);
-});
-
-test('encryptedGraphql heals with a new candidate after response decryption fails', async () => {
-  const partB = Buffer.alloc(32, 7).toString('base64');
-  const maskA = LEGACY_MASK;
-  const maskB = CURRENT_MASK;
-  setFetchTextForTests(async (url) => {
-    if (url === 'https://mkissa.to/') {
-      return 'import("https://cdn.example/_app/immutable/entry/app.x.js")';
-    }
-    if (url.endsWith('app.x.js')) return 'deps["../chunks/crypto.js"]';
-    if (url.includes('/chunks/crypto.js')) {
-      return [
-        'aaReq',
-        `const A=fn(1)!=="string"?"${maskA}":"",ln="10";`,
-        `const B=fn(2)!=="string"?"${maskB}":"",ln="11";`,
-      ].join('\n');
-    }
-    if (String(url).includes('/client-crypto/v1/bootstrap')) {
-      return JSON.stringify({ epoch: TEST_EPOCH, partB, k: 'k9' });
-    }
-    throw new Error(`unexpected crypto URL: ${url}`);
-  });
-
-  const originalFetch = global.fetch;
-  let apiCalls = 0;
-  global.fetch = async () => {
-    apiCalls += 1;
-    if (apiCalls === 1) {
-      return { ok: true, json: async () => ({ data: { tobeparsed: 'invalid-envelope' } }) };
-    }
-    return { ok: true, json: async () => ({ data: { chapterPages: { edges: [] } } }) };
-  };
-
-  try {
-    const data = await encryptedGraphql('query { chapterPages }', {});
-    assert.deepEqual(data, { chapterPages: { edges: [] } });
-    assert.equal(apiCalls, 2);
-  } finally {
-    global.fetch = originalFetch;
-  }
 });
