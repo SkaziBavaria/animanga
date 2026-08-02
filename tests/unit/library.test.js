@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { mergeShow, presentShow } = require('../../lib/library');
+const { mergeShow, presentShow, pickReleaseWatchMatch } = require('../../lib/library');
 
 test('mergeShow preserves useful metadata when a refresh returns empty fields', () => {
   const state = {
@@ -60,4 +60,13 @@ test('presentShow lets sequel data override a stale false flag', () => {
   });
   assert.equal(show.hasNextSeason, true);
   assert.equal(show.nextSeason.status, 'Not Yet Released');
+});
+
+test('release watches reject loose search hits and accept exact titles or subtitles', () => {
+  assert.equal(pickReleaseWatchMatch('Ghost of Tsushima', [
+    { id: 'wrong', name: 'Dusk Maiden of Amnesia: Ghost Girl' },
+  ]), null);
+  assert.equal(pickReleaseWatchMatch('Ghost of Tsushima', [
+    { id: 'subtitle', name: 'Ghost of Tsushima: Legends' },
+  ]).id, 'subtitle');
 });

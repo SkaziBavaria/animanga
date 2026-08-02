@@ -74,6 +74,25 @@ test('parseSearchResults extracts slug ids and titles', () => {
   assert.match(results[0].thumbnail, /op\.jpg$/);
 });
 
+test('search relevance requires every meaningful query word', () => {
+  const results = anidb.relevantSearchResults('Ghost of Tsushima', [
+    { name: 'Dusk Maiden of Amnesia: Ghost Girl', index: 1 },
+    { name: 'Ghost Stories', index: 2 },
+    { name: 'Ghost of Tsushima', index: 3 },
+    { name: 'Ghost of Tsushima: Legends', index: 4 },
+  ]);
+  assert.deepEqual(results.map((item) => item.name), ['Ghost of Tsushima', 'Ghost of Tsushima: Legends']);
+});
+
+test('search relevance keeps related titles after an exact result', () => {
+  const results = anidb.relevantSearchResults('One Piece', [
+    { name: 'One Punch Man', index: 1 },
+    { name: 'One Piece Film Red', index: 2 },
+    { name: 'One Piece', index: 3 },
+  ]);
+  assert.deepEqual(results.map((item) => item.name), ['One Piece', 'One Piece Film Red']);
+});
+
 test('HTML text decoding is single-pass and safely removes nested title markup', () => {
   const page = anidb.parseShowPage('<h1><span>Fish &amp; Chips &amp;quot;Special&amp;quot;</span></h1>', 'fallback-1');
   assert.equal(page.name, 'Fish & Chips &quot;Special&quot;');
