@@ -1,19 +1,22 @@
 'use strict';
 
-// Live contract for manga chapterPages decryption. Opt-in only.
+// Live contract for the ComicK catalog and Weeb Central page resolver. Opt-in only.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { popularManga, getChapterPages } = require('../../lib/allmanga');
+const { searchManga, getMangaDetails, getChapterPages } = require('../../lib/allmanga');
 
 const opts = { skip: process.env.RUN_CONTRACT === '1' ? false : 'set RUN_CONTRACT=1 to run live contract tests' };
 
 test('ComicK + Weeb Central chapter pages resolve for a catalog hit', opts, async () => {
-  const popular = await popularManga(0, { language: 'sub', limit: 10 });
-  const manga = popular.results.find((item) => item.id && (item.latestChapters?.sub || item.chapterCount > 0))
-    || popular.results[0];
-  assert.ok(manga?.id, 'expected a manga id from the popular list');
+  const search = await searchManga('Naruto', { language: 'sub', limit: 10 });
+  const manga = search.results.find((item) => item.id && item.name.toLowerCase() === 'naruto');
+  assert.ok(manga?.id, 'expected Naruto in ComicK search results');
 
-  const chapterString = String(manga.latestChapters?.sub || manga.latestChapter || '1');
+  const details = await getMangaDetails(manga.id, { language: 'sub' });
+  const chapterEntry = details.chapters.find((item) => String(item.chapter) === '1');
+  assert.ok(chapterEntry, 'expected chapter 1 in the ComicK chapter list');
+
+  const chapterString = String(chapterEntry.chapter);
   const chapter = await getChapterPages(manga.id, chapterString, 'sub');
   assert.ok(chapter.pages.length > 0, 'expected at least one page');
   for (const page of chapter.pages) {
