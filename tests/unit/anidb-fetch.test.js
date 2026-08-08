@@ -7,6 +7,8 @@ const {
   setAnidbTextFetcherForTests,
   fetchAnidbText,
   resetCurlBinaryForTests,
+  isPlainCurlBinary,
+  CURL_CANDIDATES,
 } = require('../../lib/anidb-fetch');
 
 test.afterEach(() => {
@@ -21,6 +23,13 @@ test('detects Cloudflare challenge pages', () => {
     looksLikeCloudflareChallenge('<script src="/cdn-cgi/challenge-platform/x.js"></script><title>Browse Anime</title>'),
     false,
   );
+});
+
+test('prefers impersonation binaries and falls back to plain curl', () => {
+  assert.equal(CURL_CANDIDATES.at(-1), 'curl');
+  assert.equal(isPlainCurlBinary('/data/data/com.termux/files/usr/bin/curl'), true);
+  assert.equal(isPlainCurlBinary('C:\\Windows\\System32\\curl.exe'), true);
+  assert.equal(isPlainCurlBinary('/usr/local/bin/curl_chrome136'), false);
 });
 
 test('test fetcher bypasses curl binary lookup', async () => {

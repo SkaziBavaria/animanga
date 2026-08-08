@@ -72,12 +72,14 @@ async function doctor() {
     add('Data directory', false, `${DATA_DIR}: ${error.message}`);
   }
 
-  const { resolveCurlImpersonateBinary } = require('../lib/anidb-fetch');
-  const curlBinary = resolveCurlImpersonateBinary();
+  const { resolveCurlBinary, isPlainCurlBinary } = require('../lib/anidb-fetch');
+  const curlBinary = resolveCurlBinary();
   add(
-    'curl-impersonate',
+    'HTTP curl client',
     Boolean(curlBinary),
-    curlBinary || 'missing (required for anidb.app Cloudflare bypass)',
+    curlBinary
+      ? `${curlBinary}${isPlainCurlBinary(curlBinary) ? ' (plain fallback)' : ' (browser impersonation)'}`
+      : 'missing (install curl or curl-impersonate)',
     true,
   );
 

@@ -1,12 +1,12 @@
 {
   "name": "animanga",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "private": false,
   "description": "Self-hosted anime player and manga reader",
   "license": "MIT",
   "type": "commonjs",
   "bin": {
-    "animanga": "./bin/animanga.js"
+    "animanga": "bin/animanga.js"
   },
   "files": [
     "bin",
