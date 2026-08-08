@@ -94,7 +94,7 @@ test.describe('Discover: search & browse', () => {
     await expect(page.locator('#detailsBody .related-item')).toContainText('Season 2');
     await expect(page.locator('#detailsActions button[data-action="details-untrack"]')).toBeVisible();
 
-    await page.click('#closeDetailsBtn');
+    await page.locator('#detailsDialog').dispatchEvent('click');
     await expect(page.locator('#detailsDialog')).toBeHidden();
   });
 

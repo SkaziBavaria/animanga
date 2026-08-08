@@ -226,6 +226,9 @@ export async function toggleEpisodeWatched(show, episode) {
 
 export function bindEpisodeDialog() {
   els.closeDialogBtn.addEventListener('click', () => els.dialog.close());
+  els.dialog.addEventListener('click', (event) => {
+    if (event.target === els.dialog) els.dialog.close();
+  });
   els.episodeJumpBtn?.addEventListener('click', () => {
     const show = state.activeShow;
     if (!show?.episodes?.length) return;

@@ -148,6 +148,22 @@ test('parseShowPage extracts metadata, MAL id, seasons and airing', () => {
   assert.equal(page.nextAiringEpisode.episode, 1150);
 });
 
+test('parseShowPage prefers the complete synopsis over truncated SEO metadata', () => {
+  const html = `
+    <meta property="og:description" content="The short version...">
+    <script type="application/ld+json">{"name":"Example","description":"The short version..."}</script>
+    <h1>Example</h1>
+    <h2>Synopsis</h2>
+    <p>The complete first paragraph.</p>
+    <p>The complete second paragraph.</p>
+    <h3>Details</h3>
+    <p>This must not be included.</p>
+  `;
+
+  const show = anidb.parseShowPage(html, 'example-1');
+  assert.equal(show.description, 'The complete first paragraph.\n\nThe complete second paragraph.');
+});
+
 test('searchAnime enriches cards with status and sequel info', async () => {
   anidb.setRawFetcher(async (url) => {
     const value = String(url);
