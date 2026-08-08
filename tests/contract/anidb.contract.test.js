@@ -4,14 +4,14 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const anidb = require('../../lib/anidb');
-const { resolveCurlImpersonateBinary } = require('../../lib/anidb-fetch');
+const { resolveCurlBinary } = require('../../lib/anidb-fetch');
 const { resolveEpisodePlayback } = require('../../lib/anime-resolver');
 
-const hasCurl = Boolean(resolveCurlImpersonateBinary());
+const hasCurl = Boolean(resolveCurlBinary());
 const opts = {
   skip: process.env.RUN_CONTRACT === '1' && hasCurl
     ? false
-    : 'set RUN_CONTRACT=1 and install curl-impersonate to run live anidb contracts',
+    : 'set RUN_CONTRACT=1 and install curl to run live anidb contracts',
 };
 
 test('anidb search returns shaped results', opts, async () => {
