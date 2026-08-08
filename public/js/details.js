@@ -63,6 +63,9 @@ export async function openDetails(show) {
 
 export function bindDetailsDialog() {
   els.closeDetailsBtn.addEventListener('click', () => els.detailsDialog.close());
+  els.detailsDialog.addEventListener('click', (event) => {
+    if (event.target === els.detailsDialog) els.detailsDialog.close();
+  });
   els.detailsActions?.addEventListener('click', async (event) => {
     const button = event.target.closest('button[data-action]');
     if (!button || !state.activeDetailsShow) return;

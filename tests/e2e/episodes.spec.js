@@ -14,7 +14,7 @@ test.describe('Episodes dialog', () => {
     await expect(page.locator('#episodeGrid .episode-play')).toHaveCount(3);
     await expect(page.locator('#episodeGrid .episode-play[data-episode="1"]')).toHaveClass(/watched/);
 
-    await page.click('#closeDialogBtn');
+    await page.locator('#showDialog').dispatchEvent('click');
     await expect(page.locator('#showDialog')).toBeHidden();
   });
 
