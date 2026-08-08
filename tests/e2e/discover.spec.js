@@ -85,13 +85,21 @@ test.describe('Discover: search & browse', () => {
 
   test('opens the about dialog with synopsis and related seasons', async ({ page }) => {
     await installApiMocks(page, {
-      relations: [{ id: 'rel1', name: 'Season 2', relation: 'sequel', episodeCount: 12, status: 'Finished' }],
+      relations: [{
+        id: 'rel1',
+        name: 'Season 2',
+        relation: 'sequel',
+        episodeCount: 12,
+        status: 'Finished',
+        airedStart: { year: 2024 },
+      }],
     });
     await page.goto('/');
     await page.click('#libraryList .show-card button[data-action="details"]');
     await expect(page.locator('#detailsDialog')).toBeVisible();
     await expect(page.locator('#detailsBody')).toContainText('E2E synopsis');
     await expect(page.locator('#detailsBody .related-item')).toContainText('Season 2');
+    await expect(page.locator('#detailsBody .related-item')).toContainText('2024 · 12 episodes · Finished');
     await expect(page.locator('#detailsActions button[data-action="details-untrack"]')).toBeVisible();
 
     await page.locator('#detailsDialog').dispatchEvent('click');
