@@ -145,6 +145,13 @@ function relationSortValue(item) {
   }[String(item.relation || '').toLowerCase()] ?? 9;
 }
 
+function relationYearLabel(item) {
+  const start = Number(item?.airedStart?.year || item?.season?.year || item?.year) || null;
+  const end = Number(item?.airedEnd?.year) || null;
+  if (!start) return '';
+  return end && end !== start ? `${start}–${end}` : String(start);
+}
+
 export function relatedSeasonSection(relations = []) {
   const items = [...relations].sort((a, b) => relationSortValue(a) - relationSortValue(b));
   if (!items.length) return '';
@@ -155,7 +162,8 @@ export function relatedSeasonSection(relations = []) {
         ${items.map((item) => {
           const tracked = state.library.some((show) => show.id === item.id);
           const thumb = thumbnailUrl(item);
-          const episodes = item.episodeCount ? `${item.episodeCount} episodes` : (item.status || 'No episodes yet');
+          const episodes = item.episodeCount ? `${item.episodeCount} episodes` : 'No episodes yet';
+          const year = relationYearLabel(item);
           return `
             <article class="related-item" data-related-id="${escapeHtml(item.id)}">
               ${thumb
@@ -164,7 +172,7 @@ export function relatedSeasonSection(relations = []) {
               <div class="related-main">
                 <span class="pill hot">${escapeHtml(relationLabel(item.relation))}</span>
                 <strong>${escapeHtml(item.name || item.title || item.id)}</strong>
-                <span>${escapeHtml([episodes, item.status].filter(Boolean).join(' · '))}</span>
+                <span>${escapeHtml([year, episodes, item.status].filter(Boolean).join(' · '))}</span>
               </div>
               <div class="related-actions">
                 <button class="secondary small-button" data-action="related-details" type="button">About</button>
