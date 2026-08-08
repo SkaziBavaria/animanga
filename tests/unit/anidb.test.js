@@ -194,6 +194,17 @@ test('title matching prefers exact names for migration', () => {
   assert.equal(match.id, 'one-piece-21');
 });
 
+test('migration title matching handles provider season and cour naming', () => {
+  assert.equal(pickBestMatch(
+    { name: 'Dr. Stone: Science Future Part 3' },
+    [{ id: 'drstone-science-future-cour-3-1333', name: 'Dr.STONE SCIENCE FUTURE Cour 3' }],
+  ).id, 'drstone-science-future-cour-3-1333');
+  assert.equal(pickBestMatch(
+    { name: 'ISHURA Season 2' },
+    [{ id: 'ishura-2nd-season-2505', name: 'Ishura 2nd Season' }],
+  ).id, 'ishura-2nd-season-2505');
+});
+
 const HOME_CHARTS_HTML = `
 <html><body>
 <h2>Top 10 Anime Charts</h2>
