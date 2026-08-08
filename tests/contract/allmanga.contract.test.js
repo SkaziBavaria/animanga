@@ -12,11 +12,11 @@ test('ComicK + Weeb Central chapter pages resolve for a catalog hit', opts, asyn
   const manga = search.results.find((item) => item.id && item.name.toLowerCase() === 'naruto');
   assert.ok(manga?.id, 'expected Naruto in ComicK search results');
 
-  const details = await getMangaDetails(manga.id, { language: 'sub' });
-  const chapterEntry = details.chapters.find((item) => String(item.chapter) === '1');
+  const details = await getMangaDetails(manga.id, 'sub', { includeRelations: false });
+  const chapterEntry = details.chapters.find((item) => String(item) === '1');
   assert.ok(chapterEntry, 'expected chapter 1 in the ComicK chapter list');
 
-  const chapterString = String(chapterEntry.chapter);
+  const chapterString = String(chapterEntry);
   const chapter = await getChapterPages(manga.id, chapterString, 'sub');
   assert.ok(chapter.pages.length > 0, 'expected at least one page');
   for (const page of chapter.pages) {
