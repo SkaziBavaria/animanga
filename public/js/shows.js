@@ -123,6 +123,32 @@ export function showCard(show, source) {
   `;
 }
 
+export function sequelAlertCard(alert) {
+  const show = alert.sequel;
+  const thumb = thumbnailUrl(show);
+  const status = releasePills(show);
+  return `
+    <article class="show-card sequel-alert" data-id="${escapeHtml(show.id)}" data-source="sequel">
+      ${thumb
+        ? `<img class="show-thumb" src="${escapeHtml(thumb)}" alt="" loading="lazy" decoding="async">`
+        : `<div class="show-thumb placeholder" aria-hidden="true">${escapeHtml(showInitials(show))}</div>`}
+      <div class="show-main">
+        <div class="show-title">${escapeHtml(show.name || show.title)}</div>
+        <div class="show-meta">
+          <span class="pill sequel released">Sequel found</span>
+          <span class="pill">After ${escapeHtml(alert.source.name || alert.source.title)}</span>
+          ${status.map((pill) => `<span class="pill schedule">${escapeHtml(pill)}</span>`).join('')}
+        </div>
+      </div>
+      <div class="card-actions three">
+        <button class="primary" data-action="track-sequel">Track sequel</button>
+        <button class="secondary" data-action="details">About</button>
+        <button class="secondary" data-action="dismiss-sequel" data-source-id="${escapeHtml(alert.source.id)}">Dismiss</button>
+      </div>
+    </article>
+  `;
+}
+
 function relationLabel(relation) {
   return {
     sequel: 'Next season',
@@ -190,6 +216,9 @@ export function relatedSeasonSection(relations = []) {
 
 export function findShow(card) {
   const id = card.dataset.id;
+  if (card.dataset.source === 'sequel') {
+    return state.sequelAlerts.find((alert) => alert.sequel.id === id)?.sequel;
+  }
   const primary = card.dataset.source === 'library' ? state.library : state.searchResults;
   const secondary = card.dataset.source === 'library' ? state.searchResults : state.library;
   const found = primary.find((show) => show.id === id) || secondary.find((show) => show.id === id);

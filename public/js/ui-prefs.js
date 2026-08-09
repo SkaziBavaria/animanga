@@ -1,6 +1,6 @@
 const STORAGE_KEY = 'animanga-ui-prefs';
 
-const LIBRARY_FILTERS = new Set(['active', 'continue', 'caughtup', 'notstarted', 'archived', 'all']);
+const LIBRARY_FILTERS = new Set(['active', 'continue', 'caughtup', 'notstarted', 'sequels', 'archived', 'all']);
 const LIBRARY_SORTS = new Set(['new', 'recent', 'progress', 'az']);
 const NAVS = new Set(['library', 'discover', 'settings']);
 

@@ -1,6 +1,7 @@
 export const state = {
   settings: null,
   library: [],
+  sequelAlerts: [],
   searchResults: [],
   releaseWatches: [],
   releaseWatchesOpen: false,
@@ -22,6 +23,7 @@ export const state = {
   mediaMode: localStorage.getItem('animanga-media-mode') === 'manga' ? 'manga' : 'anime',
   activeSection: 'library',
   mangaLibrary: [],
+  mangaSequelAlerts: [],
   mangaLibraryFilter: 'active',
   mangaLibrarySort: 'new',
   mangaLibraryQuery: '',

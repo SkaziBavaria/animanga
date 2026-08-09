@@ -49,6 +49,46 @@ test.describe('Manga', () => {
     await expect(page.locator('#mangaLibraryList .manga-card')).toHaveCount(2);
   });
 
+  test('lists and dismisses sequels from active and archived manga', async ({ page }) => {
+    await installApiMocks(page, {
+      mangaLibrary: [
+        {
+          ...MANGA,
+          id: 'active-source',
+          name: 'Active source',
+          relations: [{ id: 'sequel-a', name: 'Sequel A', relation: 'sequel', language: 'sub' }],
+        },
+        {
+          ...MANGA,
+          id: 'archived-source',
+          name: 'Archived source',
+          archived: true,
+          relations: [{ id: 'sequel-b', name: 'Sequel B', relation: 'sequel', language: 'sub' }],
+        },
+        {
+          ...MANGA,
+          id: 'dismissed-source',
+          name: 'Dismissed source',
+          dismissedSequelIds: ['sequel-c'],
+          relations: [{ id: 'sequel-c', name: 'Sequel C', relation: 'sequel', language: 'sub' }],
+        },
+      ],
+    });
+    await page.goto('/');
+    if ((await page.locator('#mediaModeLabel').textContent()) !== 'Manga') await page.click('#mediaSwitchBtn');
+
+    await expect(page.locator('#mangaLibraryFilter option[value="sequels"]')).toHaveText('Sequels found (2)');
+    await page.selectOption('#mangaLibraryFilter', 'sequels');
+    await expect(page.locator('#mangaLibraryList .manga-sequel-alert')).toHaveCount(2);
+    await expect(page.locator('#mangaLibraryList')).toContainText('After Archived source');
+    await expect(page.locator('#mangaLibraryList')).not.toContainText('Sequel C');
+
+    const dismiss = page.waitForRequest((req) => req.url().endsWith('/api/manga/active-source') && req.method() === 'PATCH');
+    await page.locator('.manga-sequel-alert[data-manga-id="sequel-a"] button[data-action="manga-dismiss-sequel"]').click();
+    expect((await dismiss).postDataJSON()).toEqual({ dismissedSequelIds: ['sequel-a'] });
+    await expect(page.locator('#mangaLibraryFilter option[value="sequels"]')).toHaveText('Sequels found (1)');
+  });
+
   test('filters the manga library list by search query', async ({ page }) => {
     await installApiMocks(page, {
       mangaLibrary: [

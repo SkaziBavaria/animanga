@@ -10,7 +10,7 @@ import {
 } from './downloads.js';
 import { openEpisodes, playShow, bindEpisodeDialog, toggleEpisodeWatched } from './episodes.js';
 import { loadJobs, clearJobs } from './jobs.js';
-import { loadLibrary, renderLibrary, trackShow, removeShow, setShowArchived, updateShowMode } from './library.js';
+import { dismissSequel, loadLibrary, renderLibrary, trackShow, removeShow, setShowArchived, updateShowMode } from './library.js';
 import { loadMangaLibrary } from './manga.js';
 import { bindPlayerDialog } from './playback.js';
 import {
@@ -65,12 +65,14 @@ function bindGlobalClicks() {
       await runAction(cardButton, busyLabel(action), async () => {
         if (action === 'play') await playShow(show, cardButton.dataset.ep || nextEpisode(show) || '1');
         if (action === 'track') await trackShow(show);
+        if (action === 'track-sequel') await trackShow(show);
         if (action === 'tracked') toast('Already in library');
         if (action === 'archive') await setShowArchived(show, true);
         if (action === 'unarchive') await setShowArchived(show, false);
         if (action === 'remove') await removeShow(show);
         if (action === 'episodes') await openEpisodes(show);
         if (action === 'details') await openDetails(show);
+        if (action === 'dismiss-sequel') await dismissSequel(cardButton.dataset.sourceId, show.id);
       });
     }
   });
