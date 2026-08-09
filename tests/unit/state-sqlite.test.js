@@ -263,6 +263,49 @@ test('release watches sync across devices for anime and manga', () => {
   assert.equal(next.mangaReleaseWatches.mw2.query, 'Upcoming Manga');
 });
 
+test('sequel dismissals sync as show metadata', () => {
+  const state = readState();
+  state.shows.source = {
+    id: 'source',
+    name: 'Source show',
+    tracked: true,
+    watchedEpisodes: [],
+    dismissedNextSeasonId: 'sequel-2',
+  };
+  saveState(state);
+
+  const record = syncBundle().records.find((item) => item.kind === 'show' && item.key === 'source');
+  assert.equal(record.value.dismissedNextSeasonId, 'sequel-2');
+
+  mergeSyncBundles([{
+    version: 1,
+    deviceId: 'phone',
+    records: [{
+      kind: 'show',
+      key: 'remote-source',
+      value: { id: 'remote-source', name: 'Remote source', dismissedNextSeasonId: 'remote-sequel' },
+      updatedAt: '2099-06-01T00:00:00.000Z',
+      deviceId: 'phone',
+    }],
+  }]);
+  assert.equal(readState().shows['remote-source'].dismissedNextSeasonId, 'remote-sequel');
+});
+
+test('manga sequel dismissals sync as manga metadata', () => {
+  const state = readState();
+  state.mangas.source = {
+    id: 'source',
+    name: 'Source manga',
+    tracked: true,
+    readChapters: [],
+    dismissedSequelIds: ['sequel-1', 'sequel-2'],
+  };
+  saveState(state);
+
+  const record = syncBundle().records.find((item) => item.kind === 'manga' && item.key === 'source');
+  assert.deepEqual(record.value.dismissedSequelIds, ['sequel-1', 'sequel-2']);
+});
+
 test('creates a consistent SQLite backup', async () => {
   const result = await createDatabaseBackup({ force: true });
   const backupFile = path.join(BACKUP_DIR, result.file);

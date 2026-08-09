@@ -182,6 +182,59 @@ test.describe('Library filtering & sorting', () => {
     await expect(page.locator('#libraryList .show-card')).toHaveCount(2);
   });
 
+  test('lists undismissed sequels from active and archived shows', async ({ page }) => {
+    await installApiMocks(page, {
+      library: [
+        makeShow({
+          id: 'active-source',
+          name: 'Active source',
+          nextSeason: { id: 'sequel-a', name: 'Sequel A', status: 'Not Yet Released', airedStart: { year: 2027 } },
+        }),
+        makeShow({
+          id: 'archived-source',
+          name: 'Archived source',
+          archived: true,
+          nextSeason: { id: 'sequel-b', name: 'Sequel B', status: 'Releasing', airedStart: { year: 2026 } },
+        }),
+        makeShow({
+          id: 'dismissed-source',
+          name: 'Dismissed source',
+          dismissedNextSeasonId: 'sequel-c',
+          nextSeason: { id: 'sequel-c', name: 'Sequel C' },
+        }),
+      ],
+    });
+    await page.goto('/');
+
+    await expect(page.locator('#libraryFilter option[value="sequels"]')).toHaveText('Sequels found (2)');
+    await page.selectOption('#libraryFilter', 'sequels');
+    await expect(page.locator('#libraryList .sequel-alert')).toHaveCount(2);
+    await expect(page.locator('#libraryList')).toContainText('After Archived source');
+    await expect(page.locator('#libraryList')).not.toContainText('Sequel C');
+  });
+
+  test('can dismiss a sequel from the sequel filter', async ({ page }) => {
+    await installApiMocks(page, {
+      library: [makeShow({
+        id: 'source',
+        name: 'Source show',
+        archived: true,
+        nextSeason: { id: 'sequel', name: 'New sequel', status: 'Releasing' },
+      })],
+    });
+    await page.goto('/');
+    await page.selectOption('#libraryFilter', 'sequels');
+
+    const dismiss = page.waitForRequest((req) => req.url().endsWith('/api/shows/source') && req.method() === 'PATCH');
+    await page.locator('button[data-action="dismiss-sequel"]').click();
+    expect((await dismiss).postDataJSON()).toEqual({ dismissedNextSeasonId: 'sequel' });
+    await expect(page.locator('#libraryList')).toContainText('No new sequels found.');
+
+    await page.reload();
+    await page.selectOption('#libraryFilter', 'sequels');
+    await expect(page.locator('#libraryList .sequel-alert')).toHaveCount(0);
+  });
+
   test('archives and unarchives a show from the library card', async ({ page }) => {
     const archive = page.waitForRequest((req) => /\/api\/shows\/a$/.test(req.url()) && req.method() === 'PATCH');
     await page.locator('.show-card[data-id="a"] button[data-action="archive"]').click();

@@ -157,6 +157,43 @@ function filterMangaLibrary(mangas) {
   }).filter((manga) => matchesLibraryQuery(manga, state.mangaLibraryQuery));
 }
 
+function mangaSequelAlerts(mangas) {
+  const tracked = new Set(mangas.filter((manga) => manga.tracked !== false).map((manga) => String(manga.id)));
+  const seen = new Set();
+  return mangas.flatMap((source) => {
+    const dismissed = new Set((source.dismissedSequelIds || []).map(String));
+    return (source.relations || []).flatMap((sequel) => {
+      const id = String(sequel?.id || '');
+      const relation = String(sequel?.relation || '').toLowerCase();
+      if (!relation.includes('sequel') || !id || tracked.has(id) || dismissed.has(id) || seen.has(id)) return [];
+      seen.add(id);
+      return [{ source, sequel: { ...sequel, language: sequel.language || source.language || 'sub' } }];
+    });
+  });
+}
+
+function mangaSequelCard(alert) {
+  const manga = alert.sequel;
+  const cover = coverUrl(manga.thumbnail);
+  return `
+    <article class="show-card manga-card manga-sequel-alert" data-manga-id="${escapeHtml(manga.id)}" data-source="sequel">
+      ${cover ? `<img class="show-thumb" src="${escapeHtml(cover)}" alt="" loading="lazy" decoding="async">` : `<div class="show-thumb placeholder">${escapeHtml(initials(manga))}</div>`}
+      <div class="show-main">
+        <div class="show-title">${escapeHtml(manga.name || manga.title)}</div>
+        <div class="show-meta">
+          <span class="pill sequel released">Sequel found</span>
+          <span class="pill">After ${escapeHtml(alert.source.name || alert.source.title)}</span>
+          ${manga.status ? `<span class="pill schedule">${escapeHtml(manga.status)}</span>` : ''}
+        </div>
+      </div>
+      <div class="card-actions three">
+        <button class="primary" data-action="manga-track-sequel">Track sequel</button>
+        <button class="secondary" data-action="manga-about">About</button>
+        <button class="secondary" data-action="manga-dismiss-sequel" data-source-id="${escapeHtml(alert.source.id)}">Dismiss</button>
+      </div>
+    </article>`;
+}
+
 function mangaCard(manga, source) {
   const tracked = state.mangaLibrary.some((item) => item.id === manga.id && item.tracked !== false);
   const resume = source === 'library' ? latestMangaPositionFor(manga) : null;
@@ -234,14 +271,29 @@ function sortMangaLibrary(sort) {
 }
 
 export function renderMangaLibrary() {
+  state.mangaSequelAlerts = mangaSequelAlerts(state.mangaLibrary);
+  const sequelOption = els.mangaLibraryFilter.querySelector('option[value="sequels"]');
+  if (sequelOption) sequelOption.textContent = `Sequels found (${state.mangaSequelAlerts.length})`;
   const activeCount = state.mangaLibrary.filter((manga) => !isMangaArchived(manga)).length;
-  els.mangaCount.textContent = state.mangaLibraryFilter === 'archived'
+  els.mangaCount.textContent = state.mangaLibraryFilter === 'sequels'
+    ? String(state.mangaSequelAlerts.length)
+    : state.mangaLibraryFilter === 'archived'
     ? String(state.mangaLibrary.filter(isMangaArchived).length)
     : state.mangaLibraryFilter === 'all'
       ? String(state.mangaLibrary.length)
       : String(activeCount);
   if (!state.mangaLibrary.length) {
     els.mangaLibraryList.innerHTML = '<div class="empty empty-action"><span>Your manga library is empty.</span><button class="small-button secondary" data-action="manga-open-discover" type="button">Find manga</button></div>';
+    return;
+  }
+  if (state.mangaLibraryFilter === 'sequels') {
+    const alerts = state.mangaSequelAlerts.filter(({ source, sequel }) => matchesLibraryQuery({
+      ...sequel,
+      title: `${sequel.title || sequel.name || ''} ${source.title || source.name || ''}`,
+    }, state.mangaLibraryQuery));
+    els.mangaLibraryList.innerHTML = alerts.length
+      ? alerts.map(mangaSequelCard).join('')
+      : `<div class="empty">${String(state.mangaLibraryQuery || '').trim() ? 'No manga sequels match this search.' : 'No new manga sequels found.'}</div>`;
     return;
   }
   const mangas = filterMangaLibrary(state.mangaLibrary).sort(sortMangaLibrary(state.mangaLibrarySort || 'new'));
@@ -256,6 +308,9 @@ export function renderMangaLibrary() {
 function findManga(card) {
   const id = card?.dataset.mangaId;
   if (!id) return null;
+  if (card.dataset.source === 'sequel') {
+    return state.mangaSequelAlerts.find((alert) => alert.sequel.id === id)?.sequel || null;
+  }
   const primary = card.dataset.source === 'library' ? state.mangaLibrary : state.mangaResults;
   const secondary = card.dataset.source === 'library' ? state.mangaResults : state.mangaLibrary;
   return primary.find((item) => item.id === id) || secondary.find((item) => item.id === id) || null;
@@ -400,6 +455,18 @@ async function setMangaArchived(manga, archived) {
   syncManga({ ...manga, ...(data.manga || {}), id: manga.id, archived: Boolean(archived) });
   refreshMangaCards();
   toast(archived ? 'Archived' : 'Moved back to active library');
+}
+
+async function dismissMangaSequel(sourceId, sequelId) {
+  const source = state.mangaLibrary.find((manga) => manga.id === sourceId);
+  const dismissedSequelIds = Array.from(new Set([...(source?.dismissedSequelIds || []), sequelId]));
+  const data = await api(`/api/manga/${encodeURIComponent(sourceId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ dismissedSequelIds }),
+  });
+  if (source) Object.assign(source, data.manga || {}, { dismissedSequelIds });
+  renderMangaLibrary();
+  toast('Manga sequel dismissed');
 }
 
 function chapterRow(manga, chapter) {
@@ -1161,11 +1228,13 @@ export function bindMangaControls() {
     if (!manga) return;
     await runAction(button, '…', async () => {
       if (button.dataset.action === 'manga-track') await trackManga(manga);
+      if (button.dataset.action === 'manga-track-sequel') await trackManga(manga);
       if (button.dataset.action === 'manga-archive') await setMangaArchived(manga, true);
       if (button.dataset.action === 'manga-unarchive') await setMangaArchived(manga, false);
       if (button.dataset.action === 'manga-remove') await removeManga(manga);
       if (button.dataset.action === 'manga-chapters') await openMangaChapters(manga);
       if (button.dataset.action === 'manga-about') await openMangaAbout(manga);
+      if (button.dataset.action === 'manga-dismiss-sequel') await dismissMangaSequel(button.dataset.sourceId, manga.id);
       if (button.dataset.action === 'manga-read') await openMangaChapters(manga, button.dataset.chapter);
     }).catch((err) => toast(err.message));
   });

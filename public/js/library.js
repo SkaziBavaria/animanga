@@ -2,7 +2,7 @@ import { api, toast } from './api.js';
 import { refreshSearchResults } from './discover.js';
 import { els } from './dom.js';
 import { state } from './state.js';
-import { showCard } from './shows.js';
+import { sequelAlertCard, showCard } from './shows.js';
 import {
   hasNewEpisodeToContinue,
   hasStarted,
@@ -14,6 +14,18 @@ import {
 
 function isArchived(show) {
   return Boolean(show?.archived);
+}
+
+function sequelAlerts(shows) {
+  const tracked = new Set(shows.filter((show) => show.tracked !== false).map((show) => String(show.id)));
+  const seen = new Set();
+  return shows.flatMap((source) => {
+    const sequel = source.nextSeason;
+    const id = String(sequel?.id || '');
+    if (!id || tracked.has(id) || source.dismissedNextSeasonId === id || seen.has(id)) return [];
+    seen.add(id);
+    return [{ source, sequel: { ...sequel, mode: sequel.mode || source.mode || state.settings?.mode || 'sub' } }];
+  });
 }
 
 function filterLibrary(shows) {
@@ -41,14 +53,30 @@ function sortShows(sort) {
 }
 
 export function renderLibrary() {
+  state.sequelAlerts = sequelAlerts(state.library);
+  const sequelOption = els.libraryFilter.querySelector('option[value="sequels"]');
+  if (sequelOption) sequelOption.textContent = `Sequels found (${state.sequelAlerts.length})`;
   const activeCount = state.library.filter((show) => !isArchived(show)).length;
-  els.libraryCount.textContent = state.libraryFilter === 'archived'
+  els.libraryCount.textContent = state.libraryFilter === 'sequels'
+    ? state.sequelAlerts.length
+    : state.libraryFilter === 'archived'
     ? state.library.filter(isArchived).length
     : state.libraryFilter === 'all'
       ? state.library.length
       : activeCount;
   if (!state.library.length) {
     els.libraryList.innerHTML = '<div class="empty empty-action"><span>Your library is empty.</span><button class="small-button secondary" data-action="open-discover" type="button">Find anime</button></div>';
+    return;
+  }
+
+  if (state.libraryFilter === 'sequels') {
+    const alerts = state.sequelAlerts.filter(({ source, sequel }) => matchesLibraryQuery({
+      ...sequel,
+      title: `${sequel.title || sequel.name || ''} ${source.title || source.name || ''}`,
+    }, state.libraryQuery));
+    els.libraryList.innerHTML = alerts.length
+      ? alerts.map(sequelAlertCard).join('')
+      : `<div class="empty">${String(state.libraryQuery || '').trim() ? 'No sequels match this search.' : 'No new sequels found.'}</div>`;
     return;
   }
 
@@ -118,6 +146,17 @@ export async function setShowArchived(show, archived) {
   syncAnimeShow({ ...show, ...(data.show || {}), id: show.id, archived: Boolean(archived) });
   refreshAnimeCards();
   toast(archived ? 'Archived' : 'Moved back to active library');
+}
+
+export async function dismissSequel(sourceId, sequelId) {
+  const data = await api(`/api/shows/${encodeURIComponent(sourceId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ dismissedNextSeasonId: sequelId }),
+  });
+  const source = state.library.find((show) => show.id === sourceId);
+  if (source) Object.assign(source, data.show || {}, { dismissedNextSeasonId: sequelId });
+  renderLibrary();
+  toast('Sequel dismissed');
 }
 
 export async function updateShowMode(show, mode) {
