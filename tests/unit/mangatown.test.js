@@ -9,6 +9,15 @@ const { setAnidbTextFetcherForTests } = require('../../lib/anidb-fetch');
 
 test.afterEach(() => setAnidbTextFetcherForTests(null));
 
+test('decodes MangaTown attributes exactly once', () => {
+  assert.deepEqual(parseSearchResults(`
+    <a class="manga_cover" href="/manga/rock_roll/" title="Rock &amp; Roll"></a>
+    <a class="manga_cover" href="/manga/literal_entity/" title="Literal &amp;#38; Entity"></a>`), [
+    { id: 'rock_roll', name: 'Rock & Roll', path: '/manga/rock_roll/' },
+    { id: 'literal_entity', name: 'Literal &#38; Entity', path: '/manga/literal_entity/' },
+  ]);
+});
+
 test('parses MangaTown search, decimal chapters and paged readers', () => {
   assert.deepEqual(parseSearchResults(`
     <a class="manga_cover" href="/manga/demo_story/" title="Demo Story"><img></a>
