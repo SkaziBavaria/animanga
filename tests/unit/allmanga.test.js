@@ -5,11 +5,16 @@ const assert = require('node:assert/strict');
 const {
   searchManga, popularManga, getMangaDetails, getChapterPages, assertComicIdentity,
   setRawFetcher, setPageResolversForTests,
+  DEFAULT_PAGE_RESOLVER_NAMES,
 } = require('../../lib/allmanga');
 
 test.afterEach(() => {
   setRawFetcher();
   setPageResolversForTests();
+});
+
+test('uses the maintained manga resolver fallback order', () => {
+  assert.deepEqual(DEFAULT_PAGE_RESOLVER_NAMES, ['Weeb Central', 'MangaPill', 'MangaDex', 'MangaTown']);
 });
 
 test('searchManga maps ComicK results', async () => {
