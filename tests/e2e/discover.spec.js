@@ -44,6 +44,30 @@ test.describe('Discover: search & browse', () => {
     await expect(page.locator('#toast')).toContainText('Watching');
   });
 
+  test('offers an exact-title watch while keeping broad anime results', async ({ page }) => {
+    await installApiMocks(page, { searchResults: [makeShow({ name: 'Attack on Titan', title: 'Attack on Titan (25 episodes)' })] });
+    await page.goto('/');
+    await page.click('.tab[data-section="discover"]');
+    await page.fill('#searchInput', 'Titan');
+    await page.click('#searchForm button[type="submit"]');
+
+    await expect(page.locator('#searchResults .show-card')).toHaveCount(1);
+    const watchButton = page.locator('#searchResults button[data-action="watch-release"]');
+    await expect(watchButton).toHaveText('Watch this title');
+    await expect(watchButton).toHaveAttribute('data-query', 'Titan');
+  });
+
+  test('does not offer a watch when anime search has an exact title', async ({ page }) => {
+    await installApiMocks(page, { searchResults: [makeShow({ name: 'Titan', title: 'Titan (12 episodes)' })] });
+    await page.goto('/');
+    await page.click('.tab[data-section="discover"]');
+    await page.fill('#searchInput', 'titan');
+    await page.click('#searchForm button[type="submit"]');
+
+    await expect(page.locator('#searchResults .show-card')).toHaveCount(1);
+    await expect(page.locator('#searchResults button[data-action="watch-release"]')).toHaveCount(0);
+  });
+
   test('browses popular titles', async ({ page }) => {
     await installApiMocks(page);
     await page.goto('/');

@@ -9,11 +9,48 @@ const {
   resetCurlBinaryForTests,
   isPlainCurlBinary,
   CURL_CANDIDATES,
+  setCurlRunnerForTests,
+  setNativeFetcherForTests,
+  safeCurlDetail,
+  canUseNativeFallback,
 } = require('../../lib/anidb-fetch');
 
 test.afterEach(() => {
   setAnidbTextFetcherForTests(null);
   resetCurlBinaryForTests();
+  setCurlRunnerForTests(null);
+  setNativeFetcherForTests(null);
+});
+
+test('redacts sensitive curl diagnostics', () => {
+  const detail = safeCurlDetail('Authorization: Bearer secret\nCookie: sid=secret\nhttps://user:pass@example.test');
+  assert.doesNotMatch(detail, /Bearer secret|sid=secret|user:pass/);
+});
+
+test('plain curl exit 35 retries with HTTP/1.1 then uses Node fallback', async () => {
+  const calls = [];
+  setCurlRunnerForTests(async (binary, args) => {
+    calls.push({ binary, args });
+    const error = new Error('TLS failed');
+    error.exitCode = 35;
+    throw error;
+  });
+  setNativeFetcherForTests(async () => '<html>fallback ok</html>');
+  const { fetchWebText } = require('../../lib/anidb-fetch');
+  assert.equal(await fetchWebText('https://example.test/'), '<html>fallback ok</html>');
+  assert.equal(calls.length, 2);
+  assert.equal(calls[1].args.includes('--http1.1'), true);
+});
+
+test('challenge detection also applies to Node fallback responses', async () => {
+  setCurlRunnerForTests(async () => {
+    const error = new Error('TLS failed');
+    error.exitCode = 35;
+    throw error;
+  });
+  setNativeFetcherForTests(async () => '<title>Just a moment...</title><p>Enable JavaScript and cookies to continue</p>');
+  const { fetchWebText } = require('../../lib/anidb-fetch');
+  await assert.rejects(fetchWebText('https://example.test/'), /Blocked by upstream protection/);
 });
 
 test('detects Cloudflare challenge pages', () => {
@@ -30,6 +67,12 @@ test('prefers impersonation binaries and falls back to plain curl', () => {
   assert.equal(isPlainCurlBinary('/data/data/com.termux/files/usr/bin/curl'), true);
   assert.equal(isPlainCurlBinary('C:\\Windows\\System32\\curl.exe'), true);
   assert.equal(isPlainCurlBinary('/usr/local/bin/curl_chrome136'), false);
+});
+
+test('never falls back when curl was explicitly configured', () => {
+  assert.equal(canUseNativeFallback('/usr/bin/curl', '/custom/curl'), false);
+  assert.equal(canUseNativeFallback('/usr/bin/curl', ''), true);
+  assert.equal(canUseNativeFallback('/usr/bin/curl_chrome136', ''), false);
 });
 
 test('test fetcher bypasses curl binary lookup', async () => {

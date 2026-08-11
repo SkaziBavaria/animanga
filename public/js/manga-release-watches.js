@@ -73,7 +73,7 @@ export async function watchMangaRelease(query) {
   await requestNotificationPermission();
   await api('/api/manga/release-watches', {
     method: 'POST',
-    body: JSON.stringify({ query: cleanQuery, language: 'sub' }),
+    body: JSON.stringify({ query: cleanQuery }),
   });
   state.mangaReleaseWatchesOpen = true;
   toast(`Watching manga "${cleanQuery}"`);

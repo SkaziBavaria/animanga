@@ -4,7 +4,7 @@ import { state } from './state.js';
 import { loadDefaultMangaDiscover } from './manga.js';
 import { noSearchResultsHtml, showCard } from './shows.js';
 import { writeUiPrefs } from './ui-prefs.js';
-import { escapeHtml } from './util.js';
+import { escapeHtml, hasExactTitleMatch } from './util.js';
 
 let sequelHydrateToken = 0;
 
@@ -25,7 +25,7 @@ function sequelIdForShow(show) {
   return String(sequel?.showId || '').trim();
 }
 
-async function hydrateSequelPills(results, emptyHtml) {
+async function hydrateSequelPills(results, emptyHtml, leadingHtml = '') {
   const needing = (results || []).filter((show) => show?.hasNextSeason && !show?.nextSeason?.status);
   if (!needing.length) return;
   const ids = [...new Set(needing.map(sequelIdForShow).filter(Boolean))];
@@ -38,9 +38,9 @@ async function hydrateSequelPills(results, emptyHtml) {
   const paint = () => {
     if (token !== sequelHydrateToken) return false;
     state.searchResults = current;
-    els.searchResults.innerHTML = current.length
+    els.searchResults.innerHTML = leadingHtml + (current.length
       ? current.map((show) => showCard(show, 'search')).join('')
-      : emptyHtml;
+      : emptyHtml);
     return true;
   };
 
@@ -85,12 +85,15 @@ async function hydrateSequelPills(results, emptyHtml) {
   }
 }
 
-function renderSearchResults(results, emptyHtml) {
+function renderSearchResults(results, emptyHtml, query = '') {
   state.searchResults = results;
-  els.searchResults.innerHTML = results.length
+  const leadingHtml = results.length && query && !hasExactTitleMatch(results, query)
+    ? `<div class="empty empty-action"><span>No exact match for “${escapeHtml(query)}”.</span><button class="small-button secondary" data-action="watch-release" data-query="${escapeHtml(query)}" type="button">Watch this title</button></div>`
+    : '';
+  els.searchResults.innerHTML = leadingHtml + (results.length
     ? results.map((show) => showCard(show, 'search')).join('')
-    : emptyHtml;
-  hydrateSequelPills(results, emptyHtml);
+    : emptyHtml);
+  hydrateSequelPills(results, emptyHtml, leadingHtml);
 }
 
 export function refreshSearchResults() {
@@ -107,7 +110,7 @@ export async function search(q) {
   params.set('q', q);
   params.set('mode', currentMode());
   const data = await api(`/api/search?${params.toString()}`);
-  renderSearchResults(data.results || [], noSearchResultsHtml(q));
+  renderSearchResults(data.results || [], noSearchResultsHtml(q), q);
 }
 
 export async function applyDiscoverFilters({ genres, year }) {

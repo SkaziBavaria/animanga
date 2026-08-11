@@ -1,40 +1,46 @@
 # AniManga
 
-AniManga is a self-hosted anime player and manga reader. Anime metadata and streams come from [anidb.app](https://anidb.app) (same provider family as ani-cli v5). Manga catalog uses [ComicK](https://comick.dev) and chapter images are read through Weeb Central with direct curl requests (no client-crypto or browser solver). Episode downloads are written with ffmpeg.
+AniManga is a self-hosted anime player and manga reader with library tracking, downloads, cross-device sync, and an installable browser PWA.
 
-The player runs in the browser, so you can also install the site as a PWA from Chrome.
+Anime metadata and streams come from [anidb.app](https://anidb.app). Manga metadata comes from [ComicK](https://comick.dev), while chapter pages use independently verified page resolvers.
 
 ## Install with npm
 
-You need Node 22.16 or newer and `curl`. AniManga prefers **curl-impersonate** when installed, but falls back to ordinary system `curl` (including Termux) and only requires impersonation if the provider returns a Cloudflare challenge. Install ffmpeg as well if you want to download anime episodes.
+Requirements:
+
+- Node.js 22.16 or newer
+- `curl`
+- `ffmpeg` for episode downloads
 
 ```sh
 npm install -g animanga
 animanga start
 ```
 
-Open [http://localhost:7831](http://localhost:7831). AniManga stores application data in the platform user-data directory, not inside the global npm package. Run `animanga doctor` to check Node, storage, the curl client, and optional playback tools.
+Open [http://localhost:7831](http://localhost:7831). Application data is stored in the platform's user-data directory, outside the global npm package.
 
-### curl and curl-impersonate
-
-Install a Chrome/Firefox impersonation binary from [lexiforest/curl-impersonate](https://github.com/lexiforest/curl-impersonate/releases) and put it on `PATH`, or set:
+Run the built-in checks if something does not work:
 
 ```sh
-ANIMANGA_CURL_IMPERSONATE=/path/to/curl_chrome136
+animanga doctor
 ```
 
-AniManga looks for `curl_chrome136`, `curl_firefox135`, `curl_chrome116`, and similar names first, then falls back to `curl`. If the plain client receives a Cloudflare challenge, the error explains that curl-impersonate is required on that device or network.
+AniManga uses ordinary system curl when possible. If a provider presents a Cloudflare challenge, install a compatible binary from [curl-impersonate](https://github.com/lexiforest/curl-impersonate/releases) and place it on `PATH`, or configure it explicitly:
 
-Useful CLI options:
+```sh
+ANIMANGA_CURL_IMPERSONATE=/path/to/curl_chrome136 animanga start
+```
+
+Useful start options:
 
 ```sh
 animanga start --host 0.0.0.0 --port 7831
 animanga start --data-dir /path/to/data
 ```
 
-The npm package does not install or modify system programs. Install `curl` through the operating system package manager; curl-impersonate is optional unless plain curl is blocked. Episode downloads use the `ffmpeg` executable available on your system.
+The npm package does not install or modify system programs.
 
-To update later:
+### Update an npm installation
 
 ```sh
 npm install -g animanga@latest
@@ -42,7 +48,7 @@ npm install -g animanga@latest
 
 ## Run with Docker
 
-You need Docker with the Compose plugin.
+Docker requires the Compose plugin.
 
 ```sh
 git clone https://github.com/SkaziBavaria/animanga.git
@@ -50,25 +56,29 @@ cd animanga
 docker compose up -d --build
 ```
 
-Open [http://localhost:7831](http://localhost:7831). On your LAN, open `http://<host-ip>:7831` from another device.
+Open [http://localhost:7831](http://localhost:7831), or use `http://<host-ip>:7831` from another device on your LAN.
 
-Optional password lock:
+Docker stores persistent data under `data/`. Rebuilding or restarting the container does not remove the database or downloads. The image includes ffmpeg, curl-impersonate, and a health check.
+
+### Protect network access
+
+AniManga is open by default. Set a password before exposing it beyond a trusted device:
 
 ```sh
 ANIMANGA_ACCESS_TOKEN='use-a-long-random-password' docker compose up -d --build
 ```
 
-To keep the published port on localhost only:
+The browser then asks for a username and password. The default username is `animanga`, and the password is the access token.
+
+To publish the Docker port only on localhost:
 
 ```sh
 ANIMANGA_BIND_ADDRESS=127.0.0.1 docker compose up -d --build
 ```
 
-`ANIMANGA_PUBLISH_PORT` changes the host port if `7831` is already taken.
+Do not expose AniManga directly to the public internet. Use HTTPS through a trusted reverse proxy when remote access is required.
 
-With a token set, the browser asks for a username and password. The default username is `animanga`; the password is your access token. Do not expose AniManga directly to the public internet. Use HTTPS through a trusted reverse proxy if it must be reachable outside your home network.
-
-To update later:
+### Update a Docker installation
 
 ```sh
 cd animanga
@@ -76,73 +86,84 @@ git pull --ff-only
 docker compose up -d --build
 ```
 
-Docker stores the database, logs, downloaded episodes, and downloaded manga pages in the local `data/` directory. Rebuilding or restarting the container does not remove them. On the first start of the hardened image, existing files in that directory are assigned to the container's unprivileged `node` user; the application process itself does not run as root. The image includes a healthcheck, ffmpeg, and curl-impersonate.
-
 ## Sync between devices
 
-Library entries, watched episodes, playback positions, SUB/DUB choices, Discover release watches (Watching), and settings can be synced between installations. Video files, caches, and job logs stay local.
+AniManga can sync libraries, watch and reading history, playback positions, archive state, SUB/DUB choices, release watches, and supported settings. Downloads, caches, and job logs remain local.
 
 ### GitHub
 
-GitHub is the easiest option for local installations because it does not require a public domain or HTTPS callback.
+GitHub sync works without a public domain or HTTPS callback:
 
-1. Create a GitHub OAuth App in **GitHub Settings → Developer settings → OAuth Apps**.
-2. Use your AniManga address as the homepage. The required callback field can be `http://127.0.0.1` because Device Flow does not use it.
-3. Enable **Device Flow** in the OAuth App settings.
-4. Copy its Client ID into **Settings → Cloud sync → GitHub** in AniManga.
-5. Choose a different device name on each installation, save, and connect.
+1. Create a GitHub OAuth App under **GitHub Settings -> Developer settings -> OAuth Apps**.
+2. Use the AniManga address as its homepage. The callback field can be `http://127.0.0.1` because Device Flow does not use it.
+3. Enable **Device Flow**.
+4. Enter the Client ID under **Settings -> Cloud sync -> GitHub** in AniManga.
+5. Give each installation a unique device name, save, and connect.
 
-AniManga creates a private repository named `animanga-sync-data`. Each device writes its own sync file, and records are merged instead of replacing the complete database. The OAuth `repo` scope is required to create and update a private repository, so only connect an OAuth App you trust.
+AniManga creates a private repository named `animanga-sync-data`. Each device writes a separate sync file, and records are merged rather than replacing the complete database. The OAuth `repo` scope is required to create and update that private repository.
 
 ### Google Drive
 
-Google Drive is also supported, but it requires a Google Cloud OAuth Web client and an authorized HTTPS redirect URI. The exact callback URI is shown in **Settings → Cloud sync → Google Drive**.
-When AniManga is reached through a LAN address or reverse proxy, set `ANIMANGA_PUBLIC_URL` to its externally visible origin, for example `https://animanga.example.com`. The OAuth callback is then derived from that fixed origin and cannot be changed through request headers.
+Google Drive sync requires a Google Cloud OAuth Web client and an authorized HTTPS redirect URI. AniManga displays the exact callback URI under **Settings -> Cloud sync -> Google Drive**.
 
-OAuth client secrets and access tokens are stored in the local SQLite database. AniManga restricts its data directories, database, backups, history, and job logs to the current operating-system user where the platform supports Unix permissions. Protect the `data/` directory as you would any credential store.
+For a reverse proxy, set `ANIMANGA_PUBLIC_URL` to the externally visible origin, such as `https://animanga.example.com`.
 
-## Useful environment variables
+OAuth secrets and tokens are stored in the local SQLite database. Protect the AniManga data directory as you would any credential store.
 
-- `ANIMANGA_PORT=7832` changes the port.
-- `ANIMANGA_HOST=0.0.0.0` exposes the server on the local network. Only do this on a network you trust.
-- `ANIMANGA_ACCESS_TOKEN=...` optional HTTP Basic password. Without it the app stays open on whatever address it listens on. With it set, the browser asks for username/password (default username `animanga`). Mutating API calls also require a same-origin browser request (or a non-browser client) so cross-site forms cannot reuse a cached password.
-- `ANIMANGA_ACCESS_USERNAME=animanga` changes the Basic-auth username.
-- `ANIMANGA_PUBLIC_URL=https://animanga.example.com` fixes the external origin used for OAuth callbacks.
-- `ANIMANGA_TRUST_PROXY=1` accepts forwarded host/protocol headers when a fixed public URL cannot be used. Enable it only behind a trusted reverse proxy that overwrites those headers. `ANIMANGA_PUBLIC_URL` is required when this is set.
-- `ANIMANGA_PROXY_SECRET=...` optional HMAC secret for signed `/api/proxy` URLs. Defaults to the access token, or a generated file under the data directory.
-- `ANIMANGA_CLIENT_PLAYBACK=0` seeds Settings so new installs prefer the Android MPV intent. Change it later under Settings → Play in browser.
-- `ANIMANGA_DOWNLOAD_CONCURRENCY=2` seeds how many episode downloads run at once (1–8). Change it later under Settings → Download concurrency.
-- `ANIMANGA_DATA_DIR=/path/to/data` selects the persistent application-data directory.
-- `ANIMANGA_DOWNLOAD_DIR=/path/to/downloads` changes the anime episode download directory.
-- `ANIMANGA_CURL_IMPERSONATE=/path/to/curl_chrome136` selects a specific curl binary used for anidb.app / ComicK.
+## Configuration
+
+Common settings:
+
+- `ANIMANGA_HOST=0.0.0.0` listens on the local network.
+- `ANIMANGA_PORT=7832` changes the application port.
+- `ANIMANGA_DATA_DIR=/path/to/data` changes the persistent data directory.
+- `ANIMANGA_DOWNLOAD_DIR=/path/to/downloads` changes the episode download directory.
+- `ANIMANGA_ACCESS_TOKEN=...` enables HTTP Basic authentication.
+- `ANIMANGA_ACCESS_USERNAME=animanga` changes the authentication username.
+- `ANIMANGA_PUBLIC_URL=https://animanga.example.com` sets the fixed external origin used for OAuth callbacks.
+- `ANIMANGA_DOWNLOAD_CONCURRENCY=2` seeds the episode download limit for new installations (1-8).
+- `ANIMANGA_CLIENT_PLAYBACK=0` seeds Android MPV playback for new installations.
+
+Advanced settings:
+
+- `ANIMANGA_CURL_IMPERSONATE=/path/to/curl_chrome136` selects a curl binary.
+- `ANIMANGA_TRUST_PROXY=1` trusts forwarded host and protocol headers. This requires `ANIMANGA_PUBLIC_URL` and a trusted proxy that overwrites those headers.
+- `ANIMANGA_PROXY_SECRET=...` sets the HMAC secret for signed media proxy URLs.
 - `ANIMANGA_ANIDB_ORIGIN=https://anidb.app` overrides the anime provider origin.
 - `ANIMANGA_COMICK_API=https://api.comick.dev` overrides the ComicK API origin.
+- `ANIMANGA_MANGADEX_API=https://api.mangadex.org` overrides the MangaDex API origin.
 
-Existing libraries that still use old AllAnime ids are remapped to anidb slugs by title on startup / library load. Shows that cannot be matched are kept and marked `needsRematch`.
+Docker also supports:
 
-The native installation requires Node 22.16 or newer and curl. The Docker image includes a compatible Node version, ffmpeg, and curl-impersonate.
+- `ANIMANGA_BIND_ADDRESS=127.0.0.1` controls the published interface.
+- `ANIMANGA_PUBLISH_PORT=7832` changes the published host port.
+- `ANIMANGA_DATA_VOLUME=/path/to/data` changes the host directory mounted at `/data`.
 
-## Development checks
+## Development
 
-Install the locked development dependencies and run the same static checks and unit tests used by CI:
+Install locked dependencies and run lint plus unit tests:
 
 ```sh
 npm ci
 npm run check
 ```
 
-For browser tests, install Chromium once and run the E2E suite:
+Run browser tests:
 
 ```sh
 npx playwright install chromium
 npm run test:e2e
 ```
 
-Install smokes verify the two supported delivery paths:
+Installation smoke tests:
 
 ```sh
 npm run test:smoke:npm
 npm run test:smoke:docker
 ```
 
-`RUN_CONTRACT=1 npm run test:contract` runs the slower live-provider checks. They verify ComicK/Weeb Central manga pages, browser playback, byte-range video access, and AniSkip. These checks are scheduled separately because upstream availability is outside AniManga's control.
+Live provider contract checks are slower and depend on external availability:
+
+```sh
+RUN_CONTRACT=1 npm run test:contract
+```

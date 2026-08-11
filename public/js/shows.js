@@ -39,10 +39,9 @@ function progressLabel(show, source) {
 function modeSelector(show) {
   const current = show.mode || state.settings?.mode || 'sub';
   const counts = show.episodeCounts || {};
-  const hasAvailability = Object.keys(counts).length > 0;
   const options = ['sub', 'dub'].map((mode) => {
     const count = Number(counts[mode] || 0);
-    const unavailable = hasAvailability && count <= 0;
+    const unavailable = Object.hasOwn(counts, mode) && count <= 0;
     return `<option value="${mode}"${mode === current ? ' selected' : ''}${unavailable ? ' disabled' : ''}>${mode.toUpperCase()}</option>`;
   }).join('');
   return `

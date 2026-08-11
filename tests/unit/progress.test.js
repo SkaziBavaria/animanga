@@ -49,12 +49,10 @@ test('presentPositions returns the map', () => {
   assert.deepEqual(presentPositions(state), { 'a:1': { position: 10 } });
 });
 
-test('stores manga page progress separately by language', () => {
+test('stores one manga page position per chapter', () => {
   const state = {};
-  setMangaPosition(state, { mangaId: 'manga', language: 'sub', chapter: '2', page: 4, pageCount: 10 });
-  setMangaPosition(state, { mangaId: 'manga', language: 'raw', chapter: '2', page: 2, pageCount: 8 });
-  assert.equal(state.mangaPositions[mangaPositionKey('manga', 'sub', '2')].page, 4);
-  assert.equal(state.mangaPositions[mangaPositionKey('manga', 'raw', '2')].page, 2);
+  setMangaPosition(state, { mangaId: 'manga', chapter: '2', page: 4, pageCount: 10 });
+  assert.equal(state.mangaPositions[mangaPositionKey('manga', '2')].page, 4);
 });
 
 test('can store the last visible manga page without completing the chapter', () => {

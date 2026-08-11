@@ -148,6 +148,18 @@ test.describe('Manga', () => {
     await expect(chapterPill).toContainText('Ch 3 · 0 days ago');
   });
 
+  test('hides the latest chapter pill when its release date is unavailable', async ({ page }) => {
+    await page.route('**/api/manga/library', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ mangas: [{ ...MANGA, lastChapterDate: null }] }),
+    }));
+    await page.reload();
+
+    await expect(page.locator('#mangaLibraryList')).toContainText('Progress 1 / 3');
+    await expect(page.locator('#mangaLibraryList .pill.schedule', { hasText: 'Ch 3' })).toHaveCount(0);
+  });
+
   test('labels manga origins with compact country codes', async ({ page }) => {
     const mangas = [
       { ...MANGA, id: 'jp', name: 'Japanese Story', countryOfOrigin: 'JP' },
@@ -167,24 +179,6 @@ test.describe('Manga', () => {
     await expect(page.locator('.manga-card[data-manga-id="jp"] .show-meta').getByText('JP', { exact: true })).toBeVisible();
     await expect(page.locator('.manga-card[data-manga-id="kr"] .show-meta').getByText('KR', { exact: true })).toBeVisible();
     await expect(page.locator('.manga-card[data-manga-id="cn"] .show-meta').getByText('CN', { exact: true })).toBeVisible();
-  });
-
-  test('switches a tracked manga between translated and raw chapters', async ({ page }) => {
-    const select = page.locator('#mangaLibraryList .manga-card[data-manga-id="manga1"] select[data-action="manga-language"]');
-    await expect(select).toHaveValue('sub');
-    const request = page.waitForRequest((item) => item.url().endsWith('/api/manga/manga1') && item.method() === 'PATCH');
-    await select.selectOption('raw');
-    expect((await request).postDataJSON()).toEqual({ language: 'raw' });
-
-    await expect(page.locator('#mangaLibraryList .manga-card[data-manga-id="manga1"] select[data-action="manga-language"]')).toHaveValue('raw');
-    await expect(page.locator('#mangaLibraryList .manga-card[data-manga-id="manga1"]')).toContainText('Progress 1 / 2');
-    const chaptersRequest = page.waitForRequest((item) => {
-      const url = new URL(item.url());
-      return url.pathname === '/api/manga/manga1/chapters' && url.searchParams.get('language') === 'raw';
-    });
-    await page.click('#mangaLibraryList [data-action="manga-chapters"]');
-    await chaptersRequest;
-    await expect(page.locator('#chapterGrid .chapter-row')).toHaveCount(2);
   });
 
   test('continues after the highest read chapter when starting mid-series', async ({ page }) => {
@@ -240,6 +234,55 @@ test.describe('Manga', () => {
     await expect(page.locator('#searchView')).not.toHaveClass(/active/);
   });
 
+  test('loads the real first chapter before opening a new manga', async ({ page }) => {
+    const result = { ...MANGA, id: 'new-manga', tracked: false, chapters: [], readChapters: [], lastRead: '', newCount: 0 };
+    await page.route('**/api/manga/search?**', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ total: 1, results: [result] }),
+    }));
+    await page.route('**/api/manga/new-manga/chapters', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ manga: { ...result, chapters: ['0', '1', '2'] }, chapters: ['0', '1', '2'] }),
+    }));
+    await page.click('.tab[data-section="discover"]');
+    await page.fill('#mangaSearchInput', 'Test Story');
+    await page.click('#mangaSearchForm button[type="submit"]');
+
+    const readButton = page.locator('#mangaSearchResults [data-action="manga-read"]');
+    await expect(readButton).toHaveText('Read');
+    const pages = page.waitForRequest((item) => item.url().endsWith('/chapters/0/pages'));
+    await readButton.click();
+    await pages;
+
+    await expect(page.locator('#mangaReaderDialog')).toBeVisible();
+    await expect(page.locator('#mangaDialog')).not.toBeVisible();
+    await expect(page.locator('#mangaReaderMeta')).toContainText('Chapter 0');
+  });
+
+  test('preserves zero and decimal chapter numbers in read actions', async ({ page }) => {
+    const results = [
+      { ...MANGA, id: 'starts-at-zero', tracked: false, chapters: ['12', '0', '11.5'], readChapters: [], lastRead: '' },
+      { ...MANGA, id: 'has-decimal', tracked: false, chapters: ['12', '0', '11.5'], readChapters: ['0'], lastRead: '0' },
+    ];
+    await page.route('**/api/manga/search?**', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ total: results.length, results }),
+    }));
+    await page.click('.tab[data-section="discover"]');
+    await page.fill('#mangaSearchInput', 'Test Story');
+    await page.click('#mangaSearchForm button[type="submit"]');
+
+    const firstButton = page.locator('.manga-card[data-manga-id="starts-at-zero"] [data-action="manga-read"]');
+    await expect(firstButton).toHaveText('Read ch 0');
+    await expect(firstButton).toHaveAttribute('data-chapter', '0');
+    const decimalButton = page.locator('.manga-card[data-manga-id="has-decimal"] [data-action="manga-read"]');
+    await expect(decimalButton).toHaveText('Read ch 11.5');
+    await expect(decimalButton).toHaveAttribute('data-chapter', '11.5');
+  });
+
   test('offers a manga release watch when search has no results', async ({ page }) => {
     await page.route('**/api/manga/search?**', (route) => route.fulfill({
       status: 200,
@@ -254,12 +297,28 @@ test.describe('Manga', () => {
     await expect(watchButton).toBeVisible();
     const request = page.waitForRequest((item) => item.url().endsWith('/api/manga/release-watches') && item.method() === 'POST');
     await watchButton.click();
-    expect((await request).postDataJSON()).toEqual({ query: 'future-manga', language: 'sub' });
+    expect((await request).postDataJSON()).toEqual({ query: 'future-manga' });
 
     await expect(page.locator('#mangaReleaseWatchesCount')).toHaveText('1');
     await expect(page.locator('#mangaReleaseWatchesList')).toBeVisible();
     await expect(page.locator('#mangaReleaseWatchesList')).toContainText('future-manga');
     await expect(page.locator('#toast')).toContainText('Watching manga');
+  });
+
+  test('offers an exact-title watch while keeping broad manga results', async ({ page }) => {
+    await page.route('**/api/manga/search?**', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ total: 1, results: [{ ...MANGA, name: 'Attack on Titan' }] }),
+    }));
+    await page.click('.tab[data-section="discover"]');
+    await page.fill('#mangaSearchInput', 'Titan');
+    await page.click('#mangaSearchForm button[type="submit"]');
+
+    await expect(page.locator('#mangaSearchResults .manga-card')).toHaveCount(1);
+    const watchButton = page.locator('#mangaSearchResults button[data-action="manga-watch-release"]');
+    await expect(watchButton).toHaveText('Watch this title');
+    await expect(watchButton).toHaveAttribute('data-query', 'Titan');
   });
 
   test('browses manga categories and applies multiple filters', async ({ page }) => {

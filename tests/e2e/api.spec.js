@@ -80,10 +80,10 @@ test.describe('Backend API', () => {
 
   test('creates, lists and removes a manga release watch', async ({ request }) => {
     const created = await (await request.post('/api/manga/release-watches', {
-      data: { query: 'E2E Future Manga', language: 'sub' },
+      data: { query: 'E2E Future Manga' },
     })).json();
     expect(created.watch.query).toBe('E2E Future Manga');
-    expect(created.watch.language).toBe('sub');
+    expect(created.watch.language).toBeUndefined();
 
     const listed = await (await request.get('/api/manga/release-watches')).json();
     expect(listed.watches.some((watch) => watch.id === created.watch.id)).toBe(true);

@@ -72,7 +72,7 @@ async function doctor() {
     add('Data directory', false, `${DATA_DIR}: ${error.message}`);
   }
 
-  const { resolveCurlBinary, isPlainCurlBinary } = require('../lib/anidb-fetch');
+  const { resolveCurlBinary, isPlainCurlBinary, curlVersion } = require('../lib/anidb-fetch');
   const curlBinary = resolveCurlBinary();
   add(
     'HTTP curl client',
@@ -82,6 +82,7 @@ async function doctor() {
       : 'missing (install curl or curl-impersonate)',
     true,
   );
+  if (curlBinary) add('curl version/TLS', Boolean(curlVersion(curlBinary)), curlVersion(curlBinary) || 'version probe failed', true);
 
   try {
     const { fetchAnidbText } = require('../lib/anidb-fetch');

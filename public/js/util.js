@@ -56,6 +56,25 @@ export function matchesLibraryQuery(item, query) {
   return haystack.includes(needle);
 }
 
+export function normalizeExactTitle(value) {
+  return String(value || '')
+    .replace(/\s*\(\s*\d+(?:\.\d+)?\s+(?:episodes?|chapters?)\s*\)\s*$/i, '')
+    .normalize('NFKC')
+    .toLocaleLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim();
+}
+
+export function hasExactTitleMatch(items, query) {
+  const needle = normalizeExactTitle(query);
+  if (!needle) return false;
+  return (items || []).some((item) => {
+    const alternatives = Array.isArray(item?.alternativeTitles) ? item.alternativeTitles : [];
+    return [item?.name, item?.englishName, item?.title, ...alternatives]
+      .some((title) => normalizeExactTitle(typeof title === 'string' ? title : Object.values(title || {})[0]) === needle);
+  });
+}
+
 export function latestEpisodeNumber(show) {
   const latest = episodeNumber(show.latestEpisode || show.episodeCount);
   return Number.isFinite(latest) ? latest : null;

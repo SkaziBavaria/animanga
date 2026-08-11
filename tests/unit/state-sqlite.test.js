@@ -217,7 +217,6 @@ test('release watches sync across devices for anime and manga', () => {
   state.mangaReleaseWatches.mw2 = {
     id: 'mw2',
     query: 'Upcoming Manga',
-    language: 'sub',
     status: 'watching',
     updatedAt: '2099-05-01T00:00:00.000Z',
   };
@@ -241,7 +240,7 @@ test('release watches sync across devices for anime and manga', () => {
       {
         kind: 'manga_release_watch',
         key: 'mw-remote',
-        value: { id: 'mw-remote', query: 'Remote Manga', language: 'raw', status: 'watching' },
+        value: { id: 'mw-remote', query: 'Remote Manga', status: 'watching' },
         updatedAt: '2099-05-02T00:00:00.000Z',
         deviceId: 'phone',
       },
@@ -259,7 +258,7 @@ test('release watches sync across devices for anime and manga', () => {
   assert.equal(next.releaseWatches.aw1, undefined);
   assert.equal(next.releaseWatches['aw-remote'].query, 'Remote Anime');
   assert.equal(next.releaseWatches['aw-remote'].matchedShow.name, 'Remote Show');
-  assert.equal(next.mangaReleaseWatches['mw-remote'].language, 'raw');
+  assert.equal(next.mangaReleaseWatches['mw-remote'].query, 'Remote Manga');
   assert.equal(next.mangaReleaseWatches.mw2.query, 'Upcoming Manga');
 });
 

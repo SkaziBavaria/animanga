@@ -43,14 +43,13 @@ test('presentManga newCount ignores unread gaps behind the furthest chapter', ()
 
 test('creates stable manga release watches from normalized queries', () => {
   const state = { mangaReleaseWatches: {} };
-  const first = createMangaReleaseWatch(state, '  Future   Story  ', 'sub');
-  const second = createMangaReleaseWatch(state, 'future story', 'sub');
+  const first = createMangaReleaseWatch(state, '  Future   Story  ');
+  const second = createMangaReleaseWatch(state, 'future story');
   assert.equal(first.id, second.id);
   assert.equal(Object.keys(state.mangaReleaseWatches).length, 1);
   assert.deepEqual(presentMangaReleaseWatch(first), {
     id: first.id,
     query: 'Future Story',
-    language: 'sub',
     status: 'watching',
     createdAt: first.createdAt,
     updatedAt: first.updatedAt,
@@ -70,7 +69,7 @@ test('marks a manga release watch found when search starts returning a manga', a
     status: 1,
   }]));
   const state = { mangaReleaseWatches: {} };
-  const watch = createMangaReleaseWatch(state, 'Future Story', 'sub');
+  const watch = createMangaReleaseWatch(state, 'Future Story');
   const checked = await checkMangaReleaseWatch(state, watch);
   assert.equal(checked.status, 'found');
   assert.equal(checked.matchedManga.id, 'future-1');

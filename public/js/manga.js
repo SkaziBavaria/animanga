@@ -8,7 +8,7 @@ import {
 } from './progress.js';
 import { state } from './state.js';
 import { writeUiPrefs } from './ui-prefs.js';
-import { escapeHtml, matchesLibraryQuery, nextEpisode, presentMangaCard, stripDescription } from './util.js';
+import { escapeHtml, hasExactTitleMatch, matchesLibraryQuery, presentMangaCard, stripDescription } from './util.js';
 
 function compareChapters(a, b) {
   return Number(a) - Number(b) || String(a).localeCompare(String(b));
@@ -27,13 +27,14 @@ function initials(manga) {
 
 function nextChapter(manga) {
   const chapters = [...(manga.chapters || [])].map(String).sort(compareChapters);
-  return nextEpisode({
-    episodes: chapters,
-    watchedEpisodes: manga.readChapters,
-    lastWatched: manga.lastRead,
-    latestEpisode: manga.latestChapter,
-    episodeCount: manga.chapterCount,
-  }) || manga.latestChapter || chapters.at(-1) || '';
+  if (!chapters.length) return '';
+  const read = new Set((manga.readChapters || []).map(String));
+  const unread = chapters.filter((chapter) => !read.has(chapter));
+  if (!unread.length) return '';
+  const lastValue = String(manga.lastRead || '').trim();
+  const last = lastValue === '' ? NaN : Number(lastValue);
+  if (Number.isFinite(last)) return unread.find((chapter) => Number(chapter) > last) || unread[0];
+  return unread[0];
 }
 
 function progressText(manga) {
@@ -111,23 +112,6 @@ function mangaOriginLabel(value) {
   return '';
 }
 
-function mangaLanguageSelector(manga) {
-  const current = manga.language === 'raw' ? 'raw' : 'sub';
-  const counts = manga.chapterCounts || {};
-  const hasAvailability = Object.values(counts).some((count) => Number(count) > 0);
-  const options = [
-    ['sub', 'Translated'],
-    ['raw', 'Raw'],
-  ].map(([language, label]) => {
-    const unavailable = hasAvailability && Number(counts[language] || 0) <= 0;
-    return `<option value="${language}"${language === current ? ' selected' : ''}${unavailable ? ' disabled' : ''}>${label}</option>`;
-  }).join('');
-  return `
-    <label class="card-mode" title="Reading version">
-      <select data-action="manga-language" aria-label="Reading version">${options}</select>
-    </label>`;
-}
-
 function relationLabel(value) {
   const relation = String(value || '').toLowerCase().replace(/[:_-]+/g, ' ').trim();
   if (relation === 'sequel') return 'Sequel';
@@ -167,7 +151,7 @@ function mangaSequelAlerts(mangas) {
       const relation = String(sequel?.relation || '').toLowerCase();
       if (!relation.includes('sequel') || !id || tracked.has(id) || dismissed.has(id) || seen.has(id)) return [];
       seen.add(id);
-      return [{ source, sequel: { ...sequel, language: sequel.language || source.language || 'sub' } }];
+      return [{ source, sequel }];
     });
   });
 }
@@ -210,8 +194,12 @@ function mangaCard(manga, source) {
     ? `Resume ch ${chapter} · page ${resume.page}`
     : `${canContinue ? 'Continue' : 'Read'} ch ${chapter}`;
   const primary = source === 'library'
-    ? `<button class="primary play-action ${resume ? 'play-action-resume' : canContinue ? 'play-action-continue' : 'play-action-play'} manga-read-action" data-action="manga-read" data-chapter="${escapeHtml(chapter)}">${chapter ? escapeHtml(readLabel) : 'Chapters'}</button>`
-    : `<button class="primary play-action play-action-play" data-action="manga-chapters">${chapter ? `Read ch ${escapeHtml(chapter)}` : 'Chapters'}</button>`;
+    ? chapter
+      ? `<button class="primary play-action ${resume ? 'play-action-resume' : canContinue ? 'play-action-continue' : 'play-action-play'} manga-read-action" data-action="manga-read" data-chapter="${escapeHtml(chapter)}">${escapeHtml(readLabel)}</button>`
+      : '<button class="primary play-action play-action-play manga-read-action" data-action="manga-read" data-chapter="auto">Read</button>'
+    : chapter
+      ? `<button class="primary play-action play-action-play manga-read-action" data-action="manga-read" data-chapter="${escapeHtml(chapter)}">Read ch ${escapeHtml(chapter)}</button>`
+      : '<button class="primary play-action play-action-play manga-read-action" data-action="manga-read" data-chapter="auto">Read</button>';
   const trackAction = source === 'library'
     ? ''
     : tracked
@@ -231,11 +219,10 @@ function mangaCard(manga, source) {
         <div class="show-meta">
           <span class="pill${source === 'library' && canContinue ? ' hot' : ''}">${escapeHtml(source === 'library' ? progressText(manga) : `${manga.chapterCount || manga.latestChapter || '?'} chapters`)}</span>
           ${origin ? `<span class="pill">${escapeHtml(origin)}</span>` : ''}
-          ${mangaLanguageSelector(manga)}
           ${manga.archived ? '<span class="pill">Archived</span>' : ''}
           ${manga.downloadedChapters ? `<span class="pill downloaded">↓ ${escapeHtml(manga.downloadedChapters)} saved</span>` : ''}
           ${lifecycle ? `<span class="pill schedule">${escapeHtml(lifecycle)}</span>` : ''}
-          ${manga.latestChapter ? `<span class="pill schedule${recentlyUpdated ? ' hot' : ''}">Ch ${escapeHtml(manga.latestChapter)}${latestDate ? ` · ${escapeHtml(latestDate)}` : ''}</span>` : ''}
+          ${manga.latestChapter && latestDate ? `<span class="pill schedule${recentlyUpdated ? ' hot' : ''}">Ch ${escapeHtml(manga.latestChapter)} · ${escapeHtml(latestDate)}</span>` : ''}
           ${source !== 'library' && manga.score ? `<span class="pill">Score ${escapeHtml(manga.score)}</span>` : ''}
           ${manga.recommendationReason ? `<span class="pill reason">${escapeHtml(manga.recommendationReason)}</span>` : ''}
           ${hasSequel ? '<span class="pill sequel released">Sequel available</span>' : ''}
@@ -316,10 +303,10 @@ function findManga(card) {
   return primary.find((item) => item.id === id) || secondary.find((item) => item.id === id) || null;
 }
 
-export function renderMangaResults(emptyHtml = '<div class="empty">No manga found.</div>') {
-  els.mangaSearchResults.innerHTML = state.mangaResults.length
+export function renderMangaResults(emptyHtml = '<div class="empty">No manga found.</div>', leadingHtml = '') {
+  els.mangaSearchResults.innerHTML = leadingHtml + (state.mangaResults.length
     ? state.mangaResults.map((manga) => mangaCard(manga, 'search')).join('')
-    : emptyHtml;
+    : emptyHtml);
 }
 
 export function refreshMangaCards(emptyHtml) {
@@ -367,7 +354,10 @@ export async function searchManga(query = '', options = {}) {
   const emptyHtml = query
     ? `<div class="empty empty-action"><span>No manga found.</span><button class="small-button secondary" data-action="manga-watch-release" data-query="${escapeHtml(query)}" type="button">Watch release</button></div>`
     : '<div class="empty">No manga found.</div>';
-  renderMangaResults(emptyHtml);
+  const leadingHtml = state.mangaResults.length && query && !hasExactTitleMatch(state.mangaResults, query)
+    ? `<div class="empty empty-action"><span>No exact match for “${escapeHtml(query)}”.</span><button class="small-button secondary" data-action="manga-watch-release" data-query="${escapeHtml(query)}" type="button">Watch this title</button></div>`
+    : '';
+  renderMangaResults(emptyHtml, leadingHtml);
 }
 
 async function browseManga(button) {
@@ -403,16 +393,6 @@ export async function trackManga(manga) {
   await api('/api/manga/track', { method: 'POST', body: JSON.stringify(manga) });
   await loadMangaLibrary();
   toast('Manga tracked');
-}
-
-async function updateMangaLanguage(manga, language) {
-  const data = await api(`/api/manga/${encodeURIComponent(manga.id)}`, {
-    method: 'PATCH',
-    body: JSON.stringify({ language }),
-  });
-  syncManga(data.manga || { ...manga, language });
-  refreshMangaCards();
-  toast(`Using ${language === 'raw' ? 'Raw' : 'Translated'} for ${manga.name || manga.title}`);
 }
 
 async function removeManga(manga) {
@@ -472,7 +452,7 @@ async function dismissMangaSequel(sourceId, sequelId) {
 function chapterRow(manga, chapter) {
   const chapterText = String(chapter);
   const read = (manga.readChapters || []).map(String).includes(chapterText);
-  const position = read ? null : mangaPositionFor(manga.id, manga.language, chapterText);
+  const position = read ? null : mangaPositionFor(manga.id, chapterText);
   const downloaded = Boolean(state.mangaDownloads[chapterText]);
   const upNext = !read && !position && chapterText === String(nextChapter(manga));
   const released = mangaDateLabel(manga.chapterDates?.[chapterText]);
@@ -689,9 +669,8 @@ async function openMangaChapters(manga, requestedChapter = '') {
     return;
   }
 
-  const language = manga.language === 'raw' ? 'raw' : 'sub';
   const [data] = await Promise.all([
-    api(`/api/manga/${encodeURIComponent(manga.id)}/chapters?language=${language}`),
+    api(`/api/manga/${encodeURIComponent(manga.id)}/chapters`),
     loadMangaDownloads(manga),
   ]);
   const details = { ...data.manga, chapters: data.chapters };
@@ -713,12 +692,15 @@ async function openMangaChapters(manga, requestedChapter = '') {
   renderChapterGrid(details);
   els.mangaDialog.showModal();
   await loadMangaDownloadJobs(details);
-  if (requestedChapter) await openMangaReader(details, requestedChapter);
+  const resolvedChapter = requestedChapter === 'auto' ? nextChapter(details) : requestedChapter;
+  if (resolvedChapter) {
+    els.mangaDialog.close();
+    await openMangaReader(details, resolvedChapter);
+  }
 }
 
 async function openMangaAbout(manga) {
-  const language = manga.language === 'raw' ? 'raw' : 'sub';
-  const data = await api(`/api/manga/${encodeURIComponent(manga.id)}/details?language=${language}`);
+  const data = await api(`/api/manga/${encodeURIComponent(manga.id)}/details`);
   const details = data.manga;
   state.activeManga = details;
   state.mangaRelations = details.relations || [];
@@ -810,7 +792,7 @@ async function completeReaderChapter() {
 }
 
 function restoreReaderProgress(manga, chapter) {
-  const position = mangaPositionFor(manga.id, manga.language, chapter);
+  const position = mangaPositionFor(manga.id, chapter);
   const target = position && els.mangaReaderPages.querySelector(`.manga-page[data-page="${position.page}"]`);
   if (!target) return;
   let restored = false;
@@ -955,7 +937,7 @@ async function setChapterRead(manga, chapter, read, { markThrough = false } = {}
       id: manga.id,
       chapter,
       ...(shouldMarkThrough ? { chapters: manga.chapters || [] } : { read }),
-      manga: { name: manga.name, thumbnail: manga.thumbnail, language: manga.language },
+      manga: { name: manga.name, thumbnail: manga.thumbnail },
     }),
   });
   if (read) removeMangaProgress(manga, chapter);
@@ -1046,35 +1028,6 @@ export function bindMangaControls() {
     state.mangaLibraryQuery = els.mangaLibrarySearchInput.value;
     writeUiPrefs({ mangaLibraryQuery: state.mangaLibraryQuery });
     renderMangaLibrary();
-  });
-  document.addEventListener('change', async (event) => {
-    const select = event.target.closest('.manga-card select[data-action="manga-language"]');
-    if (!select) return;
-    const card = select.closest('.manga-card');
-    const manga = findManga(card);
-    if (!manga) return;
-    const previous = manga.language === 'raw' ? 'raw' : 'sub';
-    const language = select.value === 'raw' ? 'raw' : 'sub';
-    select.disabled = true;
-    try {
-      const tracked = state.mangaLibrary.some((item) => item.id === manga.id);
-      if (card.dataset.source === 'library' || tracked) {
-        await updateMangaLanguage(manga, language);
-      } else {
-        manga.language = language;
-        manga.chapterCount = manga.chapterCounts?.[language] || manga.chapterCount;
-        manga.latestChapter = manga.latestChapters?.[language] || manga.latestChapter;
-        manga.lastChapterDate = manga.lastChapterDates?.[language] || null;
-        renderMangaResults();
-        toast(`Using ${language === 'raw' ? 'Raw' : 'Translated'} for ${manga.name || manga.title}`);
-      }
-    } catch (err) {
-      manga.language = previous;
-      select.value = previous;
-      toast(err.message);
-    } finally {
-      select.disabled = false;
-    }
   });
   document.querySelectorAll('.manga-browse-button').forEach((button) => button.addEventListener('click', () => {
     state.mangaBrowseSort = button.dataset.mangaSort || 'Latest_Update';

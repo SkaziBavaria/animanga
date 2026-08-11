@@ -2,9 +2,15 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { searchManga, popularManga, getMangaDetails, setRawFetcher } = require('../../lib/allmanga');
+const {
+  searchManga, popularManga, getMangaDetails, getChapterPages, assertComicIdentity,
+  setRawFetcher, setPageResolversForTests,
+} = require('../../lib/allmanga');
 
-test.afterEach(() => setRawFetcher());
+test.afterEach(() => {
+  setRawFetcher();
+  setPageResolversForTests();
+});
 
 test('searchManga maps ComicK results', async () => {
   let path;
@@ -25,7 +31,7 @@ test('searchManga maps ComicK results', async () => {
       md_titles: [{ title: 'Naruto', lang: 'en' }],
     }];
   });
-  const result = await searchManga('naruto', { language: 'sub', sortBy: 'Trending' });
+  const result = await searchManga('naruto', { sortBy: 'Trending' });
   assert.match(path, /\/v1\.0\/search\//);
   assert.match(path, /q=naruto/);
   assert.equal(result.results[0].id, 'naruto');
@@ -119,8 +125,71 @@ test('getMangaDetails can skip related manga lookups for chapter lists', async (
       artists: [],
     };
   });
-  const manga = await getMangaDetails('story', 'sub', { includeRelations: false });
+  const manga = await getMangaDetails('story', { includeRelations: false });
   assert.equal(chapterCalls, 1);
   assert.deepEqual(manga.chapters, ['1', '2']);
   assert.deepEqual(manga.relations, []);
+});
+
+test('chapter pages fall back after a resolver rejects the title', async () => {
+  setRawFetcher(async () => ({
+    comic: { hid: 'h1', slug: 'demo-story', title: 'Demo Story', md_titles: [] },
+  }));
+  const calls = [];
+  setPageResolversForTests([
+    async () => { calls.push('primary'); throw new Error('No safe primary match'); },
+    async () => {
+      calls.push('fallback');
+      return { resolvedTitle: 'Demo Story', pages: [{ number: 1, url: 'https://cdn.example/1.jpg' }] };
+    },
+  ]);
+  const result = await getChapterPages('demo-story', '1');
+  assert.deepEqual(calls, ['primary', 'fallback']);
+  assert.equal(result.pages[0].url, 'https://cdn.example/1.jpg');
+  assert.equal(result.catalogRequestId, 'demo-story');
+  assert.equal(result.catalogHid, 'h1');
+});
+
+test('ComicK payload identity accepts only the requested slug or hid', () => {
+  const payload = { comic: { hid: 'hid-1', slug: 'demo-story' } };
+  assert.equal(assertComicIdentity('demo-story', payload), payload);
+  assert.equal(assertComicIdentity('hid-1', payload), payload);
+  assert.throws(() => assertComicIdentity('another-story', payload), /identity mismatch/);
+});
+
+test('ComicK fallback rejects the first unrelated search result', async () => {
+  setRawFetcher(async (requestPath) => {
+    if (requestPath.includes('/v1.0/search/')) {
+      return [{ hid: 'solo', slug: 'solo-leveling', title: 'Solo Leveling' }];
+    }
+    return { comic: { hid: 'dress', slug: 'my-dress-up-darling', title: 'My Dress-Up Darling' } };
+  });
+  await assert.rejects(getChapterPages('married-man', '1'), /exact search match missing/);
+});
+
+test('ComicK fallback accepts an exact search identity and revalidates its details', async () => {
+  let detailCalls = 0;
+  setRawFetcher(async (requestPath) => {
+    if (requestPath.includes('/v1.0/search/')) {
+      return [{ hid: 'hid-1', slug: 'demo-story', title: 'Demo Story' }];
+    }
+    detailCalls += 1;
+    if (detailCalls === 1) throw new Error('temporary detail failure');
+    return { comic: { hid: 'hid-1', slug: 'demo-story', title: 'Demo Story', md_titles: [] } };
+  });
+  setPageResolversForTests([async () => ({
+    resolvedTitle: 'Demo Story', pages: [{ number: 1, url: 'https://cdn.example/1.jpg' }],
+  })]);
+  const result = await getChapterPages('demo-story', '1');
+  assert.equal(result.catalogSlug, 'demo-story');
+});
+
+test('resolver chain rejects a provider result bound to an unrelated title', async () => {
+  setRawFetcher(async () => ({
+    comic: { hid: 'hid-1', slug: 'demo-story', title: 'Demo Story', md_titles: [] },
+  }));
+  setPageResolversForTests([async () => ({
+    resolvedTitle: 'Solo Leveling', pages: [{ number: 1, url: 'https://cdn.example/1.jpg' }],
+  })]);
+  await assert.rejects(getChapterPages('demo-story', '1'), /resolved title did not match/);
 });

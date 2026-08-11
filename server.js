@@ -24,10 +24,8 @@ setTimeout(() => {
     const { migrateLibraryToAnidb } = require('./lib/anidb-migrate');
     const { migrateLibraryToComicK } = require('./lib/comick-migrate');
     const state = readState();
-    Promise.all([
-      migrateLibraryToAnidb(state, { limit: 25 }),
-      migrateLibraryToComicK(state, { limit: 25 }),
-    ])
+    migrateLibraryToAnidb(state, { limit: 25 })
+      .then(async (animeReport) => [animeReport, await migrateLibraryToComicK(state, { limit: 25 })])
       .then(([animeReport, mangaReport]) => {
         if (animeReport.migrated || animeReport.needsRematch || mangaReport.migrated || mangaReport.needsRematch) {
           saveState(state);

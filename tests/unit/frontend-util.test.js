@@ -53,6 +53,13 @@ test('matchesLibraryQuery matches name englishName and title case-insensitively'
   assert.equal(matchesLibraryQuery(item, 'zzz'), false);
 });
 
+test('hasExactTitleMatch distinguishes broad results from an exact title', async () => {
+  const { hasExactTitleMatch } = await loadUtil();
+  assert.equal(hasExactTitleMatch([{ name: 'Attack on Titan' }], 'titan'), false);
+  assert.equal(hasExactTitleMatch([{ title: 'Titan (12 episodes)' }], 'titan'), true);
+  assert.equal(hasExactTitleMatch([{ alternativeTitles: ['Shingeki no Kyojin'] }], 'shingeki-no-kyojin'), true);
+});
+
 test('presentAnimeCard recomputes newCount from last watched and latest', async () => {
   const { presentAnimeCard } = await loadUtil();
   const presented = presentAnimeCard({

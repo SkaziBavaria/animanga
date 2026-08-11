@@ -279,7 +279,9 @@ test.describe('Resume playback from the library card', () => {
         lastWatched: '2',
         latestEpisode: 12,
         watchedEpisodes: ['1', '2'],
-        episodeCounts: { sub: 12, dub: 12 },
+        // Search/details responses often contain only the currently selected mode.
+        // Missing dub availability must remain selectable and be verified on switch.
+        episodeCounts: { sub: 12 },
       })],
       positions: {
         'a:3': { showId: 'a', episode: '3', position: 400, duration: 1400, updatedAt: new Date().toISOString() },

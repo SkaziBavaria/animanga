@@ -50,32 +50,30 @@ export function saveProgress(showId, episode, position, duration) {
   postBeacon('/api/progress', { id: showId, episode, position: pos, duration: dur });
 }
 
-export function mangaPositionKey(mangaId, language, chapter) {
-  return `${mangaId}:${language === 'raw' ? 'raw' : 'sub'}:${String(chapter || '').trim()}`;
+export function mangaPositionKey(mangaId, chapter) {
+  return `${mangaId}:sub:${String(chapter || '').trim()}`;
 }
 
-export function mangaPositionFor(mangaId, language, chapter) {
-  return state.mangaPositions[mangaPositionKey(mangaId, language, chapter)] || null;
+export function mangaPositionFor(mangaId, chapter) {
+  return state.mangaPositions[mangaPositionKey(mangaId, chapter)] || null;
 }
 
 export function latestMangaPositionFor(manga) {
-  const language = manga?.language === 'raw' ? 'raw' : 'sub';
   const read = new Set((manga?.readChapters || []).map(String));
   return Object.values(state.mangaPositions || {})
-    .filter((position) => position.mangaId === manga?.id && position.language === language)
+    .filter((position) => position.mangaId === manga?.id)
     .filter((position) => !read.has(String(position.chapter)))
     .sort((a, b) => Date.parse(b.updatedAt || 0) - Date.parse(a.updatedAt || 0))[0] || null;
 }
 
 export function saveMangaProgress(manga, chapter, page, pageCount) {
   if (!manga?.id || !chapter) return;
-  const language = manga.language === 'raw' ? 'raw' : 'sub';
-  const key = mangaPositionKey(manga.id, language, chapter);
+  const key = mangaPositionKey(manga.id, chapter);
   const currentPage = Math.floor(Number(page));
   if (!Number.isFinite(currentPage) || currentPage < 1) return;
   const position = {
     mangaId: manga.id,
-    language,
+    language: 'sub',
     chapter: String(chapter),
     page: currentPage,
     pageCount: Number(pageCount) > 0 ? Math.floor(Number(pageCount)) : null,
@@ -87,8 +85,7 @@ export function saveMangaProgress(manga, chapter, page, pageCount) {
 
 export function removeMangaProgress(manga, chapter) {
   if (!manga?.id || !chapter) return;
-  const language = manga.language === 'raw' ? 'raw' : 'sub';
-  const key = mangaPositionKey(manga.id, language, chapter);
+  const key = mangaPositionKey(manga.id, chapter);
   delete state.mangaPositions[key];
 }
 
