@@ -30,10 +30,21 @@ function raiseToast() {
   } catch {}
 }
 
-export function toast(message) {
+export function toast(message, options = {}) {
   clearTimeout(toast.timer);
   clearTimeout(toast.hideTimer);
-  els.toast.textContent = message;
+  els.toast.replaceChildren(document.createTextNode(message));
+  if (options.actionLabel && typeof options.onAction === 'function') {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'toast-action';
+    button.textContent = options.actionLabel;
+    button.addEventListener('click', async () => {
+      button.disabled = true;
+      try { await options.onAction(); } catch (error) { toast(error.message); }
+    }, { once: true });
+    els.toast.append(button);
+  }
   raiseToast();
   els.toast.classList.add('show');
   // Reinsert the toast after any dialog opened in the same task so it stays
@@ -48,7 +59,7 @@ export function toast(message) {
         if (els.toast.matches(':popover-open')) els.toast.hidePopover();
       } catch {}
     }, 200);
-  }, 2600);
+  }, options.duration || (options.actionLabel ? 6000 : 2600));
 }
 
 export function reportBackgroundError(context, error) {

@@ -18,6 +18,7 @@ let introSkipped = false;
 let finishedMarked = false;
 let playerSeeking = false;
 let detachSkipTimes = null;
+let playbackGeneration = 0;
 const controlsState = {
   hover: false,
   hideTimer: 0,
@@ -498,6 +499,7 @@ function closeBlockingDialogs() {
 }
 
 function openBrowserPlayback(show, episode, playback) {
+  const generation = ++playbackGeneration;
   currentContext = { showId: show.id, episode: String(episode) };
   currentShow = show;
   lastSavedAt = 0;
@@ -520,17 +522,21 @@ function openBrowserPlayback(show, episode, playback) {
   attachSkipTimes(show, episode);
 
   const failPlayback = () => {
+    if (generation !== playbackGeneration) return;
     els.playerVideo.onerror = null;
     setVideoControlsVisible(true);
     toast(videoErrorMessage(els.playerVideo));
   };
 
   els.playerVideo.src = playbackStreamUrl(playback);
+  els.playerVideo.load();
   if (direct) {
     els.playerVideo.onerror = () => {
+      if (generation !== playbackGeneration) return;
       els.playerVideo.onerror = failPlayback;
       attachResume(resume);
       els.playerVideo.src = proxyStreamUrl(playback);
+      els.playerVideo.load();
       startVideoPlayback();
     };
   } else {
@@ -600,6 +606,7 @@ export function bindPlayerDialog() {
     els.playerDialog.close();
   });
   els.playerDialog.addEventListener('close', () => {
+    playbackGeneration += 1;
     if (shouldMarkFinishedOnClose()) markEpisodeFinished();
     else persistProgress();
     refreshAnimeCards();
