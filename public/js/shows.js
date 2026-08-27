@@ -143,6 +143,7 @@ export function sequelAlertCard(alert) {
         <button class="primary" data-action="track-sequel">Track sequel</button>
         <button class="secondary" data-action="details">About</button>
         <button class="secondary" data-action="dismiss-sequel" data-source-id="${escapeHtml(alert.source.id)}">Dismiss</button>
+        <button class="secondary subtle" data-action="mute-sequels" data-source-id="${escapeHtml(alert.source.id)}">Stop sequel alerts</button>
       </div>
     </article>
   `;

@@ -1547,6 +1547,24 @@ dialog::backdrop {
   transform: translateY(0);
 }
 
+.toast:has(.toast-action) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  pointer-events: auto;
+}
+
+.toast-action {
+  flex: 0 0 auto;
+  border: 0;
+  padding: 4px 2px;
+  color: var(--accent);
+  background: transparent;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .empty {
   border: 1px dashed var(--line);
   border-radius: 8px;

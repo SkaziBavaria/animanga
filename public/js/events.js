@@ -10,7 +10,7 @@ import {
 } from './downloads.js';
 import { openEpisodes, playShow, bindEpisodeDialog, toggleEpisodeWatched } from './episodes.js';
 import { loadJobs, clearJobs } from './jobs.js';
-import { dismissSequel, loadLibrary, renderLibrary, trackShow, removeShow, setShowArchived, updateShowMode } from './library.js';
+import { dismissSequel, loadLibrary, renderLibrary, restoreSequel, setSequelAlertsMuted, trackShow, removeShow, setShowArchived, updateShowMode } from './library.js';
 import { loadMangaLibrary } from './manga.js';
 import { bindPlayerDialog } from './playback.js';
 import {
@@ -73,6 +73,9 @@ function bindGlobalClicks() {
         if (action === 'episodes') await openEpisodes(show);
         if (action === 'details') await openDetails(show);
         if (action === 'dismiss-sequel') await dismissSequel(cardButton.dataset.sourceId, show.id);
+        if (action === 'mute-sequels') await setSequelAlertsMuted(cardButton.dataset.sourceId, true);
+        if (action === 'restore-sequel') await restoreSequel(cardButton.dataset.sourceId);
+        if (action === 'resume-sequels') await setSequelAlertsMuted(cardButton.dataset.sourceId, false);
       });
     }
   });

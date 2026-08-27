@@ -27,8 +27,12 @@ import {
   releasePills,
 } from './util.js';
 
+let playbackRequestId = 0;
+
 export async function playShow(show, episode) {
+  const requestId = ++playbackRequestId;
   const localPlayback = await resolveLocalPlayback(show, episode);
+  if (requestId !== playbackRequestId) return;
   if (localPlayback) {
     toast(`Opening downloaded ep ${episode}...`);
     openPlayback(show, episode, localPlayback);
@@ -37,6 +41,7 @@ export async function playShow(show, episode) {
   }
   toast(usesBrowserPlayer() ? `Fetching stream for ep ${episode}...` : `Fetching MPV link for ep ${episode}...`);
   const playback = await resolveMpvPlayback(show, episode);
+  if (requestId !== playbackRequestId) return;
   toast(usesBrowserPlayer() ? 'Opening player...' : 'Opening MPV...');
   openPlayback(show, episode, playback);
   await loadLibrary(false);

@@ -270,11 +270,13 @@ test('sequel dismissals sync as show metadata', () => {
     tracked: true,
     watchedEpisodes: [],
     dismissedNextSeasonId: 'sequel-2',
+    sequelAlertsMuted: true,
   };
   saveState(state);
 
   const record = syncBundle().records.find((item) => item.kind === 'show' && item.key === 'source');
   assert.equal(record.value.dismissedNextSeasonId, 'sequel-2');
+  assert.equal(record.value.sequelAlertsMuted, true);
 
   mergeSyncBundles([{
     version: 1,
@@ -282,12 +284,13 @@ test('sequel dismissals sync as show metadata', () => {
     records: [{
       kind: 'show',
       key: 'remote-source',
-      value: { id: 'remote-source', name: 'Remote source', dismissedNextSeasonId: 'remote-sequel' },
+      value: { id: 'remote-source', name: 'Remote source', dismissedNextSeasonId: 'remote-sequel', sequelAlertsMuted: true },
       updatedAt: '2099-06-01T00:00:00.000Z',
       deviceId: 'phone',
     }],
   }]);
   assert.equal(readState().shows['remote-source'].dismissedNextSeasonId, 'remote-sequel');
+  assert.equal(readState().shows['remote-source'].sequelAlertsMuted, true);
 });
 
 test('manga sequel dismissals sync as manga metadata', () => {

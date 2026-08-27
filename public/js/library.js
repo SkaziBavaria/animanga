@@ -4,6 +4,7 @@ import { els } from './dom.js';
 import { state } from './state.js';
 import { sequelAlertCard, showCard } from './shows.js';
 import {
+  escapeHtml,
   hasNewEpisodeToContinue,
   hasStarted,
   isCompleted,
@@ -20,6 +21,7 @@ function sequelAlerts(shows) {
   const tracked = new Set(shows.filter((show) => show.tracked !== false).map((show) => String(show.id)));
   const seen = new Set();
   return shows.flatMap((source) => {
+    if (source.sequelAlertsMuted) return [];
     const sequel = source.nextSeason;
     const id = String(sequel?.id || '');
     if (!id || tracked.has(id) || source.dismissedNextSeasonId === id || seen.has(id)) return [];
@@ -77,6 +79,20 @@ export function renderLibrary() {
     els.libraryList.innerHTML = alerts.length
       ? alerts.map(sequelAlertCard).join('')
       : `<div class="empty">${String(state.libraryQuery || '').trim() ? 'No sequels match this search.' : 'No new sequels found.'}</div>`;
+    return;
+  }
+
+  if (state.libraryFilter === 'hidden-sequels') {
+    const hidden = state.library.filter((show) => show.sequelAlertsMuted || show.dismissedNextSeasonId);
+    els.libraryCount.textContent = hidden.length;
+    els.libraryList.innerHTML = hidden.length ? hidden.map((show) => {
+      const title = show.name || show.title || 'Untitled series';
+      const dismissed = show.dismissedNextSeasonId
+        ? `<button class="secondary" data-action="restore-sequel" data-source-id="${escapeHtml(show.id)}">Restore dismissed sequel</button>` : '';
+      const muted = show.sequelAlertsMuted
+        ? `<button class="secondary" data-action="resume-sequels" data-source-id="${escapeHtml(show.id)}">Resume sequel alerts</button>` : '';
+      return `<article class="show-card" data-id="${escapeHtml(show.id)}" data-source="library"><div class="show-main"><div class="show-title">${escapeHtml(title)}</div><div class="show-meta"><span class="pill">${show.sequelAlertsMuted ? 'Alerts stopped' : 'Sequel dismissed'}</span></div></div><div class="card-actions">${dismissed}${muted}</div></article>`;
+    }).join('') : '<div class="empty">No hidden sequel alerts.</div>';
     return;
   }
 
@@ -156,7 +172,29 @@ export async function dismissSequel(sourceId, sequelId) {
   const source = state.library.find((show) => show.id === sourceId);
   if (source) Object.assign(source, data.show || {}, { dismissedNextSeasonId: sequelId });
   renderLibrary();
-  toast('Sequel dismissed');
+  toast('Sequel dismissed', { actionLabel: 'Undo', onAction: () => restoreSequel(sourceId) });
+}
+
+export async function restoreSequel(sourceId, notify = true) {
+  const data = await api(`/api/shows/${encodeURIComponent(sourceId)}`, {
+    method: 'PATCH', body: JSON.stringify({ dismissedNextSeasonId: '' }),
+  });
+  const source = state.library.find((show) => show.id === sourceId);
+  if (source) Object.assign(source, data.show || {}, { dismissedNextSeasonId: '' });
+  renderLibrary();
+  if (notify) toast('Sequel restored');
+}
+
+export async function setSequelAlertsMuted(sourceId, muted) {
+  const data = await api(`/api/shows/${encodeURIComponent(sourceId)}`, {
+    method: 'PATCH', body: JSON.stringify({ sequelAlertsMuted: Boolean(muted) }),
+  });
+  const source = state.library.find((show) => show.id === sourceId);
+  if (source) Object.assign(source, data.show || {}, { sequelAlertsMuted: Boolean(muted) });
+  renderLibrary();
+  toast(muted ? 'Sequel alerts stopped' : 'Sequel alerts resumed', muted ? {
+    actionLabel: 'Undo', onAction: () => setSequelAlertsMuted(sourceId, false),
+  } : {});
 }
 
 export async function updateShowMode(show, mode) {

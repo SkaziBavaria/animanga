@@ -235,6 +235,31 @@ test.describe('Library filtering & sorting', () => {
     await expect(page.locator('#libraryList .sequel-alert')).toHaveCount(0);
   });
 
+  test('undoes and later restores dismissed or muted sequel alerts', async ({ page }) => {
+    await installApiMocks(page, {
+      library: [makeShow({
+        id: 'source',
+        name: 'Source show',
+        nextSeason: { id: 'sequel', name: 'New sequel', status: 'Releasing' },
+      })],
+    });
+    await page.goto('/');
+    await page.selectOption('#libraryFilter', 'sequels');
+
+    await page.locator('button[data-action="dismiss-sequel"]').click();
+    await expect(page.locator('#toast .toast-action')).toHaveText('Undo');
+    await page.locator('#toast .toast-action').click();
+    await expect(page.locator('#libraryList .sequel-alert')).toHaveCount(1);
+
+    await page.locator('button[data-action="mute-sequels"]').click();
+    await expect(page.locator('#libraryList')).toContainText('No new sequels found.');
+    await page.selectOption('#libraryFilter', 'hidden-sequels');
+    await expect(page.locator('#libraryList')).toContainText('Alerts stopped');
+    await page.locator('button[data-action="resume-sequels"]').click();
+    await page.selectOption('#libraryFilter', 'sequels');
+    await expect(page.locator('#libraryList .sequel-alert')).toHaveCount(1);
+  });
+
   test('archives and unarchives a show from the library card', async ({ page }) => {
     const archive = page.waitForRequest((req) => /\/api\/shows\/a$/.test(req.url()) && req.method() === 'PATCH');
     await page.locator('.show-card[data-id="a"] button[data-action="archive"]').click();
@@ -271,6 +296,38 @@ test.describe('Library filtering & sorting', () => {
 });
 
 test.describe('Resume playback from the library card', () => {
+  test('does not let an older episode request replace the latest playback', async ({ page }) => {
+    await installApiMocks(page, {
+      library: [makeShow({
+        id: 'a', name: 'Alpha', lastWatched: '5', latestEpisode: 6,
+        watchedEpisodes: ['1', '2', '3', '4', '5'],
+      })],
+    });
+    await page.route('**/api/play', async (route) => {
+      const episode = route.request().postDataJSON().episode;
+      if (episode === '1') await new Promise((resolve) => setTimeout(resolve, 250));
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ playback: { url: `https://cdn.example/ep-${episode}.mp4` } }),
+      });
+    });
+    await page.goto('/');
+
+    await page.evaluate(async () => {
+      const { playShow } = await import('/js/episodes.js');
+      const show = { id: 'a', name: 'Alpha', mode: 'sub', latestEpisode: 6 };
+      void playShow(show, '1');
+      void playShow(show, '6');
+    });
+
+    await expect(page.locator('#playerTitle')).toContainText('ep 6');
+    await expect.poll(() => page.locator('#playerVideo').evaluate((video) => video.src)).toContain('ep-6.mp4');
+    await page.waitForTimeout(300);
+    await expect(page.locator('#playerTitle')).toContainText('ep 6');
+    await expect(page.locator('#playerVideo')).toHaveAttribute('src', /ep-6\.mp4/);
+  });
+
   test('switches between sub and dub without losing shared progress', async ({ page }) => {
     await installApiMocks(page, {
       library: [makeShow({
