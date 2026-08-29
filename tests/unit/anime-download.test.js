@@ -18,6 +18,10 @@ test('ffmpeg arguments preserve the provider headers and remux into mp4', () => 
 
   assert.equal(args[args.indexOf('-i') + 1], 'https://cdn.example/video/master.m3u8');
   assert.match(args[args.indexOf('-headers') + 1], /Referer: https:\/\/provider\.example\//);
+  assert.deepEqual(args.slice(args.indexOf('-extension_picky'), args.indexOf('-extension_picky') + 2), [
+    '-extension_picky', '0',
+  ]);
+  assert.ok(args.indexOf('-extension_picky') < args.indexOf('-i'));
   assert.ok(args.includes('copy'));
   assert.equal(args.at(-1), '/tmp/episode.part.mp4');
 });
