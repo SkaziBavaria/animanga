@@ -253,6 +253,7 @@ function focusPlayerStage() {
 async function requestPlayerFullscreen() {
   els.playerDialog?.classList.add('player-fullscreen');
   document.body.classList.add('player-fullscreen-active');
+  updateVideoControls();
   const root = document.documentElement;
   const request = root.requestFullscreen || root.webkitRequestFullscreen;
   if (request) await request.call(root);
@@ -262,6 +263,7 @@ async function requestPlayerFullscreen() {
 async function exitPlayerFullscreen() {
   els.playerDialog?.classList.remove('player-fullscreen');
   document.body.classList.remove('player-fullscreen-active');
+  updateVideoControls();
   const exit = document.exitFullscreen || document.webkitExitFullscreen;
   if (fullscreenElement() && exit) await exit.call(document);
   focusPlayerStage();
@@ -386,9 +388,13 @@ function updateVideoControls() {
   }
   if (els.playerFullscreenBtn) {
     const fullscreen = isPlayerStageFullscreen();
+    const path = fullscreen
+      ? 'M9 4v5H4V7h3V4h2Zm6 0h2v3h3v2h-5V4ZM4 15h5v5H7v-3H4v-2Zm11 0h5v2h-3v3h-2v-5Z'
+      : 'M4 9V4h5v2H6v3H4Zm11-5h5v5h-2V6h-3V4ZM6 15v3h3v2H4v-5h2Zm12 0h2v5h-5v-2h3v-3Z';
+    els.playerFullscreenBtn.innerHTML = `<svg class="fullscreen-icon ${fullscreen ? 'fullscreen-exit' : 'fullscreen-enter'}" viewBox="0 0 24 24" aria-hidden="true"><path d="${path}"></path></svg>`;
     els.playerFullscreenBtn.classList.toggle('is-fullscreen', fullscreen);
     els.playerFullscreenBtn.title = fullscreen ? 'Exit fullscreen' : 'Fullscreen';
-    els.playerFullscreenBtn.setAttribute('aria-label', fullscreen ? 'Exit fullscreen' : 'Fullscreen');
+    els.playerFullscreenBtn.setAttribute('aria-label', fullscreen ? 'Exit fullscreen' : 'Enter fullscreen');
   }
 
   const duration = Number.isFinite(video.duration) ? video.duration : 0;

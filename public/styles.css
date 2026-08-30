@@ -1840,11 +1840,11 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
   bottom: 0;
   z-index: 4;
   display: grid;
-  grid-template-columns: auto minmax(80px, 1fr) 40px minmax(56px, 92px) 40px;
+  grid-template-columns: auto minmax(80px, 1fr) 48px minmax(64px, 104px) 48px;
   align-items: center;
   gap: 6px;
-  min-height: 48px;
-  padding: 16px 10px 8px;
+  min-height: 58px;
+  padding: 18px 12px 8px;
   background: linear-gradient(to top, rgba(0, 0, 0, .72), rgba(0, 0, 0, .32), transparent);
   color: #fff;
   line-height: 1;
@@ -1867,10 +1867,10 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
 }
 
 .center-controls .video-control-button {
-  width: 46px;
-  height: 46px;
-  min-width: 46px;
-  font-size: 22px;
+  width: 52px;
+  height: 52px;
+  min-width: 52px;
+  font-size: 24px;
   background: rgba(0, 0, 0, .34);
   backdrop-filter: blur(2px);
 }
@@ -1881,11 +1881,11 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
 }
 
 .center-controls .play-center-button {
-  width: 62px;
-  height: 62px;
-  min-width: 62px;
-  flex: 0 0 62px;
-  font-size: 28px;
+  width: 70px;
+  height: 70px;
+  min-width: 70px;
+  flex: 0 0 70px;
+  font-size: 30px;
 }
 
 .player-stage.controls-hidden .video-controls,
@@ -1918,9 +1918,9 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 32px;
-  min-width: 40px;
+  width: 48px;
+  height: 44px;
+  min-width: 48px;
   padding: 0;
   border: 0;
   border-radius: 50%;
@@ -1943,12 +1943,22 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
   display: block;
 }
 
+.previous-button::before,
+.next-button::before {
+  content: "";
+  box-sizing: border-box;
+  width: 13px;
+  height: 13px;
+  border-top: 3px solid currentColor;
+  border-right: 3px solid currentColor;
+}
+
 .previous-button::before {
-  content: "\00AB";
+  transform: translateX(2px) rotate(-135deg);
 }
 
 .next-button::before {
-  content: "\00BB";
+  transform: translateX(-2px) rotate(45deg);
 }
 
 .play-center-button::before {
@@ -1978,12 +1988,9 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
   content: "\1F507";
 }
 
-.fullscreen-button::before {
-  content: "\26F6";
-}
-
-.fullscreen-button.is-fullscreen::before {
-  content: "\2573";
+.fullscreen-button .fullscreen-icon {
+  width: 24px;
+  height: 24px;
 }
 
 .player-time {
@@ -2028,9 +2035,9 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
 .player-seek::-webkit-slider-thumb,
 .player-volume::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 12px;
-  height: 12px;
-  margin-top: -4px;
+  width: 16px;
+  height: 16px;
+  margin-top: -6px;
   border: 0;
   border-radius: 50%;
   background: #fff;
@@ -2054,8 +2061,8 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
 
 .player-seek::-moz-range-thumb,
 .player-volume::-moz-range-thumb {
-  width: 12px;
-  height: 12px;
+  width: 16px;
+  height: 16px;
   border: 0;
   border-radius: 50%;
   background: #fff;
@@ -2064,7 +2071,10 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
 
 @media (max-width: 560px) {
   .video-controls {
-    grid-template-columns: minmax(70px, 1fr) 34px 34px;
+    grid-template-columns: minmax(70px, 1fr) 48px 48px;
+    gap: 4px;
+    padding-left: 8px;
+    padding-right: 8px;
   }
 
   .player-time,
