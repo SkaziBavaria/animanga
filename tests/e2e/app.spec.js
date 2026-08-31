@@ -87,6 +87,24 @@ test.describe('Shell & navigation', () => {
     await expect(page.locator('#libraryList .show-card button[data-action="play"]')).toHaveText('Resume ep 2');
   });
 
+  test('uses the manga-style fullscreen control in the browser player', async ({ page }) => {
+    await page.click('#libraryList .show-card button[data-action="play"]');
+    await expect(page.locator('#playerDialog')).toBeVisible();
+    await page.evaluate(() => {
+      document.documentElement.requestFullscreen = async () => {
+        document.documentElement.dataset.fullscreenRequested = 'true';
+      };
+    });
+
+    await page.click('#playerFullscreenBtn');
+
+    await expect(page.locator('html')).toHaveAttribute('data-fullscreen-requested', 'true');
+    await expect(page.locator('#playerDialog')).toHaveClass(/player-fullscreen/);
+    await expect(page.locator('body')).toHaveClass(/player-fullscreen-active/);
+    await expect(page.locator('#playerFullscreenBtn')).toHaveAttribute('aria-label', 'Exit fullscreen');
+    await expect(page.locator('#playerFullscreenBtn .fullscreen-exit')).toBeVisible();
+  });
+
   test('keyboard and wheel shortcuts control the browser player', async ({ page }) => {
     await page.click('#libraryList .show-card button[data-action="play"]');
     await expect(page.locator('#playerDialog')).toBeVisible();
