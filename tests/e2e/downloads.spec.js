@@ -72,4 +72,27 @@ test.describe('Downloads panel', () => {
     await refresh;
     await expect(page.locator('#downloadsList .download-card')).toHaveCount(2);
   });
+
+  test('does not present failed attempts as stored downloads', async ({ page }) => {
+    await installApiMocks(page, {
+      downloads: {
+        ...DOWNLOADS,
+        'lib1:3': { key: 'lib1:3', showId: 'lib1', episode: '3', showName: 'Failed Show', status: 'failed' },
+      },
+    });
+    await page.reload();
+    await page.click('.tab[data-view="settingsView"]');
+    await page.click('.advanced-panel summary');
+    await expect(page.locator('#downloadsList')).not.toContainText('Failed Show');
+    await expect(page.locator('#downloadsList .download-card')).toHaveCount(2);
+  });
+
+  test('deletes all stored downloads from Advanced settings', async ({ page }) => {
+    page.on('dialog', (dialog) => dialog.accept());
+    const deletion = page.waitForRequest((req) => req.url().endsWith('/api/downloads') && req.method() === 'DELETE');
+    await page.click('#deleteAllStoredDownloadsBtn');
+    await deletion;
+    await expect(page.locator('#downloadsList')).toContainText('No downloads');
+    await expect(page.locator('#toast')).toContainText('downloads deleted');
+  });
 });

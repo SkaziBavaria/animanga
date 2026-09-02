@@ -84,6 +84,7 @@ export const els = {
   githubDeviceUrl: $('#githubDeviceUrl'),
   githubDeviceCode: $('#githubDeviceCode'),
   downloadsBtn: $('#downloadsBtn'),
+  deleteAllStoredDownloadsBtn: $('#deleteAllStoredDownloadsBtn'),
   downloadsList: $('#downloadsList'),
   releaseWatchesCount: $('#releaseWatchesCount'),
   releaseWatchesCheckBtn: $('#releaseWatchesCheckBtn'),
