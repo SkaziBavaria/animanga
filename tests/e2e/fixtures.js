@@ -379,6 +379,13 @@ async function installApiMocks(page, overrides = {}) {
     if (p === '/api/downloads' && method === 'GET') {
       return route.fulfill(jsonBody({ downloadDir: '/data/downloads', downloads, mangaDownloads }));
     }
+    if (p === '/api/downloads' && method === 'DELETE') {
+      const deleted = Object.values(downloads).filter((item) => item.status === 'done' || ['queued', 'running'].includes(item.status)).length
+        + mangaDownloads.length;
+      downloads = {};
+      mangaDownloads = [];
+      return route.fulfill(jsonBody({ deleted, cancelled: 0 }));
+    }
     if (p === '/api/release-watches' && method === 'GET') return route.fulfill(jsonBody({ watches: releaseWatches }));
     if (p === '/api/release-watches/check') return route.fulfill(jsonBody({ watches: releaseWatches, found: [] }));
     if (p === '/api/jobs' && method === 'GET') return route.fulfill(jsonBody({ jobs }));

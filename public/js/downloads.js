@@ -71,7 +71,7 @@ export async function deleteDownload(showId, episode) {
 
 export function renderDownloads() {
   const downloads = Object.values(state.downloads || {})
-    .filter((item) => item.status !== 'deleted')
+    .filter((item) => isDownloadBusy(item.status) || (item.status === 'done' && item.file))
     .sort((a, b) => String(b.updatedAt || b.startedAt || '').localeCompare(String(a.updatedAt || a.startedAt || '')));
   const animeCards = downloads.map((item) => {
     const size = item.file?.size ? `${Math.round(item.file.size / 1024 / 1024)} MB` : '';
@@ -126,6 +126,23 @@ export async function loadDownloads() {
   scheduleDownloadsPoll();
 }
 
+async function deleteAllStoredDownloads() {
+  const animeCount = Object.values(state.downloads || {})
+    .filter((item) => isDownloadBusy(item.status) || (item.status === 'done' && item.file)).length;
+  const mangaCount = (state.offlineMangaDownloads || []).length;
+  const total = animeCount + mangaCount;
+  if (!total) {
+    toast('No downloads to delete');
+    return;
+  }
+  const ok = window.confirm(`Delete all ${total} downloaded item${total === 1 ? '' : 's'}? Active anime downloads will be cancelled.`);
+  if (!ok) return;
+  const data = await api('/api/downloads', { method: 'DELETE' });
+  toast(`${data.deleted || 0} downloads deleted${data.cancelled ? `, ${data.cancelled} cancelled` : ''}`);
+  await loadDownloads();
+  pokeJobsSoon();
+}
+
 export function bindDownloadControls() {
   els.downloadAllBtn.addEventListener('click', () => {
     if (!state.activeShow) return;
@@ -155,4 +172,7 @@ export function bindDownloadControls() {
     }
   });
   els.downloadsBtn.addEventListener('click', () => loadDownloads().catch((err) => toast(err.message)));
+  els.deleteAllStoredDownloadsBtn.addEventListener('click', () => {
+    withBusy(els.deleteAllStoredDownloadsBtn, 'Deleting...', deleteAllStoredDownloads).catch((err) => toast(err.message));
+  });
 }
