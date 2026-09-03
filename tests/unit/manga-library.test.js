@@ -40,9 +40,10 @@ test('mergeManga preserves useful metadata when refresh fields are empty', () =>
 test('manga refresh guard rejects mismatched and incomplete metadata', () => {
   const existing = { id: 'correct-1', sourceName: 'Correct Manga', thumbnail: 'old.jpg' };
   assert.throws(() => assertSafeMangaRefresh(existing, { id: 'wrong-2', name: 'Correct Manga', thumbnail: 'new.jpg' }), /wrong identity/);
-  assert.throws(() => assertSafeMangaRefresh(existing, { id: 'correct-1', name: 'Bad Gateway', thumbnail: 'new.jpg' }), /mismatched/);
+  assert.throws(() => assertSafeMangaRefresh(existing, { id: 'correct-1', name: 'Bad Gateway', thumbnail: 'new.jpg' }), /invalid/);
   assert.throws(() => assertSafeMangaRefresh(existing, { id: 'correct-1', name: 'Correct Manga' }), /incomplete/);
   assert.equal(assertSafeMangaRefresh(existing, { id: 'correct-1', name: 'Correct Manga', thumbnail: 'new.jpg' }).id, 'correct-1');
+  assert.equal(assertSafeMangaRefresh(existing, { id: 'correct-1', name: 'Unrelated translated alias', thumbnail: 'new.jpg' }).id, 'correct-1');
 });
 
 test('presentManga calculates the latest reading state', () => {
