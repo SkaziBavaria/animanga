@@ -4,6 +4,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
   looksLikeCloudflareChallenge,
+  looksLikeMaintenancePage,
+  looksLikeUpstreamErrorPage,
   setAnidbTextFetcherForTests,
   fetchAnidbText,
   resetCurlBinaryForTests,
@@ -60,6 +62,35 @@ test('detects Cloudflare challenge pages', () => {
     looksLikeCloudflareChallenge('<script src="/cdn-cgi/challenge-platform/x.js"></script><title>Browse Anime</title>'),
     false,
   );
+});
+
+test('detects upstream maintenance pages', () => {
+  assert.equal(looksLikeMaintenancePage('<title>Under Maintenance</title>'), true);
+  assert.equal(looksLikeMaintenancePage('<title>The Eminence in Shadow</title>'), false);
+});
+
+test('detects generic upstream error pages without rejecting normal titles', () => {
+  for (const title of ['Service Unavailable', 'Bad Gateway', 'Gateway Timeout', 'Access Denied', 'Internal Server Error']) {
+    assert.equal(looksLikeUpstreamErrorPage(`<title>${title}</title>`), true);
+  }
+  assert.equal(looksLikeUpstreamErrorPage('<title>Maintenance Activity</title>'), false);
+});
+
+test('curl rejects HTTP error responses before parsing their body', async () => {
+  let receivedArgs;
+  setCurlRunnerForTests(async (_binary, args) => {
+    receivedArgs = args;
+    return '<html>ok</html>';
+  });
+  const { fetchWebText } = require('../../lib/anidb-fetch');
+  await fetchWebText('https://example.test/');
+  assert.equal(receivedArgs.includes('--fail-with-body'), true);
+});
+
+test('rejects maintenance pages even when upstream returns a body', async () => {
+  setCurlRunnerForTests(async () => '<title>Under Maintenance</title>');
+  const { fetchWebText } = require('../../lib/anidb-fetch');
+  await assert.rejects(fetchWebText('https://example.test/'), /error page/i);
 });
 
 test('prefers impersonation binaries and falls back to plain curl', () => {

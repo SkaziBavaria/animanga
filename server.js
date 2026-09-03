@@ -13,9 +13,11 @@ const { serveStatic } = require('./lib/static');
 const { syncNow, waitForActiveSync } = require('./lib/sync');
 const { requireAuthentication } = require('./lib/auth');
 const { shutdownJobs } = require('./lib/jobs');
+const { startLibraryRefreshSchedule, stopLibraryRefreshSchedule } = require('./lib/library-refresh');
 
 ensureDataDir();
 startBackupSchedule();
+startLibraryRefreshSchedule();
 
 // Best-effort provider ID migrations (non-blocking).
 setTimeout(() => {
@@ -110,6 +112,7 @@ async function shutdown(signal) {
     serverClosed,
     shutdownJobs(),
     waitForActiveSync(),
+    stopLibraryRefreshSchedule(),
   ]);
   clearTimeout(connectionDeadline);
   await closeState();

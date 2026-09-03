@@ -1154,6 +1154,17 @@ export function bindMangaControls() {
     }
     readerProgressTimer = setTimeout(persistReaderProgress, 500);
   }, { passive: true });
+  document.addEventListener('keydown', (event) => {
+    if (!els.mangaReaderDialog.open || (event.key !== 'ArrowUp' && event.key !== 'ArrowDown')) return;
+    const target = event.target;
+    if (target instanceof HTMLElement && ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(target.tagName)) return;
+    event.preventDefault();
+    const direction = event.key === 'ArrowDown' ? 1 : -1;
+    els.mangaReaderPages.scrollBy({
+      top: direction * Math.max(240, els.mangaReaderPages.clientHeight * 0.8),
+      behavior: 'smooth',
+    });
+  });
   els.mangaDownloadChapterBtn.addEventListener('click', () => runAction(els.mangaDownloadChapterBtn, '…', () => toggleChapterDownload(state.activeManga, state.activeChapter)));
   updateMangaFullscreenButton();
   els.mangaFullscreenBtn.addEventListener('click', () => toggleMangaFullscreen().catch((err) => {

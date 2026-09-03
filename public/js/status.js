@@ -1,5 +1,6 @@
 import { api } from './api.js';
 import { els } from './dom.js';
+import { state } from './state.js';
 import { formatCacheAge } from './util.js';
 
 let statusCache = null;
@@ -30,6 +31,28 @@ function renderUpdateNotice(update) {
   els.updateNotice.textContent = `Update ${update.latest}`;
 }
 
+function renderProviderHealth(providers = {}) {
+  if (!els.providerBanner) return;
+  const labels = { anidb: 'AniDB', comick: 'ComicK', mangadex: 'MangaDex', weebcentral: 'WeebCentral', mangapill: 'MangaPill', mangatown: 'MangaTown' };
+  const relevant = state.mediaMode === 'manga'
+    ? new Set(['comick', 'mangadex', 'weebcentral', 'mangapill', 'mangatown'])
+    : new Set(['anidb']);
+  const failures = Object.values(providers)
+    .filter((provider) => provider && provider.ok === false && relevant.has(provider.provider));
+  if (!failures.length) {
+    els.providerBanner.hidden = true;
+    els.providerBanner.textContent = '';
+    return;
+  }
+  els.providerBanner.hidden = false;
+  els.providerBanner.textContent = failures.map((provider) => {
+    const retry = provider.retryAt ? ` · retry ${new Date(provider.retryAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : '';
+    return `${labels[provider.provider] || provider.provider}: ${provider.reason}${retry}`;
+  }).join(' · ');
+}
+
+window.addEventListener('animanga:media-mode', () => renderProviderHealth(statusCache?.providers));
+
 export async function loadStatus() {
   statusCache = await api('/api/status');
   const version = statusCache.version ? `v${statusCache.version}` : 'AniManga';
@@ -37,14 +60,15 @@ export async function loadStatus() {
     ? `Offline · cached ${formatCacheAge(statusCache.offlineAgeSeconds)} · ${version}`
     : version;
   renderUpdateNotice(statusCache.update);
+  renderProviderHealth(statusCache.providers);
 
   if (!statusCache.offline && !statusCache.update) {
     window.setTimeout(() => {
       api('/api/status')
         .then((fresh) => {
-          if (!fresh?.update) return;
           statusCache = { ...statusCache, ...fresh };
-          renderUpdateNotice(fresh.update);
+          if (fresh?.update) renderUpdateNotice(fresh.update);
+          renderProviderHealth(fresh.providers);
         })
         .catch(() => {});
     }, 2000);
