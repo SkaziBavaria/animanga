@@ -4,7 +4,7 @@ import { state } from './state.js';
 function providerForMessage(value) {
   const message = String(value || '');
   if (/\bAniDB\b/i.test(message)) return 'anime';
-  if (/\b(?:ComicK|MangaDex|WeebCentral|MangaPill|MangaTown)\b/i.test(message)) return 'manga';
+  if (/\b(?:Manga provider|ComicK|MangaDex|WeebCentral|MangaPill|MangaTown)\b/i.test(message)) return 'manga';
   return null;
 }
 
