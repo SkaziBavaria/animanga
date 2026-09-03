@@ -23,11 +23,24 @@ export async function api(path, options = {}) {
     const detail = typeof json.details === 'string'
       ? json.details.replace(new RegExp('\\u001b\\[[0-9;]*m', 'g'), '').trim().split('\n').filter(Boolean).slice(-3).join(' · ')
       : '';
-    const error = new Error(detail ? `${json.error}: ${detail}` : json.error || `HTTP ${res.status}`);
+    const error = new Error(publicErrorMessage(
+      detail ? `${json.error}: ${detail}` : json.error || `HTTP ${res.status}`,
+    ));
     toastError(error);
     throw error;
   }
   return json;
+}
+
+export function publicErrorMessage(value) {
+  const message = String(value || 'Something went wrong');
+  const isAniDbPlayback = /AniManga could not fetch a playable link|AniDB/i.test(message);
+  const leaksCurlInternals = /upstream curl failed|curl:\s*\(\d+\)|curl_(?:chrome|firefox)|curl-impersonate/i.test(message);
+  if (isAniDbPlayback && leaksCurlInternals) {
+    const status = message.match(/(?:HTTP|error:)\s*(\d{3})/i)?.[1];
+    return status ? `AniDB unavailable (HTTP ${status})` : 'AniDB unavailable';
+  }
+  return message;
 }
 
 function raiseToast() {
@@ -41,7 +54,7 @@ function raiseToast() {
 export function toast(message, options = {}) {
   clearTimeout(toast.timer);
   clearTimeout(toast.hideTimer);
-  const text = String(message || 'Something went wrong');
+  const text = publicErrorMessage(message);
   const inheritedError = text === toast.lastErrorMessage && Date.now() < (toast.lastErrorUntil || 0);
   const isError = options.error === true || inheritedError;
   els.toast.classList.toggle('error', isError);

@@ -1,5 +1,5 @@
-const SHELL_CACHE = 'animanga-shell-v2';
-const API_CACHE = 'animanga-api-v2';
+const SHELL_CACHE = 'animanga-shell-v3';
+const API_CACHE = 'animanga-api-v3';
 const ASSETS = [
   '/', '/index.html', '/styles.css', '/manifest.webmanifest', '/icon.svg', '/animanga-logo.png',
   '/js/app.js', '/js/api.js', '/js/aniskip.js', '/js/details.js', '/js/discover.js',
