@@ -132,6 +132,16 @@ button.busy {
   text-decoration: underline;
 }
 
+.provider-banner {
+  margin: 0.75rem 1rem 0;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid color-mix(in srgb, var(--danger) 55%, var(--line));
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--danger) 12%, var(--surface));
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
 h1,
 h2,
 p {

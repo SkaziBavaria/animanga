@@ -189,6 +189,7 @@ export function switchMediaMode(mode = state.mediaMode === 'anime' ? 'manga' : '
   if (document.querySelector('#settingsView.active')) state.activeSection = 'library';
   state.mediaMode = mode === 'manga' ? 'manga' : 'anime';
   localStorage.setItem('animanga-media-mode', state.mediaMode);
+  window.dispatchEvent(new Event('animanga:media-mode'));
   els.mediaModeLabel.textContent = state.mediaMode === 'manga' ? 'Manga' : 'Anime';
   const nextMode = state.mediaMode === 'manga' ? 'anime' : 'manga';
   els.mediaSwitchBtn.title = `Switch to ${nextMode}`;

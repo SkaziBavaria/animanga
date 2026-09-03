@@ -8,6 +8,7 @@ const {
   presentMangaReleaseWatch,
   createMangaReleaseWatch,
   checkMangaReleaseWatch,
+  assertSafeMangaRefresh,
 } = require('../../lib/manga-library');
 const { setRawFetcher } = require('../../lib/allmanga');
 
@@ -26,6 +27,22 @@ test('mergeManga defaults archived to false and accepts archive updates', () => 
   const created = mergeManga(state, { id: 'm2', name: 'Fresh' });
   assert.equal(created.archived, false);
   assert.equal(mergeManga(state, { id: 'm2', archived: true }).archived, true);
+});
+
+test('mergeManga preserves useful metadata when refresh fields are empty', () => {
+  const state = { mangas: { m1: { id: 'm1', name: 'Existing', thumbnail: 'cover.jpg', chapters: ['1'] } } };
+  const manga = mergeManga(state, { id: 'm1', name: '', thumbnail: '', chapters: [] });
+  assert.equal(manga.name, 'Existing');
+  assert.equal(manga.thumbnail, 'cover.jpg');
+  assert.deepEqual(manga.chapters, ['1']);
+});
+
+test('manga refresh guard rejects mismatched and incomplete metadata', () => {
+  const existing = { id: 'correct-1', sourceName: 'Correct Manga', thumbnail: 'old.jpg' };
+  assert.throws(() => assertSafeMangaRefresh(existing, { id: 'wrong-2', name: 'Correct Manga', thumbnail: 'new.jpg' }), /wrong identity/);
+  assert.throws(() => assertSafeMangaRefresh(existing, { id: 'correct-1', name: 'Bad Gateway', thumbnail: 'new.jpg' }), /mismatched/);
+  assert.throws(() => assertSafeMangaRefresh(existing, { id: 'correct-1', name: 'Correct Manga' }), /incomplete/);
+  assert.equal(assertSafeMangaRefresh(existing, { id: 'correct-1', name: 'Correct Manga', thumbnail: 'new.jpg' }).id, 'correct-1');
 });
 
 test('presentManga calculates the latest reading state', () => {
