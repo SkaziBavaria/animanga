@@ -1557,12 +1557,31 @@ dialog::backdrop {
   transform: translateY(0);
 }
 
-.toast:has(.toast-action) {
+.toast:has(.toast-action),
+.toast.error {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
   pointer-events: auto;
+}
+
+.toast.error {
+  border-color: color-mix(in srgb, var(--danger) 72%, var(--line));
+  border-left-width: 5px;
+  background: color-mix(in srgb, #160709 88%, var(--danger));
+  box-shadow: 0 12px 36px rgba(0, 0, 0, .55), 0 0 0 1px rgba(255, 107, 107, .12);
+}
+
+.toast.error .toast-message::before {
+  content: 'Error · ';
+  color: var(--danger);
+  font-weight: 800;
+}
+
+.toast-message {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .toast-action {
@@ -1573,6 +1592,25 @@ dialog::backdrop {
   background: transparent;
   font-weight: 700;
   cursor: pointer;
+}
+
+.toast-close {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: var(--text);
+  background: rgba(255, 255, 255, .1);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.toast-close:hover,
+.toast-close:focus-visible {
+  background: rgba(255, 255, 255, .2);
 }
 
 .empty {
