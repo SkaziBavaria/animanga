@@ -1,4 +1,17 @@
 import { els } from './dom.js';
+import { state } from './state.js';
+
+function providerForMessage(value) {
+  const message = String(value || '');
+  if (/\bAniDB\b/i.test(message)) return 'anime';
+  if (/\b(?:ComicK|MangaDex|WeebCentral|MangaPill|MangaTown)\b/i.test(message)) return 'manga';
+  return null;
+}
+
+function isRelevantMessage(value) {
+  const providerMode = providerForMessage(value);
+  return !providerMode || providerMode === state.mediaMode;
+}
 
 export async function api(path, options = {}) {
   let res;
@@ -55,6 +68,7 @@ export function toast(message, options = {}) {
   clearTimeout(toast.timer);
   clearTimeout(toast.hideTimer);
   const text = publicErrorMessage(message);
+  if (!isRelevantMessage(text)) return;
   const inheritedError = text === toast.lastErrorMessage && Date.now() < (toast.lastErrorUntil || 0);
   const isError = options.error === true || inheritedError;
   els.toast.classList.toggle('error', isError);
@@ -106,6 +120,11 @@ function hideToast() {
     } catch {}
   }, 200);
 }
+
+window.addEventListener('animanga:media-mode', () => {
+  const message = els.toast.querySelector('.toast-message')?.textContent || '';
+  if (message && !isRelevantMessage(message)) hideToast();
+});
 
 export function toastError(error) {
   const message = error?.message || error || 'Something went wrong';
