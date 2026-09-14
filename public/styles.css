@@ -1936,7 +1936,7 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
   position: absolute;
   top: 50%;
   left: 50%;
-  z-index: 4;
+  z-index: 6;
   display: flex;
   align-items: center;
   gap: clamp(28px, 8vw, 72px);
