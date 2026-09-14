@@ -2,7 +2,9 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { mergeShow, presentShow, pickReleaseWatchMatch } = require('../../lib/library');
+const {
+  mergeShow, presentShow, pickReleaseWatchMatch, assertSafeShowRefresh,
+} = require('../../lib/library');
 
 test('mergeShow preserves useful metadata when a refresh returns empty fields', () => {
   const state = {
@@ -41,12 +43,45 @@ test('mergeShow preserves useful metadata when a refresh returns empty fields', 
   assert.equal(merged.archived, true);
 });
 
+test('mergeShow remaps leftover absolute watch history onto the current episode list', () => {
+  const state = { settings: { mode: 'sub' }, shows: {} };
+  const merged = mergeShow(state, {
+    id: 'season',
+    name: 'Season Show',
+    episodes: Array.from({ length: 22 }, (_, index) => String(index + 1)),
+    latestEpisode: '22',
+    episodeCount: 22,
+    watchedEpisodes: ['73', '74', '89'],
+    lastWatched: '89',
+  });
+  assert.deepEqual(merged.watchedEpisodes, ['1', '2', '17']);
+});
+
+test('mergeShow uses a language that actually has episode counts', () => {
+  const state = { settings: { mode: 'sub' }, shows: {} };
+  const merged = mergeShow(state, {
+    id: 'sub-only',
+    name: 'Sub Only',
+    mode: 'dub',
+    episodeCounts: { sub: 9 },
+  });
+  assert.equal(merged.mode, 'sub');
+});
+
 test('mergeShow defaults archived to false and accepts explicit archive updates', () => {
   const state = { settings: { mode: 'sub' }, shows: {} };
   const created = mergeShow(state, { id: 'fresh', name: 'Fresh' });
   assert.equal(created.archived, false);
   const archived = mergeShow(state, { id: 'fresh', archived: true });
   assert.equal(archived.archived, true);
+});
+
+test('anime refresh guard rejects mismatched and incomplete metadata', () => {
+  const existing = { id: 'correct-1', sourceName: 'Correct Show', thumbnail: 'old.jpg' };
+  assert.throws(() => assertSafeShowRefresh(existing, { id: 'wrong-2', name: 'Correct Show', thumbnail: 'new.jpg' }), /wrong identity/);
+  assert.throws(() => assertSafeShowRefresh(existing, { id: 'correct-1', name: 'Service Unavailable', thumbnail: 'new.jpg' }), /mismatched/);
+  assert.throws(() => assertSafeShowRefresh(existing, { id: 'correct-1', name: 'Correct Show' }), /incomplete/);
+  assert.equal(assertSafeShowRefresh(existing, { id: 'correct-1', name: 'Correct Show', thumbnail: 'new.jpg' }).id, 'correct-1');
 });
 
 test('presentShow lets sequel data override a stale false flag', () => {

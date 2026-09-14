@@ -38,13 +38,16 @@ export function saveProgress(showId, episode, position, duration) {
   if (!Number.isFinite(pos) || pos < 5 || nearEnd) {
     delete state.positions[key];
   } else {
+    const updatedAt = new Date().toISOString();
     state.positions[key] = {
       showId,
       episode: String(episode).trim(),
       position: pos,
       duration: Number.isFinite(dur) && dur > 0 ? dur : null,
-      updatedAt: new Date().toISOString(),
+      updatedAt,
     };
+    const show = (state.library || []).find((item) => item.id === showId);
+    if (show) show.lastActivityAt = updatedAt;
   }
 
   postBeacon('/api/progress', { id: showId, episode, position: pos, duration: dur });
@@ -80,6 +83,8 @@ export function saveMangaProgress(manga, chapter, page, pageCount) {
     updatedAt: new Date().toISOString(),
   };
   state.mangaPositions[key] = position;
+  const libraryManga = (state.mangaLibrary || []).find((item) => item.id === manga.id);
+  if (libraryManga) libraryManga.lastActivityAt = position.updatedAt;
   postBeacon('/api/manga/progress', position);
 }
 

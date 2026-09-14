@@ -45,9 +45,10 @@ function infoPills(show) {
 function modeSelector(show) {
   const current = show.mode || state.settings?.mode || 'sub';
   const counts = show.episodeCounts || {};
+  const hasCounts = Object.values(counts).some((value) => Number(value) > 0);
   const options = ['sub', 'dub'].map((mode) => {
     const count = Number(counts[mode] || 0);
-    const unavailable = Object.hasOwn(counts, mode) && count <= 0;
+    const unavailable = hasCounts && count <= 0;
     return `<option value="${mode}"${mode === current ? ' selected' : ''}${unavailable ? ' disabled' : ''}>${mode.toUpperCase()}</option>`;
   }).join('');
   return `
@@ -97,7 +98,7 @@ export function showCard(show, source) {
       ? '<button class="secondary" data-action="unarchive">Unarchive</button>'
       : '<button class="secondary" data-action="archive">Archive</button>'
     }<button class="danger" data-action="remove">Remove</button>${show.providerMigrationStatus && show.providerMigrationStatus !== 'migrated'
-      ? '<button class="secondary" data-action="match-hianime">Match HiAnime</button>' : ''}`
+      ? '<button class="secondary" data-action="match-catalog">Match catalog</button>' : ''}`
     : isTracked
       ? '<button class="tracked" data-action="tracked" disabled>Tracked</button>'
       : '<button class="secondary" data-action="track">Track</button>';
@@ -119,7 +120,7 @@ export function showCard(show, source) {
           ${show.recommendationReason ? `<span class="pill reason">${escapeHtml(show.recommendationReason)}</span>` : ''}
           ${show.refreshError ? `<span class="pill danger">Refresh failed</span>` : ''}
           ${source === 'library' && show.providerMigrationStatus && show.providerMigrationStatus !== 'migrated'
-            ? `<span class="pill${show.providerMigrationStatus === 'error' ? ' danger' : ''}" title="${escapeHtml(show.providerMigrationReason || '')}">HiAnime: ${show.providerMigrationStatus === 'error' ? 'error' : 'manual match needed'}</span>` : ''}
+            ? `<span class="pill${show.providerMigrationStatus === 'error' ? ' danger' : ''}" title="${escapeHtml(show.providerMigrationReason || '')}">Catalog: ${show.providerMigrationStatus === 'error' ? 'error' : 'manual match needed'}</span>` : ''}
         </div>
       </div>
       <div class="card-actions ${source === 'library' ? 'four' : 'three'}">

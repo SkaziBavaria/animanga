@@ -10,6 +10,20 @@ async function loadUtil() {
   return import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
 }
 
+test('nextEpisode remaps leftover absolute watch history onto the current season', async () => {
+  const { nextEpisode, presentAnimeCard } = await loadUtil();
+  const show = {
+    episodes: Array.from({ length: 22 }, (_, index) => String(index + 1)),
+    latestEpisode: '22',
+    episodeCount: 22,
+    episodeCounts: { sub: 20 },
+    watchedEpisodes: ['73', '74', '89'],
+    lastWatched: '89',
+  };
+  assert.equal(nextEpisode(show), '18');
+  assert.equal(presentAnimeCard(show).lastWatched, '17');
+});
+
 test('nextEpisode skips watched episodes and finds a later unwatched episode', async () => {
   const { nextEpisode } = await loadUtil();
   assert.equal(nextEpisode({
@@ -131,7 +145,7 @@ test('compareNewestActivity keeps the latest activity at the front', async () =>
   ];
   assert.deepEqual(
     [...items].sort((a, b) => compareNewestActivity(a, b, none)).map((item) => item.name),
-    ['Newest', 'Mid', 'Old', 'Missing'],
+    ['Newest', 'Mid', 'Missing', 'Old'],
   );
 });
 
@@ -141,4 +155,35 @@ test('compareNewestActivity prefers watch activity over a later metadata refresh
   const watched = { name: 'Watched', updatedAt: '2026-01-02T00:00:00.000Z', lastActivityAt: '2026-09-12T21:00:00.000Z' };
   const sorted = [refreshed, watched].sort((a, b) => compareNewestActivity(a, b, () => []));
   assert.equal(sorted[0].name, 'Watched');
+});
+
+test('recent sort ignores metadata refresh when a title has no lastActivityAt', async () => {
+  const { compareNewestActivity } = await loadUtil();
+  const refreshed = { name: 'Refreshed', updatedAt: '2026-09-13T01:00:00.000Z' };
+  const watched = {
+    name: 'Watched',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    lastActivityAt: '2026-09-12T12:00:00.000Z',
+  };
+  const sorted = [refreshed, watched].sort((a, b) => compareNewestActivity(a, b, () => []));
+  assert.equal(sorted[0].name, 'Watched');
+});
+
+test('playbackPositionToSave keeps a remembered mid-episode time after the player is reset', async () => {
+  const { playbackPositionToSave } = await loadUtil();
+  assert.deepEqual(
+    playbackPositionToSave(0, Number.NaN, { time: 720, duration: 1440 }),
+    { position: 720, duration: 1440 },
+  );
+  assert.equal(playbackPositionToSave(0, 1440, { time: 0, duration: 1440 }), null);
+  assert.deepEqual(
+    playbackPositionToSave(400, 1440, { time: 12, duration: 1440 }),
+    { position: 400, duration: 1440 },
+  );
+});
+
+test('episodeTitle prefers stored names and falls back to a numbered label', async () => {
+  const { episodeTitle } = await loadUtil();
+  assert.equal(episodeTitle({ episodeTitles: { 1: "The Journey's End" } }, '1'), "The Journey's End");
+  assert.equal(episodeTitle({ episodeTitles: {} }, '12'), 'Episode 12');
 });

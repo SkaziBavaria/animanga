@@ -6,10 +6,13 @@ const {
   parseSearchResults,
   parseEpisodes,
   decodeEmbedBlob,
+  pickSubtitleTrack,
   parseM3u8,
   parseChart,
   parseShowDetails,
   parseSupportedServers,
+  parseMegaplayCaptionServers,
+  resolvePopularBrowse,
 } = require('../../lib/hianime');
 const { pickMatch } = require('../../lib/hianime-migrate');
 
@@ -81,9 +84,43 @@ test('HiAnime episode parser binds episodes to the requested slug', () => {
   assert.deepEqual(parseEpisodes(html, 'foo-bar').map((item) => [item.id, item.number]), [[10, '1']]);
 });
 
+test('HiAnime episode parser reads named titles and skips generic Episode N labels', () => {
+  const html = JSON.stringify({
+    status: true,
+    html: '<a class="ssl-item ep-item" data-number="1" data-id="10" href="/watch/named-show-1?ep=10">'
+      + '<div class="ep-name dynamic-name" title="The Journey&#039;s End">The Journey&#039;s End</div></a>'
+      + '<a class="ssl-item ep-item" data-number="2" data-id="11" href="/watch/named-show-1?ep=11">'
+      + '<div class="ep-name dynamic-name" title="Episode 2">Episode 2</div></a>',
+  });
+  assert.deepEqual(parseEpisodes(html, 'named-show-1').map((item) => [item.number, item.title]), [
+    ['1', "The Journey's End"],
+    ['2', ''],
+  ]);
+});
+
 test('HiAnime embed decoder reverses the rotating XOR key', () => {
   const source = Buffer.from('otaku-embed-v1').map((byte, index) => byte ^ Buffer.from('otaku-embed-v1')[index]);
   assert.equal(decodeEmbedBlob(source.toString('base64')), 'otaku-embed-v1');
+});
+
+test('HiAnime subtitle picker prefers default then English and resolves relative URLs', () => {
+  assert.deepEqual(pickSubtitleTrack({
+    subtitles: [
+      { src: 'https://cdn.test/ja.vtt', lang: 'ja', label: 'Japanese' },
+      { src: '/subs/en.vtt', lang: 'en', label: 'English', default: true },
+    ],
+  }, 'https://player.test/embed'), {
+    src: 'https://player.test/subs/en.vtt',
+    lang: 'en',
+    label: 'English',
+  });
+  assert.equal(pickSubtitleTrack({
+    subtitles: [
+      { file: 'https://cdn.test/en.vtt', lang: 'en', label: 'English' },
+      { src: 'https://cdn.test/es.vtt', lang: 'es', label: 'Spanish' },
+    ],
+  }).src, 'https://cdn.test/en.vtt');
+  assert.equal(pickSubtitleTrack({ subtitles: [{ label: 'English' }] }), null);
 });
 
 test('HiAnime m3u8 parser resolves relative variants and quality', () => {
@@ -96,6 +133,15 @@ test('HiAnime migration rejects ambiguous title matches', () => {
   assert.equal(pickMatch({ name: 'Example' }, [{ id: 'example-1', name: 'Example' }, { id: 'example-2', name: 'Example' }]), null);
 });
 
+test('HiAnime server parser reads JSON html payloads', () => {
+  const html = JSON.stringify({
+    status: true,
+    html: '<div class="item server-item" data-type="sub" data-server-name="ZokoAnime" data-hash="abc"></div>'
+      + '<div class="item server-item" data-type="dub" data-server-name="ZokoAnime" data-hash="def"></div>',
+  });
+  assert.deepEqual(parseSupportedServers(html, 'sub').map((item) => item.hash), ['abc']);
+});
+
 test('server parsing never crosses language or unsupported player boundaries', () => {
   const html = '<div class="server-item" data-type="sub" data-server-name="HD-1" data-hash="a"></div>'
     + '<div class="server-item" data-type="dub" data-server-name="ZokoAnime" data-hash="b"></div>'
@@ -104,10 +150,31 @@ test('server parsing never crosses language or unsupported player boundaries', (
   assert.deepEqual(parseSupportedServers(html, 'dub').map((item) => item.hash), ['b']);
 });
 
+test('MegaPlay caption servers stay off the Zoko video decoder list', () => {
+  const html = '<div class="server-item" data-type="sub" data-server-name="ZokoAnime" data-hash="zoko"></div>'
+    + '<div class="server-item" data-type="sub" data-server-name="HD-2" data-hash="hd2"></div>'
+    + '<div class="server-item" data-type="sub" data-server-name="Vidstream-2" data-hash="vid2"></div>'
+    + '<div class="server-item" data-type="sub" data-server-name="VidPlay-1" data-hash="vidplay"></div>'
+    + '<div class="server-item" data-type="dub" data-server-name="HD-2" data-hash="dubhd"></div>';
+  assert.deepEqual(parseSupportedServers(html, 'sub').map((item) => item.hash), ['zoko']);
+  assert.deepEqual(parseMegaplayCaptionServers(html, 'sub').map((item) => [item.name, item.hash]), [
+    ['HD-2', 'hd2'],
+    ['Vidstream-2', 'vid2'],
+  ]);
+});
+
 test('HiAnime charts keep the requested time period separate', () => {
   const html = ['day', 'week', 'month'].map((period) => `<div id="top-viewed-${period}"><div class="film-detail"><a href="/${period}-1" title="${period}"></a></div></div>`).join('');
   assert.deepEqual(parseChart(html, '7').map((item) => item.name), ['week']);
   assert.deepEqual(parseChart(html, '30').map((item) => item.name), ['month']);
+});
+
+test('catalog browse uses live HiAnime pages instead of leftover chart labels', () => {
+  assert.deepEqual(resolvePopularBrowse('0'), { type: 'page', path: '/most-popular' });
+  assert.deepEqual(resolvePopularBrowse('airing'), { type: 'page', path: '/top-airing' });
+  assert.deepEqual(resolvePopularBrowse('favorite'), { type: 'page', path: '/most-favorite' });
+  assert.deepEqual(resolvePopularBrowse('7'), { type: 'chart', period: 'week', range: '7' });
+  assert.throws(() => resolvePopularBrowse('hot'), /Unknown catalog browse/);
 });
 
 test('HiAnime details exclude navigation genres and read attributes in either order', () => {

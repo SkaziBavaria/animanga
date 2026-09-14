@@ -5,9 +5,9 @@ const assert = require('node:assert/strict');
 const {
   parseSearchResults, parseChapterRows, parseReaderPagePaths, parseViewerImage, getChapterPagesByTitle,
 } = require('../../lib/mangatown');
-const { setAnidbTextFetcherForTests } = require('../../lib/anidb-fetch');
+const { setTextFetcherForTests } = require('../../lib/web-fetch');
 
-test.afterEach(() => setAnidbTextFetcherForTests(null));
+test.afterEach(() => setTextFetcherForTests(null));
 
 test('decodes MangaTown attributes exactly once', () => {
   assert.deepEqual(parseSearchResults(`
@@ -44,7 +44,7 @@ test('parses MangaTown search, decimal chapters and paged readers', () => {
 
 test('resolves MangaTown pages with a safe title match and bounded page URLs', async () => {
   const calls = [];
-  setAnidbTextFetcherForTests(async (url) => {
+  setTextFetcherForTests(async (url) => {
     calls.push(url);
     if (url.includes('/search?')) {
       return '<a class="manga_cover" href="/manga/demo_story/" title="Demo Story"></a>';
@@ -71,7 +71,7 @@ test('resolves MangaTown pages with a safe title match and bounded page URLs', a
 });
 
 test('rejects an unrelated MangaTown search result', async () => {
-  setAnidbTextFetcherForTests(async () => (
+  setTextFetcherForTests(async () => (
     '<a class="manga_cover" href="/manga/solo_leveling/" title="Solo Leveling"></a>'
   ));
   await assert.rejects(getChapterPagesByTitle(['Demo Story'], '1'), /No safe MangaTown match/);

@@ -75,6 +75,9 @@ test.describe('Discover: search & browse', () => {
     await page.click('.browse-button[data-popular-range="0"]');
     await expect(page.locator('#searchResults .show-card')).toHaveCount(1);
     await expect(page.locator('.browse-button[data-popular-range="0"]')).toHaveClass(/active/);
+    await page.click('.browse-button[data-popular-range="airing"]');
+    await expect(page.locator('.browse-button[data-popular-range="airing"]')).toHaveClass(/active/);
+    await expect(page.locator('.browse-button[data-popular-range="0"]')).not.toHaveClass(/active/);
   });
 
   test('browses recommendations', async ({ page }) => {

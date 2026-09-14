@@ -7,6 +7,7 @@ import { setupPlayerGestures } from './player-gestures.js';
 import { refreshAnimeCards, syncAnimeShow } from './library.js';
 import {
   presentAnimeCard,
+  playbackPositionToSave,
 } from './util.js';
 import { loadSkipTimes, skipShowTitle } from './aniskip.js';
 import {
@@ -14,10 +15,19 @@ import {
   loadHlsConstructor,
   nativeHlsSupported,
 } from './hls-player.js';
+import {
+  sidecarSubtitleSrc,
+  parseWebVtt,
+  activeCueText,
+} from './captions.js';
 
 let currentContext = null;
 let currentShow = null;
 let lastSavedAt = 0;
+let lastMediaTime = 0;
+let lastMediaDuration = 0;
+let captionCues = [];
+let captionLoadId = 0;
 let currentSkip = { op: null, ed: null };
 let introSkipped = false;
 let finishedMarked = false;
@@ -26,6 +36,7 @@ let detachSkipTimes = null;
 let playbackGeneration = 0;
 let activeHls = null;
 let awaitingHls = false;
+let detachCaptions = null;
 const controlsState = {
   hover: false,
   hideTimer: 0,
@@ -82,24 +93,44 @@ async function playAdjacent(dir) {
   }
 }
 
+function rememberMediaTime() {
+  const video = els.playerVideo;
+  const time = Number(video?.currentTime);
+  const duration = Number(video?.duration);
+  if (Number.isFinite(time) && time > 0) lastMediaTime = time;
+  if (Number.isFinite(duration) && duration > 0) lastMediaDuration = duration;
+}
+
 function persistProgress() {
   if (!currentContext || finishedMarked) return;
+  rememberMediaTime();
   const video = els.playerVideo;
-  if (!video || !Number.isFinite(video.currentTime)) return;
-  saveProgress(currentContext.showId, currentContext.episode, video.currentTime, video.duration);
+  const resolved = playbackPositionToSave(video?.currentTime, video?.duration, {
+    time: lastMediaTime,
+    duration: lastMediaDuration,
+  });
+  if (!resolved) return;
+  saveProgress(currentContext.showId, currentContext.episode, resolved.position, resolved.duration);
 }
 
 function attachResume(resumeSeconds) {
   if (!resumeSeconds || resumeSeconds < 5) return;
   const video = els.playerVideo;
-  const onLoaded = () => {
-    video.removeEventListener('loadedmetadata', onLoaded);
-    const limit = Number.isFinite(video.duration) ? video.duration - 5 : Infinity;
-    if (resumeSeconds < limit) {
-      try { video.currentTime = resumeSeconds; } catch {}
-    }
+  let applied = false;
+  const apply = () => {
+    if (applied) return;
+    const duration = Number(video.duration);
+    if (!Number.isFinite(duration) || duration <= resumeSeconds) return;
+    const limit = duration - 5;
+    if (resumeSeconds >= limit) return;
+    try {
+      video.currentTime = resumeSeconds;
+      applied = true;
+      updateCaptionOverlay();
+    } catch {}
   };
-  video.addEventListener('loadedmetadata', onLoaded);
+  video.addEventListener('loadedmetadata', apply);
+  video.addEventListener('durationchange', apply);
 }
 
 function attachSkipTimes(show, episode) {
@@ -152,9 +183,11 @@ function markEpisodeFinished() {
   if (Number.isFinite(duration) && duration > 0) saveProgress(showId, episode, duration, duration);
   if (state.settings.autoTrackPlayed === false) return;
   postBeacon('/api/mark', { id: showId, episode, watched: true });
+  const now = new Date().toISOString();
   const libraryShow = state.library.find((show) => show.id === showId);
   [...new Set([currentShow, state.activeShow, libraryShow].filter(Boolean))].forEach((show) => {
     show.watchedEpisodes = Array.from(new Set([...(show.watchedEpisodes || []), String(episode)]));
+    show.lastActivityAt = now;
     syncAnimeShow(presentAnimeCard(show));
   });
   refreshAnimeCards();
@@ -497,7 +530,41 @@ function detachHls() {
   activeHls = null;
 }
 
+function updateCaptionOverlay() {
+  const overlay = els.playerCaptions;
+  if (!overlay) return;
+  const text = activeCueText(captionCues, els.playerVideo?.currentTime);
+  overlay.hidden = !text;
+  overlay.textContent = text;
+}
+
+function enableSidecarCaptions(playback) {
+  detachCaptions?.();
+  captionCues = [];
+  updateCaptionOverlay();
+  const src = sidecarSubtitleSrc(playback);
+  if (!src) return;
+  const loadId = ++captionLoadId;
+  const controller = new AbortController();
+  detachCaptions = () => {
+    controller.abort();
+    captionCues = [];
+    updateCaptionOverlay();
+    detachCaptions = null;
+  };
+  fetch(src, { signal: controller.signal }).then(async (response) => {
+    if (!response.ok) return;
+    const text = await response.text();
+    if (loadId !== captionLoadId) return;
+    captionCues = parseWebVtt(text);
+    updateCaptionOverlay();
+  }).catch((error) => {
+    if (error?.name === 'AbortError') return;
+  });
+}
+
 function resetVideoElement() {
+  detachCaptions?.();
   detachHls();
   const video = els.playerVideo;
   if (!video) return;
@@ -549,7 +616,7 @@ function attachProgressivePlayback(video, playback, failPlayback) {
   startVideoPlayback();
 }
 
-async function attachHlsPlayback(video, playback, { generation, failPlayback }) {
+async function attachHlsPlayback(video, playback, { generation, failPlayback, resumeSeconds = 0 }) {
   const url = playbackStreamUrl(playback);
   let HlsCtor;
   try { HlsCtor = await loadHlsConstructor(); } catch (error) {
@@ -575,10 +642,20 @@ async function attachHlsPlayback(video, playback, { generation, failPlayback }) 
     toast('No playable stream format for this device');
     return;
   }
-  const hls = new HlsCtor({ enableWorker: true });
+  const hls = new HlsCtor({
+    enableWorker: true,
+    renderTextTracksNatively: false,
+    subtitleDisplay: false,
+  });
   activeHls = hls;
   hls.on(HlsCtor.Events.MANIFEST_PARSED, () => {
     if (generation !== playbackGeneration) return;
+    const resume = Number(resumeSeconds);
+    const duration = Number(video.duration);
+    if (resume >= 5 && Number.isFinite(duration) && resume < duration - 5) {
+      try { video.currentTime = resume; } catch {}
+    }
+    updateCaptionOverlay();
     startVideoPlayback();
   });
   hls.on(HlsCtor.Events.ERROR, (_event, data) => {
@@ -596,6 +673,8 @@ function openBrowserPlayback(show, episode, playback) {
   currentContext = { showId: show.id, episode: String(episode) };
   currentShow = show;
   lastSavedAt = 0;
+  lastMediaTime = 0;
+  lastMediaDuration = 0;
   currentSkip = { op: null, ed: null };
   introSkipped = false;
   finishedMarked = false;
@@ -611,6 +690,7 @@ function openBrowserPlayback(show, episode, playback) {
   video.onerror = null;
   attachResume(resume);
   attachSkipTimes(show, episode);
+  enableSidecarCaptions(playback);
 
   const failPlayback = () => {
     if (generation !== playbackGeneration) return;
@@ -628,7 +708,7 @@ function openBrowserPlayback(show, episode, playback) {
   });
   if (strategy === 'mse') {
     awaitingHls = true;
-    attachHlsPlayback(video, playback, { generation, failPlayback }).catch((error) => {
+    attachHlsPlayback(video, playback, { generation, failPlayback, resumeSeconds: resume }).catch((error) => {
       if (generation !== playbackGeneration) return;
       toast(error.message || 'Could not play this stream');
     });
@@ -673,6 +753,10 @@ export async function resolveMpvPlayback(show, episode) {
     referrer: data.playback.referrer,
     // Signed proxy path from the server — required; unsigned /api/proxy is rejected.
     proxyUrl: data.playback.proxyUrl,
+    subtitle: data.playback.subtitle,
+    subtitleProxyUrl: data.playback.subtitleProxyUrl,
+    subtitleLang: data.playback.subtitleLang,
+    subtitleLabel: data.playback.subtitleLabel,
     provider: data.playback.provider,
     quality: data.playback.quality,
   };
@@ -694,8 +778,8 @@ export async function resolveLocalPlayback(show, episode) {
 
 export function bindPlayerDialog() {
   els.closePlayerBtn.addEventListener('click', () => {
-    resetVideoElement();
-    els.playerDialog.close();
+    els.playerVideo?.pause();
+    if (els.playerDialog.open) els.playerDialog.close();
   });
   els.playerDialog.addEventListener('close', () => {
     playbackGeneration += 1;
@@ -756,6 +840,7 @@ export function bindPlayerDialog() {
     playerSeeking = true;
     video.currentTime = (Number(els.playerSeek.value) / 1000) * video.duration;
     updateVideoControls();
+    updateCaptionOverlay();
     setVideoControlsVisible(true);
   });
   els.playerSeek?.addEventListener('change', () => {
@@ -888,10 +973,14 @@ export function bindPlayerDialog() {
     isSeekChainActive,
   });
 
+  els.playerVideo.addEventListener('seeked', updateCaptionOverlay);
+  els.playerVideo.addEventListener('playing', updateCaptionOverlay);
+  els.playerVideo.addEventListener('loadeddata', updateCaptionOverlay);
   els.playerVideo.addEventListener('timeupdate', () => {
     if (!currentContext) return;
     handleSkipTimes();
     updateVideoControls();
+    updateCaptionOverlay();
     const now = Date.now();
     if (now - lastSavedAt < 5000) return;
     lastSavedAt = now;

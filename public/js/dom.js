@@ -3,6 +3,7 @@ const $ = (selector) => document.querySelector(selector);
 export const els = {
   statusText: $('#statusText'),
   updateNotice: $('#updateNotice'),
+  providerBanner: $('#providerBanner'),
   mediaSwitchBtn: $('#mediaSwitchBtn'),
   mediaModeLabel: $('#mediaModeLabel'),
   refreshBtn: $('#refreshBtn'),
@@ -115,6 +116,7 @@ export const els = {
   playerTitle: $('#playerTitle'),
   playerStage: $('#playerStage'),
   playerVideo: $('#playerVideo'),
+  playerCaptions: $('#playerCaptions'),
   playerOsd: $('#playerOsd'),
   centerControls: $('#centerControls'),
   videoControls: $('#videoControls'),

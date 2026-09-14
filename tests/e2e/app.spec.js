@@ -23,6 +23,45 @@ test.describe('Shell & navigation', () => {
     await expect(page.locator('#libraryCount')).toHaveText('1');
   });
 
+  test('hides a stale HiAnime 503 from the provider banner', async ({ page }) => {
+    await installApiMocks(page, {
+      status: {
+        ok: true,
+        version: APP_VERSION,
+        providers: {
+          hianime: {
+            provider: 'hianime',
+            ok: false,
+            reason: 'HTTP 503',
+            checkedAt: '2026-01-01T00:00:00.000Z',
+          },
+        },
+      },
+    });
+    await page.goto('/');
+    await expect(page.locator('#providerBanner')).toBeHidden();
+  });
+
+  test('shows a current HiAnime outage on the provider banner', async ({ page }) => {
+    await installApiMocks(page, {
+      status: {
+        ok: true,
+        version: APP_VERSION,
+        providers: {
+          hianime: {
+            provider: 'hianime',
+            ok: false,
+            reason: 'HTTP 503',
+            checkedAt: new Date().toISOString(),
+          },
+        },
+      },
+    });
+    await page.goto('/');
+    await expect(page.locator('#providerBanner')).toBeVisible();
+    await expect(page.locator('#providerBanner')).toContainText('HiAnime: HTTP 503');
+  });
+
   test('shows an update link under the brand when a newer release exists', async ({ page }) => {
     await installApiMocks(page, {
       status: {
@@ -85,6 +124,77 @@ test.describe('Shell & navigation', () => {
     await page.click('#closePlayerBtn');
     await expect(page.locator('#playerDialog')).toBeHidden();
     await expect(page.locator('#libraryList .show-card button[data-action="play"]')).toHaveText('Resume ep 2');
+  });
+
+  test('saves mid-episode progress when closing the player', async ({ page }) => {
+    const progressPosts = [];
+    page.on('request', (request) => {
+      if (request.url().includes('/api/progress') && request.method() === 'POST') {
+        progressPosts.push(request.postDataJSON());
+      }
+    });
+    await page.click('#libraryList .show-card button[data-action="play"]');
+    await expect(page.locator('#playerDialog')).toBeVisible();
+    await page.evaluate(() => {
+      const video = document.querySelector('#playerVideo');
+      Object.defineProperty(video, 'duration', { value: 1440, configurable: true });
+      Object.defineProperty(video, 'currentTime', { value: 720, writable: true, configurable: true });
+      video.dispatchEvent(new Event('timeupdate'));
+    });
+    await page.click('#closePlayerBtn');
+    await expect(page.locator('#playerDialog')).toBeHidden();
+    expect(progressPosts.some((body) => Number(body?.position) >= 700)).toBe(true);
+    expect(progressPosts.at(-1)?.position).not.toBe(0);
+  });
+
+  test('renders proxied sidecar captions over the browser player', async ({ page }) => {
+    await installApiMocks(page, {
+      playback: {
+        url: '/e2e-blank.mp4',
+        subtitleProxyUrl: '/e2e-en.vtt',
+        subtitleLang: 'en',
+        subtitleLabel: 'English',
+      },
+    });
+    await page.route('**/e2e-en.vtt', (route) => route.fulfill({
+      status: 200,
+      contentType: 'text/vtt',
+      body: 'WEBVTT\n\n00:00:00.000 --> 00:00:04.000\nCaption probe\n',
+    }));
+    await page.goto('/');
+    await page.click('#libraryList .show-card button[data-action="play"]');
+    await expect(page.locator('#playerDialog')).toBeVisible();
+    await expect.poll(() => page.evaluate(() => {
+      const video = document.querySelector('#playerVideo');
+      Object.defineProperty(video, 'currentTime', { value: 1, configurable: true, writable: true });
+      video.dispatchEvent(new Event('timeupdate'));
+      return document.querySelector('#playerCaptions')?.textContent || '';
+    })).toBe('Caption probe');
+  });
+
+  test('shows sidecar captions after a resume seek without waiting for timeupdate', async ({ page }) => {
+    await installApiMocks(page, {
+      playback: {
+        url: '/e2e-blank.mp4',
+        subtitleProxyUrl: '/e2e-en.vtt',
+        subtitleLang: 'en',
+        subtitleLabel: 'English',
+      },
+    });
+    await page.route('**/e2e-en.vtt', (route) => route.fulfill({
+      status: 200,
+      contentType: 'text/vtt',
+      body: 'WEBVTT\n\n00:00:00.000 --> 00:00:04.000\nStart line\n\n00:00:48.000 --> 00:01:10.000\nResume line\n',
+    }));
+    await page.goto('/');
+    await page.click('#libraryList .show-card button[data-action="play"]');
+    await expect(page.locator('#playerDialog')).toBeVisible();
+    await expect.poll(() => page.evaluate(() => {
+      const video = document.querySelector('#playerVideo');
+      Object.defineProperty(video, 'currentTime', { value: 50, configurable: true, writable: true });
+      video.dispatchEvent(new Event('seeked'));
+      return document.querySelector('#playerCaptions')?.textContent || '';
+    })).toBe('Resume line');
   });
 
   test('uses the manga-style fullscreen control in the browser player', async ({ page }) => {

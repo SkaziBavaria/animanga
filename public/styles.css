@@ -132,6 +132,16 @@ button.busy {
   text-decoration: underline;
 }
 
+.provider-banner {
+  margin: 0.75rem 1rem 0;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid color-mix(in srgb, var(--danger) 55%, var(--line));
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--danger) 12%, var(--surface));
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
 h1,
 h2,
 p {
@@ -1547,12 +1557,31 @@ dialog::backdrop {
   transform: translateY(0);
 }
 
-.toast:has(.toast-action) {
+.toast:has(.toast-action),
+.toast.error {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
   pointer-events: auto;
+}
+
+.toast.error {
+  border-color: color-mix(in srgb, var(--danger) 72%, var(--line));
+  border-left-width: 5px;
+  background: color-mix(in srgb, #160709 88%, var(--danger));
+  box-shadow: 0 12px 36px rgba(0, 0, 0, .55), 0 0 0 1px rgba(255, 107, 107, .12);
+}
+
+.toast.error .toast-message::before {
+  content: 'Error · ';
+  color: var(--danger);
+  font-weight: 800;
+}
+
+.toast-message {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .toast-action {
@@ -1563,6 +1592,25 @@ dialog::backdrop {
   background: transparent;
   font-weight: 700;
   cursor: pointer;
+}
+
+.toast-close {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: var(--text);
+  background: rgba(255, 255, 255, .1);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.toast-close:hover,
+.toast-close:focus-visible {
+  background: rgba(255, 255, 255, .2);
 }
 
 .empty {
@@ -1709,8 +1757,6 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
 
 .player-stage {
   position: relative;
-  /* Reserve room for both control groups before video metadata arrives. */
-  min-height: 420px;
   line-height: 0;
   overflow: hidden;
   background: #000;
@@ -1736,6 +1782,36 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
   max-height: min(540px, 60vh);
   background: #000;
   border-radius: 6px;
+}
+
+#playerVideo::cue {
+  color: #fff;
+  font-size: 1.15em;
+  line-height: 1.35;
+  text-shadow: 0 1px 2px #000, 0 0 8px #000;
+  background: transparent;
+}
+
+.player-captions {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: 72px;
+  z-index: 5;
+  pointer-events: none;
+  color: #fff;
+  text-align: center;
+  font-size: clamp(1rem, 2.6vw, 1.35rem);
+  line-height: 1.35;
+  text-shadow: 0 1px 2px #000, 0 0 10px #000;
+  white-space: pre-line;
+}
+
+.player-stage:fullscreen .player-captions,
+#playerDialog.player-fullscreen .player-captions,
+.player-stage:-webkit-full-screen .player-captions {
+  bottom: 88px;
+  font-size: clamp(1.1rem, 2.2vw, 1.7rem);
 }
 
 .player-stage:fullscreen #playerVideo,
@@ -1836,17 +1912,18 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
 }
 
 .video-controls {
+  --player-control-scale: 2;
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
   z-index: 4;
   display: grid;
-  grid-template-columns: auto minmax(80px, 1fr) 48px minmax(64px, 104px) 48px;
+  grid-template-columns: auto minmax(80px, 1fr) 96px minmax(128px, 208px) 96px;
   align-items: center;
-  gap: 6px;
-  min-height: 58px;
-  padding: 18px 12px 8px;
+  gap: 10px;
+  min-height: 92px;
+  padding: 28px 18px 10px;
   background: linear-gradient(to top, rgba(0, 0, 0, .72), rgba(0, 0, 0, .32), transparent);
   color: #fff;
   line-height: 1;
@@ -1869,10 +1946,10 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
 }
 
 .center-controls .video-control-button {
-  width: 52px;
-  height: 52px;
-  min-width: 52px;
-  font-size: 24px;
+  width: 104px;
+  height: 104px;
+  min-width: 104px;
+  font-size: 48px;
   background: rgba(0, 0, 0, .34);
   backdrop-filter: blur(2px);
 }
@@ -1883,11 +1960,11 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
 }
 
 .center-controls .play-center-button {
-  width: 70px;
-  height: 70px;
-  min-width: 70px;
-  flex: 0 0 70px;
-  font-size: 30px;
+  width: 140px;
+  height: 140px;
+  min-width: 140px;
+  flex: 0 0 140px;
+  font-size: 60px;
 }
 
 .player-stage.controls-hidden .video-controls,
@@ -1920,15 +1997,15 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 44px;
-  min-width: 48px;
+  width: 96px;
+  height: 88px;
+  min-width: 96px;
   padding: 0;
   border: 0;
   border-radius: 50%;
   background: transparent;
   color: #fff;
-  font-size: 16px;
+  font-size: 32px;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-weight: 600;
   line-height: 1;
@@ -1949,10 +2026,10 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
 .next-button::before {
   content: "";
   box-sizing: border-box;
-  width: 13px;
-  height: 13px;
-  border-top: 3px solid currentColor;
-  border-right: 3px solid currentColor;
+  width: 26px;
+  height: 26px;
+  border-top: 6px solid currentColor;
+  border-right: 6px solid currentColor;
 }
 
 .previous-button::before {
@@ -1965,8 +2042,8 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
 
 .play-center-button::before {
   content: "";
-  width: 22px;
-  height: 24px;
+  width: 44px;
+  height: 48px;
   margin: 0 auto;
   transform: translateX(2px);
   background: currentColor;
@@ -1974,8 +2051,8 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
 }
 
 .play-center-button.is-playing::before {
-  width: 18px;
-  height: 22px;
+  width: 36px;
+  height: 44px;
   margin: 0 auto;
   transform: none;
   clip-path: none;
@@ -1991,13 +2068,13 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
 }
 
 .fullscreen-button .fullscreen-icon {
-  width: 24px;
-  height: 24px;
+  width: 48px;
+  height: 48px;
 }
 
 .player-time {
-  min-width: 88px;
-  font-size: 12px;
+  min-width: 152px;
+  font-size: 20px;
   font-weight: 700;
   white-space: nowrap;
   color: rgba(255, 255, 255, .9);
@@ -2010,7 +2087,7 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
   -webkit-appearance: none;
   width: 100%;
   min-width: 0;
-  height: 18px;
+  height: 32px;
   background: transparent;
   cursor: pointer;
   border: 0;
@@ -2028,7 +2105,7 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
 
 .player-seek::-webkit-slider-runnable-track,
 .player-volume::-webkit-slider-runnable-track {
-  height: 4px;
+  height: 8px;
   border: 0;
   border-radius: 999px;
   background: linear-gradient(to right, #fff 0 var(--range-progress), rgba(255, 255, 255, .34) var(--range-progress) 100%);
@@ -2037,9 +2114,9 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
 .player-seek::-webkit-slider-thumb,
 .player-volume::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 16px;
-  height: 16px;
-  margin-top: -6px;
+  width: 28px;
+  height: 28px;
+  margin-top: -10px;
   border: 0;
   border-radius: 50%;
   background: #fff;
@@ -2048,7 +2125,7 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
 
 .player-seek::-moz-range-track,
 .player-volume::-moz-range-track {
-  height: 4px;
+  height: 8px;
   border: 0;
   border-radius: 999px;
   background: rgba(255, 255, 255, .34);
@@ -2056,15 +2133,15 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
 
 .player-seek::-moz-range-progress,
 .player-volume::-moz-range-progress {
-  height: 4px;
+  height: 8px;
   border-radius: 999px;
   background: #fff;
 }
 
 .player-seek::-moz-range-thumb,
 .player-volume::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
+  width: 28px;
+  height: 28px;
   border: 0;
   border-radius: 50%;
   background: #fff;
@@ -2072,15 +2149,40 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
 }
 
 @media (max-width: 560px) {
-  .player-stage {
-    min-height: 320px;
-  }
-
   .video-controls {
-    grid-template-columns: minmax(70px, 1fr) 48px 48px;
+    grid-template-columns: minmax(70px, 1fr) 68px 68px;
     gap: 4px;
     padding-left: 8px;
     padding-right: 8px;
+  }
+
+  .video-controls .video-control-button {
+    width: 68px;
+    height: 64px;
+    min-width: 68px;
+    font-size: 23px;
+  }
+
+  .video-controls .fullscreen-icon {
+    width: 34px;
+    height: 34px;
+  }
+
+  .center-controls {
+    gap: clamp(14px, 5vw, 28px);
+  }
+
+  .center-controls .video-control-button {
+    width: 72px;
+    height: 72px;
+    min-width: 72px;
+  }
+
+  .center-controls .play-center-button {
+    width: 96px;
+    height: 96px;
+    min-width: 96px;
+    flex-basis: 96px;
   }
 
   .player-time,

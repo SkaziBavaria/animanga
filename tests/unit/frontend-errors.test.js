@@ -81,18 +81,17 @@ test('background network failures remain silent when callers re-toast', async ()
   assert.equal(classes.has('show'), false);
 });
 
-test('retired AniDB messages stay off the toast and provider-failure bus', async () => {
+test('retired catalog messages are not special-cased off the toast', async () => {
   const { context, classes, events } = client();
-  context.toast('AniDB unavailable (HTTP 503)', { error: true });
-  assert.equal(classes.has('show'), false);
   context.fetch = async () => ({
     ok: false,
     status: 503,
     headers: { get() {} },
-    json: async () => ({ error: 'AniDB unavailable (HTTP 503)', provider: 'anidb', mediaMode: 'anime', upstreamStatus: 503 }),
+    json: async () => ({ error: 'HiAnime unavailable (HTTP 503)', provider: 'hianime', mediaMode: 'anime', upstreamStatus: 503 }),
   });
   await assert.rejects(context.api('/api/test'));
-  assert.equal(events.length, 0);
+  assert.equal(classes.has('show'), true);
+  assert.equal(events[0].detail.provider, 'hianime');
 });
 
 test('playback source errors stay visible with a dismiss control', () => {

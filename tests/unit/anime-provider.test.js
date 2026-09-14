@@ -21,8 +21,13 @@ test('provider details preserve library identity and normalize episode objects',
 test('stored provider mapping wins over client hints and slug shapes are not identities', () => {
   const state = { shows: { 'same-1': { id: 'same-1', hianimeId: 'correct-2' } } };
   assert.equal(providerIdentity(state, { id: 'same-1', hianimeId: 'wrong-3' }).providerId, 'correct-2');
-  assert.equal(providerIdentity(state, 'unknown-1').provider, 'anidb');
+  assert.equal(providerIdentity(state, 'unknown-1').provider, 'hianime');
   assert.equal(providerIdentity(state, { id: 'unknown-1', provider: 'hianime' }).provider, 'hianime');
+});
+
+test('unmapped library titles cannot be used as catalog ids', () => {
+  const state = { shows: { 'legacy-1': { id: 'legacy-1', name: 'Custom' } } };
+  assert.throws(() => providerIdentity(state, 'legacy-1'), /catalog match/);
 });
 
 test('wrong provider identity cannot be applied to stored history', () => {
@@ -45,6 +50,16 @@ test('Discover reuses an archived library identity instead of creating a duplica
   const [result] = bindCatalogToLibrary(state, [{ id: 'new', hianimeId: 'new', name: 'Example' }]);
   assert.equal(result.id, 'old');
   assert.equal(result.hianimeId, 'new');
+});
+
+test('details persist a generic catalog mapping beside the library id', async () => {
+  const state = { settings: {}, shows: { 'legacy-1': { id: 'legacy-1', providerId: 'new-2' } } };
+  const service = createAnimeProvider({ hianime: { getShowDetails: async (id) => ({ id, episodes: ['1'] }) } });
+  const details = await service.details(state, 'legacy-1');
+  assert.equal(details.id, 'legacy-1');
+  assert.equal(details.provider, 'hianime');
+  assert.equal(details.providerId, 'new-2');
+  assert.equal(details.hianimeId, 'new-2');
 });
 
 test('concurrent details share a fetch but never share mutable returned objects', async () => {

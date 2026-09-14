@@ -66,9 +66,8 @@
           <div class="browse-row" aria-label="Browse anime">
             <button class="browse-button" data-recommended="1" type="button">For you</button>
             <button class="browse-button" data-popular-range="0" type="button">Popular</button>
-            <button class="browse-button" data-popular-range="1" type="button">Hot</button>
-            <button class="browse-button" data-popular-range="7" type="button">Week</button>
-            <button class="browse-button" data-popular-range="30" type="button">Month</button>
+            <button class="browse-button" data-popular-range="airing" type="button">Airing</button>
+            <button class="browse-button" data-popular-range="favorite" type="button">Favorites</button>
             <button id="animeLatestBtn" class="browse-button" data-anime-sort="Latest_Update" type="button">Latest</button>
           </div>
           <details id="genreFilter" class="genre-filter">
@@ -484,6 +483,7 @@
       </div>
       <div class="player-stage" id="playerStage" tabindex="-1">
         <video id="playerVideo" playsinline></video>
+        <div id="playerCaptions" class="player-captions" hidden></div>
         <div class="gesture-zone gesture-left" aria-hidden="true"></div>
         <div class="gesture-zone gesture-right" aria-hidden="true"></div>
         <div class="player-osd" id="playerOsd" aria-hidden="true"></div>
@@ -512,6 +512,6 @@
     </dialog>
 
     <div id="toast" class="toast" role="status" aria-live="polite" popover="manual"></div>
-    <script type="module" src="/js/app.js?v=20260912-10"></script>
+    <script type="module" src="/js/app.js?v=20260914-4"></script>
   </body>
 </html>

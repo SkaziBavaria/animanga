@@ -61,9 +61,9 @@ test('searchManga prefers an English title that matches the ComicK slug', async 
 });
 
 test('popularManga maps ranges onto ComicK sorts', async () => {
-  let path;
+  const paths = [];
   setRawFetcher(async (requestPath) => {
-    path = requestPath;
+    paths.push(requestPath);
     return [{
       hid: 'abc',
       slug: 'solo-leveling',
@@ -74,8 +74,18 @@ test('popularManga maps ranges onto ComicK sorts', async () => {
     }];
   });
   const result = await popularManga(7, { limit: 5 });
-  assert.match(path, /sort=uploaded/);
+  assert.match(paths[0], /sort=view/);
+  assert.match(paths[0], /time=7/);
   assert.equal(result.results[0].name, 'Solo Leveling');
+  await popularManga(1, { limit: 5 });
+  assert.match(paths[1], /sort=view/);
+  assert.match(paths[1], /time=1/);
+  await popularManga(30, { limit: 5 });
+  assert.match(paths[2], /sort=view/);
+  assert.match(paths[2], /time=30/);
+  await popularManga(0, { limit: 5 });
+  assert.match(paths[3], /sort=follow/);
+  assert.doesNotMatch(paths[3], /time=/);
 });
 
 test('getMangaDetails sorts chapters and exposes manga metadata', async () => {
