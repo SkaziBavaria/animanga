@@ -98,6 +98,17 @@ test('HiAnime episode parser reads named titles and skips generic Episode N labe
   ]);
 });
 
+test('HiAnime episode titles drop nested markup instead of leaving tag fragments', () => {
+  const html = '<a class="ssl-item ep-item" data-number="1" data-id="10" href="/watch/named-show-1?ep=10">'
+    + '<div class="ep-name"><b>Hello</b></div></a>'
+    + '<a class="ssl-item ep-item" data-number="2" data-id="11" href="/watch/named-show-1?ep=11">'
+    + '<div class="ep-name"><</div></a>';
+  assert.deepEqual(parseEpisodes(html, 'named-show-1').map((item) => [item.number, item.title]), [
+    ['1', 'Hello'],
+    ['2', ''],
+  ]);
+});
+
 test('HiAnime embed decoder reverses the rotating XOR key', () => {
   const source = Buffer.from('otaku-embed-v1').map((byte, index) => byte ^ Buffer.from('otaku-embed-v1')[index]);
   assert.equal(decodeEmbedBlob(source.toString('base64')), 'otaku-embed-v1');

@@ -52,12 +52,18 @@ export function parseWebVtt(source) {
 }
 
 export function cuePlainText(value) {
-  return String(value || '')
-    .replace(/<[^>]+>/g, '')
+  let text = String(value || '');
+  for (let n = 0; n < 8; n += 1) {
+    const next = text.replace(/<[^>]*>/g, '');
+    if (next === text) break;
+    text = next;
+  }
+  return text
+    .replace(/[<>]/g, '')
     .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
     .replace(/\s+/g, ' ')
     .trim();
 }

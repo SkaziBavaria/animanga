@@ -40,4 +40,9 @@ test('WebVTT parser reads minute-second cues and strips markup', async () => {
   assert.equal(activeCueText(cues, 4.2), 'Hello there');
   assert.equal(activeCueText(cues, 6), '');
   assert.equal(activeCueText(cues, 7), 'Next line');
+  const { cuePlainText } = await loadCaptions();
+  assert.equal(cuePlainText('<b>Hi</b> &amp; <i>there</i>'), 'Hi & there');
+  assert.equal(cuePlainText('<script'), 'script');
+  assert.doesNotMatch(cuePlainText('<script'), /[<>]/);
+  assert.equal(cuePlainText('A &amp;lt; B'), 'A &lt; B');
 });
