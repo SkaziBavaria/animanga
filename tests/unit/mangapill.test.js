@@ -3,9 +3,9 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { parseSearchResults, parseChapterRows, parseChapterImages, getChapterPagesByTitle } = require('../../lib/mangapill');
-const { setAnidbTextFetcherForTests } = require('../../lib/anidb-fetch');
+const { setTextFetcherForTests } = require('../../lib/web-fetch');
 
-test.afterEach(() => setAnidbTextFetcherForTests(null));
+test.afterEach(() => setTextFetcherForTests(null));
 
 test('parses MangaPill search, chapters and reader images', () => {
   assert.deepEqual(parseSearchResults('<a href="/manga/12/demo-story"><img alt="Demo Story cover"></a>'), [
@@ -20,7 +20,7 @@ test('parses MangaPill search, chapters and reader images', () => {
 });
 
 test('resolves MangaPill pages with a safe title match', async () => {
-  setAnidbTextFetcherForTests(async (url) => {
+  setTextFetcherForTests(async (url) => {
     if (url.includes('/search?')) return '<a href="/manga/12/demo-story"><img alt="Demo Story cover"></a>';
     if (url.includes('/manga/')) return '<a href="/chapters/12-10001000/demo-story-chapter-1">Chapter 1</a>';
     return '<picture><img alt="Demo Story Chapter 1 Page 1" data-src="https://cdn.example/read/1.jpg"></picture>';
@@ -37,6 +37,6 @@ test('reader ignores banners and placeholders and preserves lazy page order', ()
 });
 
 test('MangaPill rejects wrong titles before requesting pages', async () => {
-  setAnidbTextFetcherForTests(async () => '<a href="/manga/12/other"><img alt="Unrelated Work cover"></a>');
+  setTextFetcherForTests(async () => '<a href="/manga/12/other"><img alt="Unrelated Work cover"></a>');
   await assert.rejects(getChapterPagesByTitle(['Demo Story'], '1'), /No safe MangaPill match/);
 });

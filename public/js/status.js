@@ -31,6 +31,13 @@ function renderUpdateNotice(update) {
   els.updateNotice.textContent = `Update ${update.latest}`;
 }
 
+function isCurrentProviderFailure(provider, now = Date.now()) {
+  if (!provider || provider.ok !== false) return false;
+  const checked = Date.parse(provider.checkedAt);
+  if (!Number.isFinite(checked)) return true;
+  return now - checked < 60_000;
+}
+
 function renderProviderHealth(providers = {}) {
   if (!els.providerBanner) return;
   const labels = { hianime: 'HiAnime', comick: 'ComicK', mangadex: 'MangaDex', weebcentral: 'WeebCentral', mangapill: 'MangaPill', mangatown: 'MangaTown' };
@@ -38,7 +45,7 @@ function renderProviderHealth(providers = {}) {
     ? new Set(['comick', 'mangadex', 'weebcentral', 'mangapill', 'mangatown'])
     : new Set(['hianime']);
   const failures = Object.values(providers)
-    .filter((provider) => provider && provider.ok === false && relevant.has(provider.provider));
+    .filter((provider) => isCurrentProviderFailure(provider) && relevant.has(provider.provider));
   if (!failures.length) {
     els.providerBanner.hidden = true;
     els.providerBanner.textContent = '';
@@ -53,10 +60,15 @@ function renderProviderHealth(providers = {}) {
 
 window.addEventListener('animanga:media-mode', () => renderProviderHealth(statusCache?.providers));
 window.addEventListener('animanga:provider-failure', ({ detail }) => {
-  if (!detail?.provider || detail.provider === 'anidb') return;
+  if (!detail?.provider) return;
   statusCache ||= {};
   statusCache.providers ||= {};
-  statusCache.providers[detail.provider] = { provider: detail.provider, ok: false, reason: detail.reason || (detail.upstreamStatus ? `HTTP ${detail.upstreamStatus}` : 'Unavailable') };
+  statusCache.providers[detail.provider] = {
+    provider: detail.provider,
+    ok: false,
+    reason: detail.reason || (detail.upstreamStatus ? `HTTP ${detail.upstreamStatus}` : 'Unavailable'),
+    checkedAt: new Date().toISOString(),
+  };
   renderProviderHealth(statusCache.providers);
 });
 

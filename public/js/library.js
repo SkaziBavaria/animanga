@@ -163,23 +163,23 @@ export async function removeShow(show) {
   await loadLibrary(false);
 }
 
-export async function manuallyMatchHiAnime(show) {
-  const query = window.prompt('Search HiAnime for this title:', show.name || show.title || '');
+export async function matchCatalogTitle(show) {
+  const query = window.prompt('Search the catalog for this title:', show.name || show.title || '');
   if (!query?.trim()) return;
-  const data = await api(`/api/hianime/search?q=${encodeURIComponent(query.trim())}`);
+  const data = await api(`/api/catalog/search?q=${encodeURIComponent(query.trim())}`);
   const results = data.results || [];
-  if (!results.length) throw new Error('No HiAnime matches found');
+  if (!results.length) throw new Error('No catalog matches found');
   const choices = results.slice(0, 10).map((item, index) => `${index + 1}. ${item.name || item.title} (${item.id})`).join('\n');
   const answer = window.prompt(`Choose the correct result by number:\n\n${choices}`);
   const selected = results[Number(answer) - 1];
   if (!selected) return;
-  const updated = await api(`/api/shows/${encodeURIComponent(show.id)}/hianime`, {
+  const updated = await api(`/api/shows/${encodeURIComponent(show.id)}/catalog`, {
     method: 'POST',
-    body: JSON.stringify({ hianimeId: selected.id, query: query.trim() }),
+    body: JSON.stringify({ providerId: selected.id, query: query.trim() }),
   });
   syncAnimeShow(updated.show || {});
   renderLibrary();
-  toast('HiAnime match saved');
+  toast('Catalog match saved');
 }
 
 export async function setShowArchived(show, archived) {

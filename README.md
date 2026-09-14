@@ -2,7 +2,7 @@
 
 AniManga is a self-hosted anime player and manga reader with library tracking, downloads, cross-device sync, and an installable browser PWA.
 
-Anime metadata and streams come from [anidb.app](https://anidb.app). Manga metadata comes from [ComicK](https://comick.dev), while chapter pages use independently verified page resolvers.
+Anime catalog and playback are resolved by AniManga's anime adapter. Manga metadata comes from [ComicK](https://comick.dev), while chapter pages use independently verified page resolvers.
 
 ## Install with npm
 
@@ -129,7 +129,6 @@ Advanced settings:
 - `ANIMANGA_CURL_IMPERSONATE=/path/to/curl_chrome136` selects a curl binary.
 - `ANIMANGA_TRUST_PROXY=1` trusts forwarded host and protocol headers. This requires `ANIMANGA_PUBLIC_URL` and a trusted proxy that overwrites those headers.
 - `ANIMANGA_PROXY_SECRET=...` sets the HMAC secret for signed media proxy URLs.
-- `ANIMANGA_ANIDB_ORIGIN=https://anidb.app` overrides the anime provider origin.
 - `ANIMANGA_COMICK_API=https://api.comick.dev` overrides the ComicK API origin.
 - `ANIMANGA_MANGADEX_API=https://api.mangadex.org` overrides the MangaDex API origin.
 
@@ -144,14 +143,12 @@ Docker also supports:
 Anime provider selection and model normalization live in `lib/anime-provider.js`.
 Routes, library refresh, and download scheduling use this boundary for details
 and playback. Adapters own upstream requests and parsers; they do not write
-library state. Keep the stable library `id` separate from upstream IDs such as
-`hianimeId`, and normalize episode rows to strings before returning API data.
+library state. Keep the stable library `id` separate from upstream catalog IDs (`provider` + `providerId`), and normalize episode rows to strings before returning API data.
 Adding an adapter requires explicit identity mapping and contract tests for
 metadata, playback, and wrong-identity rejection.
 
 `lib/anime-recommendations.js` ranks candidates independently of providers.
-`lib/web-fetch.js` owns shared HTTP/curl transport; `lib/anidb-fetch.js` remains
-a compatibility entry point. Provider-specific failures must keep their identity
+`lib/web-fetch.js` owns shared HTTP/curl transport. Provider-specific failures must keep their identity
 when they reach the API and browser status banner.
 
 Manga catalog identity stays in ComicK. The ordered page resolver list in

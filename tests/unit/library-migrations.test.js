@@ -11,4 +11,6 @@ test('migration applies only mapping fields to the latest library record', () =>
   assert.equal(mergeAnimeMigration(undefined, stale), undefined);
   const manuallyMatched = { ...current, hianimeId: 'manual-456' };
   assert.equal(mergeAnimeMigration(manuallyMatched, stale), manuallyMatched);
+  const mappedByProviderId = { ...current, providerId: 'next-3' };
+  assert.equal(mergeAnimeMigration(mappedByProviderId, stale), mappedByProviderId);
 });

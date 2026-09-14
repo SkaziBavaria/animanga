@@ -80,17 +80,49 @@ export function latestEpisodeNumber(show) {
   return Number.isFinite(latest) ? latest : null;
 }
 
+export function episodeListForWatchAlignment(show = {}) {
+  if (Array.isArray(show.episodes) && show.episodes.length) return show.episodes;
+  const latest = Number(show.latestEpisode || show.episodeCount);
+  if (!Number.isFinite(latest) || latest <= 0) return [];
+  return Array.from({ length: latest }, (_, index) => String(index + 1));
+}
+
 export function highestWatchedEpisode(show) {
-  return [...(show.watchedEpisodes || [])]
+  const watched = alignWatchedEpisodesToList(show.watchedEpisodes, episodeListForWatchAlignment(show));
+  return [...watched]
     .filter((episode) => Number.isFinite(Number(episode)))
     .sort((a, b) => Number(a) - Number(b))
     .at(-1);
 }
 
+export function alignWatchedEpisodesToList(watched, episodes) {
+  const list = [...new Set((episodes || []).map(String).filter(Boolean))];
+  const unique = [...new Set((watched || []).map(String).filter(Boolean))];
+  if (!list.length || !unique.length) return unique.sort((left, right) => Number(left) - Number(right) || String(left).localeCompare(String(right)));
+  const listSet = new Set(list);
+  const inside = unique.filter((episode) => listSet.has(episode));
+  const outside = unique.filter((episode) => !listSet.has(episode));
+  if (!outside.length) return unique.sort((left, right) => Number(left) - Number(right) || String(left).localeCompare(String(right)));
+  const listNums = list.map(Number).filter(Number.isFinite).sort((left, right) => left - right);
+  const watchedNums = outside.map(Number).filter(Number.isFinite).sort((left, right) => left - right);
+  if (!listNums.length || !watchedNums.length || watchedNums[0] <= listNums.at(-1)) {
+    return inside.sort((left, right) => Number(left) - Number(right) || String(left).localeCompare(String(right)));
+  }
+  if ((watchedNums.at(-1) - watchedNums[0] + 1) > (listNums.at(-1) - listNums[0] + 1)) {
+    return inside.sort((left, right) => Number(left) - Number(right) || String(left).localeCompare(String(right)));
+  }
+  const offset = watchedNums[0] - listNums[0];
+  const remapped = watchedNums.map((value) => String(value - offset));
+  if (!remapped.every((episode) => listSet.has(episode))) {
+    return inside.sort((left, right) => Number(left) - Number(right) || String(left).localeCompare(String(right)));
+  }
+  return [...new Set([...inside, ...remapped])].sort((left, right) => Number(left) - Number(right) || String(left).localeCompare(String(right)));
+}
+
 export function nextEpisode(show) {
-  const list = show.episodes || [];
-  const watched = new Set((show.watchedEpisodes || []).map(String));
-  const last = episodeNumber(show.lastWatched);
+  const list = episodeListForWatchAlignment(show);
+  const watched = new Set(alignWatchedEpisodesToList(show.watchedEpisodes, list).map(String));
+  const last = episodeNumber(highestWatchedEpisode(show) || show.lastWatched);
   if (list.length) {
     const unwatched = list.filter((ep) => !watched.has(String(ep)));
     if (!unwatched.length) return null;
@@ -139,9 +171,9 @@ export function progressRatio(show) {
 
 /** Mirror server presentShow for immediate card updates without a refetch. */
 export function presentAnimeCard(show = {}) {
-  const watchedEpisodes = Array.from(new Set((show.watchedEpisodes || []).map(String)));
+  const watchedEpisodes = alignWatchedEpisodesToList(show.watchedEpisodes, episodeListForWatchAlignment(show));
   // Always derive from watched list (matches server) so rewatching an older ep cannot lower progress.
-  const lastWatched = highestWatchedEpisode({ watchedEpisodes }) || show.lastWatched || '';
+  const lastWatched = highestWatchedEpisode({ ...show, watchedEpisodes }) || '';
   const latestEpisode = show.latestEpisode || show.episodeCount || null;
   const latest = episodeNumber(latestEpisode);
   const last = episodeNumber(lastWatched);
@@ -206,7 +238,7 @@ export function showInitials(show) {
 }
 
 export function episodeTitle(show, episode) {
-  return show.episodeTitles?.[episode] || show.episodeTitles?.[String(episode)] || 'Episode';
+  return show.episodeTitles?.[episode] || show.episodeTitles?.[String(episode)] || `Episode ${episode}`;
 }
 
 export function dateFromAllAnimeDate(value) {
@@ -332,11 +364,10 @@ export function timestampMs(value) {
 }
 
 export function latestActivityMs(item, extraTimes = []) {
-  const activity = Math.max(
+  return Math.max(
     timestampMs(item?.lastActivityAt),
     ...extraTimes.map(timestampMs),
   );
-  return activity > 0 ? activity : timestampMs(item?.updatedAt);
 }
 
 export function compareByName(a, b) {
@@ -346,4 +377,17 @@ export function compareByName(a, b) {
 export function compareNewestActivity(a, b, extraTimesFor) {
   const diff = latestActivityMs(b, extraTimesFor(b)) - latestActivityMs(a, extraTimesFor(a));
   return diff || compareByName(a, b);
+}
+
+export function playbackPositionToSave(currentTime, duration, remembered = {}) {
+  const live = Number(currentTime);
+  const rememberedTime = Number(remembered.time);
+  const position = Number.isFinite(live) && live > 0 ? live : rememberedTime;
+  const liveDuration = Number(duration);
+  const rememberedDuration = Number(remembered.duration);
+  const resolvedDuration = Number.isFinite(liveDuration) && liveDuration > 0
+    ? liveDuration
+    : (Number.isFinite(rememberedDuration) && rememberedDuration > 0 ? rememberedDuration : null);
+  if (!Number.isFinite(position) || position < 5) return null;
+  return { position, duration: resolvedDuration };
 }

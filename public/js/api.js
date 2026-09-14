@@ -3,7 +3,6 @@ import { state } from './state.js';
 
 function providerForMessage(value) {
   const message = String(value || '');
-  if (/\bAniDB\b/i.test(message)) return 'retired';
   if (/\bHiAnime\b/i.test(message)) return 'anime';
   if (/\b(?:Manga provider|ComicK|MangaDex|WeebCentral|MangaPill|MangaTown)\b/i.test(message)) return 'manga';
   return null;
@@ -43,7 +42,7 @@ export async function api(path, options = {}) {
       detail ? `${json.error}: ${detail}` : json.error || `HTTP ${res.status}`,
     ));
     Object.assign(error, { background, mediaMode: json.mediaMode, provider: json.provider, upstreamStatus: json.upstreamStatus, code: json.code });
-    if (json.provider && json.provider !== 'anidb') window.dispatchEvent(new CustomEvent('animanga:provider-failure', { detail: json }));
+    if (json.provider) window.dispatchEvent(new CustomEvent('animanga:provider-failure', { detail: json }));
     toastError(error);
     throw error;
   }
@@ -51,14 +50,7 @@ export async function api(path, options = {}) {
 }
 
 export function publicErrorMessage(value) {
-  const message = String(value || 'Something went wrong');
-  const isAniDbPlayback = /AniManga could not fetch a playable link|AniDB/i.test(message);
-  const leaksCurlInternals = /upstream curl failed|curl:\s*\(\d+\)|curl_(?:chrome|firefox)|curl-impersonate/i.test(message);
-  if (isAniDbPlayback && leaksCurlInternals) {
-    const status = message.match(/(?:HTTP|error:)\s*(\d{3})/i)?.[1];
-    return status ? `AniDB unavailable (HTTP ${status})` : 'AniDB unavailable';
-  }
-  return message;
+  return String(value || 'Something went wrong');
 }
 
 const ERROR_TOAST_MS = 30_000;

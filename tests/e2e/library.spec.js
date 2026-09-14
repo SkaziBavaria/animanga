@@ -127,6 +127,30 @@ test.describe('Library filtering & sorting', () => {
     expect(titles).toEqual(['Alpha', 'Bravo', 'Charlie']);
   });
 
+  test('recently watched keeps viewing activity above refreshed metadata', async ({ page }) => {
+    await installApiMocks(page, {
+      library: [
+        makeShow({
+          id: 'fresh',
+          name: 'Fresh Metadata',
+          newCount: 8,
+          updatedAt: '2026-09-13T01:00:00.000Z',
+        }),
+        makeShow({
+          id: 'watched',
+          name: 'Just Watched',
+          newCount: 0,
+          updatedAt: '2026-01-01T00:00:00.000Z',
+          lastActivityAt: '2026-09-12T12:00:00.000Z',
+        }),
+      ],
+    });
+    await page.goto('/');
+    await page.selectOption('#librarySort', 'recent');
+    const titles = await page.locator('#libraryList .show-title').allTextContents();
+    expect(titles[0]).toBe('Just Watched');
+  });
+
   test('filters the library list by search query', async ({ page }) => {
     await page.fill('#librarySearchInput', 'brav');
     await expect(page.locator('#libraryList .show-card')).toHaveCount(1);

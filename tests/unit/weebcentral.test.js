@@ -6,11 +6,11 @@ const {
   parseSearchResults, parseChapterRows, parseChapterImages, getChapterPagesByTitle, resetForTests,
 } = require('../../lib/weebcentral');
 const { resolverTitleScore, resolvedTitleMatchesAny } = require('../../lib/title-match');
-const { setAnidbTextFetcherForTests } = require('../../lib/anidb-fetch');
+const { setTextFetcherForTests } = require('../../lib/web-fetch');
 
 test.afterEach(() => {
   resetForTests();
-  setAnidbTextFetcherForTests(null);
+  setTextFetcherForTests(null);
 });
 
 test('parseSearchResults extracts Weeb Central titles', () => {
@@ -36,7 +36,7 @@ test('cached resolver titles must still match current catalog aliases', () => {
 });
 
 test('resolution rejects unsafe Family Man match', async () => {
-  setAnidbTextFetcherForTests(async () => '<a href="https://weebcentral.com/series/FAMILY/Family-Man"><img alt="Family Man cover"></a>');
+  setTextFetcherForTests(async () => '<a href="https://weebcentral.com/series/FAMILY/Family-Man"><img alt="Family Man cover"></a>');
   await assert.rejects(
     getChapterPagesByTitle(['I Became A Married Man in Another World', 'The Otherworldly Family Man'], '1'),
     /No Weeb Central match/,
@@ -69,7 +69,7 @@ test('chapter parsing scopes labels to their link and rejects season-local numbe
 });
 
 test('duplicate chapter numbers fail safely without requesting images', async () => {
-  setAnidbTextFetcherForTests(async (url) => {
+  setTextFetcherForTests(async (url) => {
     if (url.includes('/search/simple')) return '<a href="https://weebcentral.com/series/ABC/Demo"><img alt="Demo cover"></a>';
     assert.ok(url.includes('/full-chapter-list'));
     return '<a href="/chapters/ONE"><span>Chapter 1</span></a><a href="/chapters/TWO"><span>Chapter 1</span></a>';
@@ -79,7 +79,7 @@ test('duplicate chapter numbers fail safely without requesting images', async ()
 
 test('chapter resolution caches title and chapter-list requests', async () => {
   const calls = [];
-  setAnidbTextFetcherForTests(async (url) => {
+  setTextFetcherForTests(async (url) => {
     calls.push(url);
     if (url.includes('/search/simple')) {
       return '<a href="https://weebcentral.com/series/01ABC/Demo"><img alt="Demo cover"></a>';

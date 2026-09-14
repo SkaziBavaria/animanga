@@ -10,7 +10,7 @@ import {
 } from './downloads.js';
 import { openEpisodes, playShow, bindEpisodeDialog, toggleEpisodeWatched } from './episodes.js';
 import { loadJobs, clearJobs } from './jobs.js';
-import { dismissSequel, loadLibrary, renderLibrary, restoreSequel, setSequelAlertsMuted, trackShow, removeShow, setShowArchived, updateShowMode, manuallyMatchHiAnime } from './library.js';
+import { dismissSequel, loadLibrary, renderLibrary, restoreSequel, setSequelAlertsMuted, trackShow, removeShow, setShowArchived, updateShowMode, matchCatalogTitle } from './library.js';
 import { loadMangaLibrary } from './manga.js';
 import { bindPlayerDialog } from './playback.js';
 import {
@@ -70,7 +70,7 @@ function bindGlobalClicks() {
         if (action === 'archive') await setShowArchived(show, true);
         if (action === 'unarchive') await setShowArchived(show, false);
         if (action === 'remove') await removeShow(show);
-        if (action === 'match-hianime') await manuallyMatchHiAnime(show);
+        if (action === 'match-catalog' || action === 'match-hianime') await matchCatalogTitle(show);
         if (action === 'episodes') await openEpisodes(show);
         if (action === 'details') await openDetails(show);
         if (action === 'dismiss-sequel') await dismissSequel(cardButton.dataset.sourceId, show.id);

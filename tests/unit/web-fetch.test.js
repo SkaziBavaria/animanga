@@ -4,8 +4,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
   looksLikeCloudflareChallenge,
-  setAnidbTextFetcherForTests,
-  fetchAnidbText,
+  setTextFetcherForTests,
+  fetchWebText,
   resetCurlBinaryForTests,
   isPlainCurlBinary,
   CURL_CANDIDATES,
@@ -13,10 +13,10 @@ const {
   setNativeFetcherForTests,
   safeCurlDetail,
   canUseNativeFallback,
-} = require('../../lib/anidb-fetch');
+} = require('../../lib/web-fetch');
 
 test.afterEach(() => {
-  setAnidbTextFetcherForTests(null);
+  setTextFetcherForTests(null);
   resetCurlBinaryForTests();
   setCurlRunnerForTests(null);
   setNativeFetcherForTests(null);
@@ -36,7 +36,6 @@ test('plain curl exit 35 retries with HTTP/1.1 then uses Node fallback', async (
     throw error;
   });
   setNativeFetcherForTests(async () => '<html>fallback ok</html>');
-  const { fetchWebText } = require('../../lib/anidb-fetch');
   assert.equal(await fetchWebText('https://example.test/'), '<html>fallback ok</html>');
   assert.equal(calls.length, 2);
   assert.equal(calls[1].args.includes('--http1.1'), true);
@@ -49,7 +48,6 @@ test('challenge detection also applies to Node fallback responses', async () => 
     throw error;
   });
   setNativeFetcherForTests(async () => '<title>Just a moment...</title><p>Enable JavaScript and cookies to continue</p>');
-  const { fetchWebText } = require('../../lib/anidb-fetch');
   await assert.rejects(fetchWebText('https://example.test/'), /Blocked by upstream protection/);
 });
 
@@ -76,17 +74,20 @@ test('never falls back when curl was explicitly configured', () => {
 });
 
 test('test fetcher bypasses curl binary lookup', async () => {
-  setAnidbTextFetcherForTests(async () => '<html>ok</html>');
-  assert.equal(await fetchAnidbText('/browse?q=x'), '<html>ok</html>');
+  setTextFetcherForTests(async () => '<html>ok</html>');
+  assert.equal(await fetchWebText('https://example.test/browse?q=x'), '<html>ok</html>');
+});
+
+test('refuses relative fetch URLs', async () => {
+  await assert.rejects(fetchWebText('/browse?q=x'), /absolute URL/);
 });
 
 test('generic fetcher forwards POST form and retry options', async () => {
   let received;
-  setAnidbTextFetcherForTests(async (url, options) => {
+  setTextFetcherForTests(async (url, options) => {
     received = { url, options };
     return '<html>ok</html>';
   });
-  const { fetchWebText } = require('../../lib/anidb-fetch');
   await fetchWebText('https://example.test/search', {
     method: 'POST', form: { text: 'Naruto' }, ipv4: true, retries: 3,
   });

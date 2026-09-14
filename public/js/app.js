@@ -21,6 +21,23 @@ if ('serviceWorker' in navigator) {
 }
 
 const savedUiPrefs = applyUiPrefsToState(state);
+const LOCAL_LIBRARY_RELOAD_MS = 5 * 60_000;
+let lastLocalLibraryReload = 0;
+
+async function reloadLocalLibraries() {
+  if (document.hidden || Date.now() - lastLocalLibraryReload < LOCAL_LIBRARY_RELOAD_MS) return;
+  lastLocalLibraryReload = Date.now();
+  await Promise.all([loadStatus(), loadLibrary(false), loadMangaLibrary(false)]);
+}
+
+setInterval(() => reloadLocalLibraries().catch((error) => {
+  reportBackgroundError('Library reload failed', error);
+}), LOCAL_LIBRARY_RELOAD_MS);
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) reloadLocalLibraries().catch((error) => {
+    reportBackgroundError('Library reload failed', error);
+  });
+});
 bindEvents();
 bindSyncControls();
 bindMangaControls();
@@ -36,6 +53,7 @@ startAutoSync();
     await loadProgress();
     await loadLibrary(false);
     await loadMangaLibrary(false);
+    lastLocalLibraryReload = Date.now();
     await loadDownloads();
     await loadReleaseWatches();
     await loadMangaReleaseWatches();

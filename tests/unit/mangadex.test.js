@@ -5,9 +5,9 @@ const assert = require('node:assert/strict');
 const {
   parseSearchResults, parseChapterRows, parseAtHomePages, getChapterPagesByTitle,
 } = require('../../lib/mangadex');
-const { setAnidbTextFetcherForTests } = require('../../lib/anidb-fetch');
+const { setTextFetcherForTests } = require('../../lib/web-fetch');
 
-test.afterEach(() => setAnidbTextFetcherForTests(null));
+test.afterEach(() => setTextFetcherForTests(null));
 
 test('parses MangaDex titles, chapters and at-home pages', () => {
   assert.deepEqual(parseSearchResults({ data: [{
@@ -27,7 +27,7 @@ test('parses MangaDex titles, chapters and at-home pages', () => {
 
 test('resolves English MangaDex chapter pages after a safe alias match', async () => {
   const calls = [];
-  setAnidbTextFetcherForTests(async (url) => {
+  setTextFetcherForTests(async (url) => {
     calls.push(url);
     if (url.includes('/manga?')) return JSON.stringify({ data: [{
       id: 'manga-1', attributes: { title: { en: 'Demo Story' }, altTitles: [] },
@@ -44,7 +44,7 @@ test('resolves English MangaDex chapter pages after a safe alias match', async (
 });
 
 test('rejects an unrelated MangaDex search result', async () => {
-  setAnidbTextFetcherForTests(async () => JSON.stringify({ data: [{
+  setTextFetcherForTests(async () => JSON.stringify({ data: [{
     id: 'solo', attributes: { title: { en: 'Solo Leveling' }, altTitles: [] },
   }] }));
   await assert.rejects(getChapterPagesByTitle(['Demo Story'], '1'), /No safe MangaDex match/);

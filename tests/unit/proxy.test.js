@@ -3,7 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { isPrivateIp, parseProxyTarget, pinnedRequestOptions, resolvePublicTarget, rewriteM3u8 } = require('../../lib/proxy');
+const { isPrivateIp, parseProxyTarget, pinnedRequestOptions, resolvePublicTarget, rewriteM3u8, isVttTarget } = require('../../lib/proxy');
 
 test('parseProxyTarget accepts http and https urls', () => {
   assert.equal(parseProxyTarget('https://cdn.example.com/video.mp4'), 'https://cdn.example.com/video.mp4');
@@ -111,4 +111,10 @@ test('rewriteM3u8 rewrites URI attributes in HLS tags', () => {
   assert.match(out, /URI="\[proxy:https:\/\/cdn\.example\/live\/init\.mp4\]"/);
   assert.match(out, /URI="\[proxy:https:\/\/cdn\.example\/live\/audio\/en\.m3u8\]"/);
   assert.match(out, /^\[proxy:https:\/\/cdn\.example\/live\/seg\.ts\]$/m);
+});
+
+test('isVttTarget recognizes subtitle files even without a vtt content-type', () => {
+  assert.equal(isVttTarget('text/vtt; charset=utf-8', 'https://cdn.example/en'), true);
+  assert.equal(isVttTarget('application/octet-stream', 'https://cdn.example/subs/en.vtt'), true);
+  assert.equal(isVttTarget('video/mp4', 'https://cdn.example/1080.m3u8'), false);
 });

@@ -12,6 +12,7 @@ const {
   episodesThrough,
   compareEpisodes,
   highestEpisode,
+  alignWatchedEpisodesToList,
 } = require('../../lib/episodes');
 
 test('cleanTitle strips the episode-count suffix', () => {
@@ -66,4 +67,19 @@ test('normalizeEpisode trims to a string', () => {
 test('highestEpisode returns the largest episode', () => {
   assert.equal(highestEpisode(['1', '2', '10', '3']), '10');
   assert.equal(highestEpisode([]), null);
+});
+
+test('alignWatchedEpisodesToList remaps a previous absolute numbering onto the current season', () => {
+  assert.deepEqual(
+    alignWatchedEpisodesToList(['73', '74', '88', '89'], Array.from({ length: 22 }, (_, index) => String(index + 1))),
+    ['1', '2', '16', '17'],
+  );
+});
+
+test('alignWatchedEpisodesToList keeps season-local history unchanged', () => {
+  assert.deepEqual(alignWatchedEpisodesToList(['1', '2', '6'], ['1', '2', '3', '4', '5', '6', '7']), ['1', '2', '6']);
+});
+
+test('alignWatchedEpisodesToList rejects a watched span longer than the current season', () => {
+  assert.deepEqual(alignWatchedEpisodesToList(['73', '99'], ['1', '2', '3']), []);
 });

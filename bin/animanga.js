@@ -61,7 +61,7 @@ async function doctor() {
     add('SQLite', false, error.message);
   }
 
-  const { DATA_DIR, ANIDB_ORIGIN } = require('../lib/config');
+  const { DATA_DIR } = require('../lib/config');
   try {
     fs.mkdirSync(DATA_DIR, { recursive: true });
     const probe = path.join(DATA_DIR, `.doctor-${process.pid}`);
@@ -72,7 +72,7 @@ async function doctor() {
     add('Data directory', false, `${DATA_DIR}: ${error.message}`);
   }
 
-  const { resolveCurlBinary, isPlainCurlBinary, curlVersion } = require('../lib/anidb-fetch');
+  const { resolveCurlBinary, isPlainCurlBinary, curlVersion } = require('../lib/web-fetch');
   const curlBinary = resolveCurlBinary();
   add(
     'HTTP curl client',
@@ -85,11 +85,11 @@ async function doctor() {
   if (curlBinary) add('curl version/TLS', Boolean(curlVersion(curlBinary)), curlVersion(curlBinary) || 'version probe failed', true);
 
   try {
-    const { fetchAnidbText } = require('../lib/anidb-fetch');
-    const body = await fetchAnidbText(`${ANIDB_ORIGIN}/browse?q=one`, { timeoutMs: 15_000 });
-    add('anidb.app', body.length > 0, `${ANIDB_ORIGIN} reachable`, false);
+    const { fetchWebText } = require('../lib/web-fetch');
+    const body = await fetchWebText('https://hianime.at/', { timeoutMs: 15_000 });
+    add('Anime catalog', body.length > 0, 'catalog reachable', false);
   } catch (error) {
-    add('anidb.app', false, error.message, false);
+    add('Anime catalog', false, error.message, false);
   }
 
   try {
