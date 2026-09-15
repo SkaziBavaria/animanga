@@ -213,6 +213,19 @@ test.describe('Shell & navigation', () => {
     await expect(page.locator('body')).toHaveClass(/player-fullscreen-active/);
     await expect(page.locator('#playerFullscreenBtn')).toHaveAttribute('aria-label', 'Exit fullscreen');
     await expect(page.locator('#playerFullscreenBtn .fullscreen-exit')).toBeVisible();
+    await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--player-fullscreen-width').trim())).toMatch(/^\d+px$/);
+    await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--player-fullscreen-height').trim())).toMatch(/^\d+px$/);
+    await page.evaluate(() => {
+      Object.defineProperty(window, 'visualViewport', {
+        configurable: true,
+        value: { width: 844, height: 390, addEventListener() {}, removeEventListener() {} },
+      });
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: 844 });
+      Object.defineProperty(window, 'innerHeight', { configurable: true, value: 390 });
+      window.dispatchEvent(new Event('resize'));
+    });
+    await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--player-fullscreen-width').trim())).toBe('844px');
+    await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--player-fullscreen-height').trim())).toBe('390px');
   });
 
   test('keyboard and wheel shortcuts control the browser player', async ({ page }) => {

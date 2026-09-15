@@ -46,3 +46,40 @@ test('WebVTT parser reads minute-second cues and strips markup', async () => {
   assert.doesNotMatch(cuePlainText('<script'), /[<>]/);
   assert.equal(cuePlainText('A &amp;lt; B'), 'A &lt; B');
 });
+
+test('caption overlay sits on the picture in portrait letterbox instead of the bottom black bar', async () => {
+  const { captionOverlayLayout } = await loadCaptions();
+  const portrait = captionOverlayLayout({
+    stageWidth: 390,
+    stageHeight: 844,
+    videoLeft: 0,
+    videoTop: 0,
+    videoWidth: 390,
+    videoHeight: 844,
+    mediaWidth: 1920,
+    mediaHeight: 1080,
+    controlsVisible: true,
+  });
+  assert.ok(portrait.bottom > 250);
+  assert.ok(portrait.bottom < 400);
+  const landscape = captionOverlayLayout({
+    stageWidth: 844,
+    stageHeight: 390,
+    videoLeft: 0,
+    videoTop: 0,
+    videoWidth: 844,
+    videoHeight: 390,
+    mediaWidth: 1920,
+    mediaHeight: 1080,
+    controlsVisible: true,
+  });
+  assert.equal(landscape.bottom, 72);
+  const portraitPicture = 390 / (1920 / 1080);
+  const landscapePicture = 390;
+  assert.equal(portrait.fontSize, Math.round(portraitPicture * 0.11));
+  assert.equal(landscape.fontSize, Math.round(landscapePicture * 0.11));
+  assert.ok(Math.abs(portrait.fontSize / portraitPicture - landscape.fontSize / landscapePicture) < 0.005);
+  const { captionFontSizeFromPicture } = await loadCaptions();
+  assert.equal(captionFontSizeFromPicture(540), 56);
+  assert.equal(captionFontSizeFromPicture(1080), 56);
+});

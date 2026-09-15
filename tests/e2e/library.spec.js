@@ -65,11 +65,34 @@ test.describe('Library filtering & sorting', () => {
     const progress = alpha.locator('.show-meta > .pill').first();
     await expect(progress).toHaveText('Progress 3 / 12');
     await expect(progress).toHaveClass(/hot/);
-    await expect(progress).toHaveAttribute('title', '1 new episode available');
+    await expect(progress).toHaveAttribute('title', '9 new episodes available');
     await expect(alpha.locator('.show-meta')).not.toContainText('1 new');
 
     const bravoProgress = page.locator('.show-card[data-id="b"] .show-meta > .pill').first();
     await expect(bravoProgress).not.toHaveClass(/hot/);
+  });
+
+  test('progress follows the episode list when catalog ticks lag behind', async ({ page }) => {
+    await installApiMocks(page, {
+      library: [makeShow({
+        id: 'lagging-ticks',
+        name: 'Lagging ticks',
+        lastWatched: '8',
+        latestEpisode: 8,
+        episodeCount: 8,
+        episodeCounts: { sub: 8, dub: 8 },
+        episodes: Array.from({ length: 10 }, (_, index) => String(index + 1)),
+        watchedEpisodes: ['1', '2', '3', '4', '5', '6', '7', '8'],
+        newCount: 0,
+      })],
+    });
+    await page.goto('/');
+    const card = page.locator('.show-card[data-id="lagging-ticks"]');
+    const progress = card.locator('.show-meta > .pill').first();
+    await expect(progress).toHaveText('Progress 8 / 10');
+    await expect(progress).toHaveClass(/hot/);
+    await expect(progress).toHaveAttribute('title', '2 new episodes available');
+    await expect(card.locator('button[data-action="play"]')).toHaveText('Continue ep 9');
   });
 
   test('shows a compact year range instead of separate start and last-episode pills', async ({ page }) => {

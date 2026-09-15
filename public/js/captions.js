@@ -68,6 +68,73 @@ export function cuePlainText(value) {
     .trim();
 }
 
+export function containedMediaBox(elementWidth, elementHeight, mediaWidth, mediaHeight) {
+  const width = Number(elementWidth);
+  const height = Number(elementHeight);
+  const vw = Number(mediaWidth);
+  const vh = Number(mediaHeight);
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    return { left: 0, top: 0, width: 0, height: 0 };
+  }
+  if (!Number.isFinite(vw) || !Number.isFinite(vh) || vw <= 0 || vh <= 0) {
+    return { left: 0, top: 0, width, height };
+  }
+  const mediaRatio = vw / vh;
+  const elementRatio = width / height;
+  if (elementRatio > mediaRatio) {
+    const contentWidth = height * mediaRatio;
+    return { left: (width - contentWidth) / 2, top: 0, width: contentWidth, height };
+  }
+  const contentHeight = width / mediaRatio;
+  return { left: 0, top: (height - contentHeight) / 2, width, height: contentHeight };
+}
+
+export function captionFontSizeFromPicture(pictureHeight) {
+  const height = Number(pictureHeight);
+  if (!Number.isFinite(height) || height <= 0) return 24;
+  return Math.round(Math.min(56, Math.max(22, height * 0.11)));
+}
+
+export function captionOverlayLayout({
+  stageWidth,
+  stageHeight,
+  videoLeft,
+  videoTop,
+  videoWidth,
+  videoHeight,
+  mediaWidth,
+  mediaHeight,
+  controlsVisible,
+} = {}) {
+  const content = containedMediaBox(videoWidth, videoHeight, mediaWidth, mediaHeight);
+  const contentLeft = Number(videoLeft || 0) + content.left;
+  const contentBottom = Number(videoTop || 0) + content.top + content.height;
+  const letterboxBottom = Math.max(0, Number(stageHeight || 0) - contentBottom);
+  const minClearance = controlsVisible ? 72 : 16;
+  const sidePad = Math.max(12, content.width * 0.06);
+  return {
+    bottom: Math.max(letterboxBottom + 12, minClearance),
+    left: contentLeft + sidePad,
+    right: Math.max(0, Number(stageWidth || 0) - (contentLeft + content.width) + sidePad),
+    fontSize: captionFontSizeFromPicture(content.height),
+  };
+}
+
+export function applyCaptionOverlayLayout(overlay, layout) {
+  if (!overlay) return;
+  if (!layout) {
+    overlay.style.bottom = '';
+    overlay.style.left = '';
+    overlay.style.right = '';
+    overlay.style.fontSize = '';
+    return;
+  }
+  overlay.style.bottom = `${Math.round(layout.bottom)}px`;
+  overlay.style.left = `${Math.round(layout.left)}px`;
+  overlay.style.right = `${Math.round(layout.right)}px`;
+  overlay.style.fontSize = `${Math.round(layout.fontSize)}px`;
+}
+
 export function activeCueText(cues, seconds) {
   const time = Number(seconds);
   if (!Number.isFinite(time) || !Array.isArray(cues) || !cues.length) return '';

@@ -96,6 +96,17 @@ test.describe('Episodes dialog', () => {
     await expect(page.locator('#episodeGrid .episode-play[data-episode="2"]')).toHaveClass(/watched/);
   });
 
+  test('hides the next control on the last episode', async ({ page }) => {
+    await installApiMocks(page);
+    await page.goto('/');
+    await page.click('#libraryList .show-card button[data-action="episodes"]');
+    await page.click('#episodeGrid .episode-play[data-episode="3"]');
+    await expect(page.locator('#playerDialog')).toBeVisible();
+    await expect(page.locator('#nextEpisodeBtn')).toBeHidden();
+    await expect(page.locator('#prevEpisodeBtn')).toBeVisible();
+    await expect(page.locator('#prevEpisodeBtn')).toBeEnabled();
+  });
+
   test('does not mark the episode done when closing at an early outro timestamp', async ({ page }) => {
     await installApiMocks(page, {
       skipTimes: { op: null, ed: { start: 20, end: 40 } },

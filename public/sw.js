@@ -1,14 +1,14 @@
-const SHELL_CACHE = 'animanga-shell-v31';
+const SHELL_CACHE = 'animanga-shell-v38';
 const API_CACHE = 'animanga-api-v7';
 const ASSETS = [
   '/', '/index.html', '/styles.css', '/manifest.webmanifest', '/icon.svg', '/animanga-logo.png',
-  '/js/app.js?v=20260914-6', '/js/api.js', '/js/aniskip.js', '/js/details.js', '/js/discover.js',
+  '/js/app.js?v=20260915-1', '/js/api.js', '/js/aniskip.js', '/js/details.js', '/js/discover.js',
   '/js/dom.js', '/js/download-helpers.js', '/js/downloads.js', '/js/episodes.js',
   '/js/events.js', '/js/jobs.js', '/js/library.js', '/js/playback.js',
   '/js/captions.js',
   '/js/hls-player.js',
   '/js/manga.js', '/js/manga-release-watches.js',
-  '/js/player-gestures.js', '/js/progress.js', '/js/release-watches.js', '/js/shows.js',
+  '/js/player-gestures.js', '/js/player-nav.js', '/js/player-viewport.js', '/js/progress.js', '/js/release-watches.js', '/js/shows.js',
   '/js/state.js', '/js/status.js', '/js/ui-prefs.js', '/js/util.js',
   '/js/sync.js',
 ];
