@@ -74,16 +74,21 @@ test('hasExactTitleMatch distinguishes broad results from an exact title', async
   assert.equal(hasExactTitleMatch([{ alternativeTitles: ['Shingeki no Kyojin'] }], 'shingeki-no-kyojin'), true);
 });
 
-test('presentAnimeCard recomputes newCount from last watched and latest', async () => {
-  const { presentAnimeCard } = await loadUtil();
+test('presentAnimeCard uses the episode list when catalog ticks are stale', async () => {
+  const { presentAnimeCard, nextEpisode } = await loadUtil();
   const presented = presentAnimeCard({
     id: 'a',
-    watchedEpisodes: ['1', '2'],
-    lastWatched: '2',
-    latestEpisode: '5',
+    watchedEpisodes: ['1', '2', '3', '4', '5', '6', '7', '8'],
+    lastWatched: '8',
+    latestEpisode: '8',
+    episodeCount: 8,
+    episodeCounts: { sub: 8, dub: 8 },
+    episodes: Array.from({ length: 10 }, (_, index) => String(index + 1)),
   });
-  assert.equal(presented.newCount, 3);
-  assert.equal(presented.watchedCount, 2);
+  assert.equal(presented.latestEpisode, '10');
+  assert.equal(presented.newCount, 2);
+  assert.equal(presented.lastWatched, '8');
+  assert.equal(nextEpisode(presented), '9');
 });
 
 test('presentMangaCard counts unread chapters when chapter list exists', async () => {

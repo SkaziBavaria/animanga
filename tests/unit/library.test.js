@@ -84,6 +84,21 @@ test('anime refresh guard rejects mismatched and incomplete metadata', () => {
   assert.equal(assertSafeShowRefresh(existing, { id: 'correct-1', name: 'Correct Show', thumbnail: 'new.jpg' }).id, 'correct-1');
 });
 
+test('presentShow uses the stored episode list when catalog ticks lag behind', () => {
+  const show = presentShow({
+    id: 'lagging-ticks',
+    name: 'Lagging ticks',
+    latestEpisode: '8',
+    episodeCount: 8,
+    episodeCounts: { sub: 8, dub: 8 },
+    episodes: Array.from({ length: 10 }, (_, index) => String(index + 1)),
+    watchedEpisodes: ['1', '2', '3', '4', '5', '6', '7', '8'],
+  });
+  assert.equal(show.latestEpisode, '10');
+  assert.equal(show.lastWatched, '8');
+  assert.equal(show.newCount, 2);
+});
+
 test('presentShow lets sequel data override a stale false flag', () => {
   const show = presentShow({
     id: 'bleach-conflict',

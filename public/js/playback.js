@@ -4,6 +4,8 @@ import { state } from './state.js';
 import { usesBrowserPlayer } from './status.js';
 import { positionFor, saveProgress } from './progress.js';
 import { setupPlayerGestures } from './player-gestures.js';
+import { applyPlayerFullscreenViewport, visualViewportBox } from './player-viewport.js';
+import { adjacentEpisode } from './player-nav.js';
 import { refreshAnimeCards, syncAnimeShow } from './library.js';
 import {
   presentAnimeCard,
@@ -19,6 +21,8 @@ import {
   sidecarSubtitleSrc,
   parseWebVtt,
   activeCueText,
+  captionOverlayLayout,
+  applyCaptionOverlayLayout,
 } from './captions.js';
 
 let currentContext = null;
@@ -52,29 +56,15 @@ const controlsState = {
 
 const SEEK_CHAIN_MS = 900;
 
-function adjacentEpisode(show, episode, dir) {
-  const list = (show?.episodes || []).map(String);
-  if (list.length) {
-    const idx = list.indexOf(String(episode));
-    if (idx !== -1) {
-      const target = idx + dir;
-      return target >= 0 && target < list.length ? list[target] : null;
-    }
-  }
-  const num = Number(episode);
-  if (!Number.isFinite(num)) return null;
-  const candidate = num + dir;
-  if (candidate < 1) return null;
-  const latest = Number(show?.latestEpisode || show?.episodeCount);
-  if (dir > 0 && Number.isFinite(latest) && latest > 0 && candidate > latest) return null;
-  return String(candidate);
-}
-
 function updatePlayerNav() {
   const hasPrev = Boolean(currentShow && currentContext && adjacentEpisode(currentShow, currentContext.episode, -1));
   const hasNext = Boolean(currentShow && currentContext && adjacentEpisode(currentShow, currentContext.episode, 1));
   if (els.prevEpisodeBtn) els.prevEpisodeBtn.disabled = !hasPrev;
-  if (els.nextEpisodeBtn) els.nextEpisodeBtn.disabled = !hasNext;
+  if (els.nextEpisodeBtn) {
+    els.nextEpisodeBtn.disabled = !hasNext;
+    els.nextEpisodeBtn.hidden = !hasNext;
+    els.nextEpisodeBtn.setAttribute('aria-hidden', hasNext ? 'false' : 'true');
+  }
 }
 
 async function playAdjacent(dir) {
@@ -286,6 +276,28 @@ function isPlayerStageFullscreen() {
   return Boolean(fullscreenElement()) || els.playerDialog?.classList.contains('player-fullscreen');
 }
 
+function syncPlayerFullscreenViewport() {
+  applyPlayerFullscreenViewport(
+    document.documentElement,
+    isPlayerStageFullscreen(),
+    visualViewportBox(window.visualViewport, {
+      width: window.innerWidth,
+      height: window.innerHeight,
+    }),
+  );
+}
+
+let playerLayoutRefreshTimer = 0;
+function schedulePlayerLayoutRefresh() {
+  syncPlayerFullscreenViewport();
+  updateCaptionOverlay();
+  clearTimeout(playerLayoutRefreshTimer);
+  playerLayoutRefreshTimer = window.setTimeout(() => {
+    syncPlayerFullscreenViewport();
+    updateCaptionOverlay();
+  }, 180);
+}
+
 function focusPlayerStage() {
   els.playerStage?.focus({ preventScroll: true });
 }
@@ -293,19 +305,23 @@ function focusPlayerStage() {
 async function requestPlayerFullscreen() {
   els.playerDialog?.classList.add('player-fullscreen');
   document.body.classList.add('player-fullscreen-active');
+  syncPlayerFullscreenViewport();
   updateVideoControls();
   const root = document.documentElement;
   const request = root.requestFullscreen || root.webkitRequestFullscreen;
   if (request) await request.call(root);
+  schedulePlayerLayoutRefresh();
   focusPlayerStage();
 }
 
 async function exitPlayerFullscreen() {
   els.playerDialog?.classList.remove('player-fullscreen');
   document.body.classList.remove('player-fullscreen-active');
+  syncPlayerFullscreenViewport();
   updateVideoControls();
   const exit = document.exitFullscreen || document.webkitExitFullscreen;
   if (fullscreenElement() && exit) await exit.call(document);
+  schedulePlayerLayoutRefresh();
   focusPlayerStage();
 }
 
@@ -326,6 +342,7 @@ function shouldHideVideoControls() {
 function setVideoControlsVisible(visible) {
   els.playerStage?.classList.toggle('controls-hidden', !visible);
   if (!visible) controlsState.pointerArmed = false;
+  updateCaptionOverlay();
 }
 
 function areVideoControlsHidden() {
@@ -530,12 +547,33 @@ function detachHls() {
   activeHls = null;
 }
 
+function captionLayoutFromPlayer() {
+  const stage = els.playerStage;
+  const video = els.playerVideo;
+  if (!stage || !video) return null;
+  const stageRect = stage.getBoundingClientRect();
+  const videoRect = video.getBoundingClientRect();
+  if (!stageRect.height || !videoRect.height) return null;
+  return captionOverlayLayout({
+    stageWidth: stageRect.width,
+    stageHeight: stageRect.height,
+    videoLeft: videoRect.left - stageRect.left,
+    videoTop: videoRect.top - stageRect.top,
+    videoWidth: videoRect.width,
+    videoHeight: videoRect.height,
+    mediaWidth: video.videoWidth,
+    mediaHeight: video.videoHeight,
+    controlsVisible: !areVideoControlsHidden(),
+  });
+}
+
 function updateCaptionOverlay() {
   const overlay = els.playerCaptions;
   if (!overlay) return;
   const text = activeCueText(captionCues, els.playerVideo?.currentTime);
   overlay.hidden = !text;
   overlay.textContent = text;
+  applyCaptionOverlayLayout(overlay, text ? captionLayoutFromPlayer() : null);
 }
 
 function enableSidecarCaptions(playback) {
@@ -958,6 +996,7 @@ export function bindPlayerDialog() {
       document.body.classList.remove('player-fullscreen-active');
     }
     if (currentContext) focusPlayerStage();
+    schedulePlayerLayoutRefresh();
   });
   document.addEventListener('webkitfullscreenchange', () => {
     if (!fullscreenElement()) {
@@ -965,6 +1004,7 @@ export function bindPlayerDialog() {
       document.body.classList.remove('player-fullscreen-active');
     }
     if (currentContext) focusPlayerStage();
+    schedulePlayerLayoutRefresh();
   });
 
   setupPlayerGestures({
@@ -976,6 +1016,12 @@ export function bindPlayerDialog() {
   els.playerVideo.addEventListener('seeked', updateCaptionOverlay);
   els.playerVideo.addEventListener('playing', updateCaptionOverlay);
   els.playerVideo.addEventListener('loadeddata', updateCaptionOverlay);
+  els.playerVideo.addEventListener('loadedmetadata', updateCaptionOverlay);
+  els.playerVideo.addEventListener('resize', updateCaptionOverlay);
+  window.addEventListener('resize', schedulePlayerLayoutRefresh);
+  window.addEventListener('orientationchange', schedulePlayerLayoutRefresh);
+  window.visualViewport?.addEventListener('resize', schedulePlayerLayoutRefresh);
+  window.screen?.orientation?.addEventListener?.('change', schedulePlayerLayoutRefresh);
   els.playerVideo.addEventListener('timeupdate', () => {
     if (!currentContext) return;
     handleSkipTimes();

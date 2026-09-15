@@ -75,9 +75,17 @@ export function hasExactTitleMatch(items, query) {
   });
 }
 
+export function latestKnownEpisode(show = {}) {
+  const fromList = episodeListForWatchAlignment(show)
+    .map((episode) => Number(episode))
+    .filter(Number.isFinite);
+  if (fromList.length) return Math.max(...fromList);
+  const stored = episodeNumber(show.latestEpisode || show.episodeCount);
+  return Number.isFinite(stored) ? stored : null;
+}
+
 export function latestEpisodeNumber(show) {
-  const latest = episodeNumber(show.latestEpisode || show.episodeCount);
-  return Number.isFinite(latest) ? latest : null;
+  return latestKnownEpisode(show);
 }
 
 export function episodeListForWatchAlignment(show = {}) {
@@ -174,8 +182,8 @@ export function presentAnimeCard(show = {}) {
   const watchedEpisodes = alignWatchedEpisodesToList(show.watchedEpisodes, episodeListForWatchAlignment(show));
   // Always derive from watched list (matches server) so rewatching an older ep cannot lower progress.
   const lastWatched = highestWatchedEpisode({ ...show, watchedEpisodes }) || '';
-  const latestEpisode = show.latestEpisode || show.episodeCount || null;
-  const latest = episodeNumber(latestEpisode);
+  const latest = latestKnownEpisode({ ...show, watchedEpisodes });
+  const latestEpisode = latest != null ? String(latest) : (show.latestEpisode || show.episodeCount || null);
   const last = episodeNumber(lastWatched);
   const newCount = Number.isFinite(latest) && Number.isFinite(last)
     ? Math.max(0, Math.floor(latest - last))

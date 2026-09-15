@@ -8,6 +8,7 @@ import {
   hasNewEpisodeToContinue,
   hasStarted,
   highestWatchedEpisode,
+  latestEpisodeNumber,
   nextEpisode,
   releasePills,
   showInitials,
@@ -32,7 +33,7 @@ function playButtonLabel(label, episode) {
 function progressLabel(show, source) {
   const mode = show.mode || state.settings?.mode || 'sub';
   const byMode = Number(show.episodeCounts?.[mode] || 0);
-  const latest = byMode || show.latestEpisode || show.episodeCount || '';
+  const latest = latestEpisodeNumber(show) || byMode || '';
   if (source !== 'library') return latest ? `Episodes ${latest}` : 'Episodes ?';
   const watched = show.lastWatched || highestWatchedEpisode(show) || '0';
   return latest ? `Progress ${watched} / ${latest}` : `Progress ${watched}`;

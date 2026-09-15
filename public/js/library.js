@@ -138,7 +138,7 @@ export async function loadLibrary(refresh = false) {
   els.refreshBtn.textContent = '…';
   try {
     const data = await api(`/api/library${refresh ? '?refresh=1' : ''}`, { background: !refresh });
-    state.library = data.shows || [];
+    state.library = (data.shows || []).map((show) => presentAnimeCard(show));
     refreshAnimeCards();
     if (refresh) toast('Library updated');
   } finally {

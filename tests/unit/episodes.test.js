@@ -13,6 +13,7 @@ const {
   compareEpisodes,
   highestEpisode,
   alignWatchedEpisodesToList,
+  latestKnownEpisode,
 } = require('../../lib/episodes');
 
 test('cleanTitle strips the episode-count suffix', () => {
@@ -82,4 +83,12 @@ test('alignWatchedEpisodesToList keeps season-local history unchanged', () => {
 
 test('alignWatchedEpisodesToList rejects a watched span longer than the current season', () => {
   assert.deepEqual(alignWatchedEpisodesToList(['73', '99'], ['1', '2', '3']), []);
+});
+
+test('latestKnownEpisode prefers the listed episodes over a stale latestEpisode field', () => {
+  assert.equal(latestKnownEpisode({
+    latestEpisode: '8',
+    episodeCount: 8,
+    episodes: Array.from({ length: 10 }, (_, index) => String(index + 1)),
+  }), '10');
 });
