@@ -1933,7 +1933,7 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
   flex-direction: column;
   gap: 2px;
   min-height: 0;
-  padding: 20px 12px 8px;
+  padding: 20px 14px 8px;
   background: linear-gradient(to top, rgba(0, 0, 0, .72), rgba(0, 0, 0, .32), transparent);
   color: #fff;
   line-height: 1;
@@ -1953,9 +1953,9 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 2px;
+  gap: 8px;
   margin-left: auto;
-  min-width: 0;
+  flex-shrink: 0;
 }
 
 .center-controls {
@@ -2038,9 +2038,12 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
   width: 44px;
   height: 44px;
   min-width: 44px;
+  flex: 0 0 auto;
+  aspect-ratio: 1;
   padding: 0;
   border: 0;
   border-radius: 50%;
@@ -2062,6 +2065,7 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
 .caption-control {
   position: relative;
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
 }
@@ -2188,6 +2192,8 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
 .volume-button .volume-icon {
   width: 22px;
   height: 22px;
+  display: block;
+  flex: 0 0 auto;
   fill: currentColor;
 }
 
@@ -2206,6 +2212,8 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
 .fullscreen-button .fullscreen-icon {
   width: 22px;
   height: 22px;
+  display: block;
+  flex: 0 0 auto;
   fill: currentColor;
 }
 
@@ -2298,12 +2306,16 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
 @media (max-width: 900px), (hover: none) and (pointer: coarse) {
   .video-controls {
     gap: 0;
-    padding: 16px 8px 6px;
+    padding: 16px 12px max(8px, env(safe-area-inset-bottom));
   }
 
   .player-controls-row {
     min-height: 40px;
-    gap: 2px;
+    gap: 4px;
+  }
+
+  .player-controls-end {
+    gap: 10px;
   }
 
   .video-controls .video-control-button {
