@@ -6,6 +6,10 @@ const {
   parseSearchResults,
   parseEpisodes,
   decodeEmbedBlob,
+  listSubtitleTracks,
+  mergeSubtitleTracks,
+  pickDefaultSubtitleTrack,
+  resolveDefaultSubtitleTrack,
   pickSubtitleTrack,
   parseM3u8,
   parseChart,
@@ -114,24 +118,50 @@ test('HiAnime embed decoder reverses the rotating XOR key', () => {
   assert.equal(decodeEmbedBlob(source.toString('base64')), 'otaku-embed-v1');
 });
 
-test('HiAnime subtitle picker prefers default then English and resolves relative URLs', () => {
+test('HiAnime subtitle picker uses the catalog default track', () => {
   assert.deepEqual(pickSubtitleTrack({
     subtitles: [
-      { src: 'https://cdn.test/ja.vtt', lang: 'ja', label: 'Japanese' },
-      { src: '/subs/en.vtt', lang: 'en', label: 'English', default: true },
+      { src: 'https://cdn.test/ar.vtt', lang: 'ar', label: 'Arabic', default: true },
+      { src: '/subs/en.vtt', lang: 'en', label: 'English (CR)' },
     ],
   }, 'https://player.test/embed'), {
-    src: 'https://player.test/subs/en.vtt',
-    lang: 'en',
-    label: 'English',
+    src: 'https://cdn.test/ar.vtt',
+    lang: 'ar',
+    label: 'Arabic',
+    default: true,
   });
   assert.equal(pickSubtitleTrack({
     subtitles: [
       { file: 'https://cdn.test/en.vtt', lang: 'en', label: 'English' },
-      { src: 'https://cdn.test/es.vtt', lang: 'es', label: 'Spanish' },
+      { src: 'https://cdn.test/es.vtt', lang: 'es', label: 'Spanish', default: true },
     ],
-  }).src, 'https://cdn.test/en.vtt');
+  }).src, 'https://cdn.test/es.vtt');
+  assert.equal(pickSubtitleTrack({
+    subtitles: [
+      { src: 'https://cdn.test/es.vtt', lang: 'es', label: 'Spanish' },
+      { src: 'https://cdn.test/ar.vtt', lang: 'ar', label: 'Arabic' },
+    ],
+  }).src, 'https://cdn.test/es.vtt');
   assert.equal(pickSubtitleTrack({ subtitles: [{ label: 'English' }] }), null);
+});
+
+test('HiAnime subtitle lists keep unique labels and prefer a marked default', () => {
+  const primary = listSubtitleTracks({
+    subtitles: [
+      { src: 'https://cdn.test/es.vtt', lang: 'es', label: 'Spanish' },
+      { src: 'https://cdn.test/th.vtt', lang: 'th', label: 'Thai' },
+    ],
+  });
+  const extra = listSubtitleTracks({
+    subtitles: [
+      { src: 'https://cdn.test/en.vtt', lang: 'en', label: 'English', default: true },
+      { src: 'https://cdn.test/es-alt.vtt', lang: 'es', label: 'Spanish' },
+    ],
+  });
+  const merged = mergeSubtitleTracks(primary, extra);
+  assert.deepEqual(merged.map((track) => track.label), ['Spanish', 'Thai', 'English']);
+  assert.equal(pickDefaultSubtitleTrack(merged).src, 'https://cdn.test/en.vtt');
+  assert.equal(resolveDefaultSubtitleTrack(primary, merged).src, 'https://cdn.test/es.vtt');
 });
 
 test('HiAnime m3u8 parser resolves relative variants and quality', () => {

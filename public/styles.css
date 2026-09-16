@@ -1710,6 +1710,11 @@ dialog::backdrop {
   width: min(960px, calc(100vw - 22px));
 }
 
+#playerDialog .dialog-head {
+  position: relative;
+  z-index: 1;
+}
+
 #playerDialog.player-fullscreen {
   position: fixed;
   inset: 0;
@@ -1757,9 +1762,14 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
 
 .player-stage {
   position: relative;
+  z-index: 2;
   line-height: 0;
   overflow: hidden;
   background: #000;
+}
+
+.player-stage.caption-menu-open {
+  overflow: visible;
 }
 
 .player-stage:focus,
@@ -1792,6 +1802,7 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
   background: transparent;
 }
 
+#playerCaptions,
 .player-captions {
   position: absolute;
   left: 8%;
@@ -1882,7 +1893,7 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
 .skip-button {
   position: absolute;
   right: 14px;
-  bottom: 78px;
+  bottom: 98px;
   z-index: 4;
   padding: 10px 16px;
   border-radius: 8px;
@@ -1908,7 +1919,7 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
 #playerDialog.player-fullscreen .skip-button,
 .player-stage:-webkit-full-screen .skip-button {
   right: max(14px, env(safe-area-inset-right));
-  bottom: max(82px, calc(env(safe-area-inset-bottom) + 82px));
+  bottom: max(110px, calc(env(safe-area-inset-bottom) + 110px));
 }
 
 .video-controls {
@@ -1918,18 +1929,34 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
   right: 0;
   bottom: 0;
   z-index: 4;
-  display: grid;
-  grid-template-columns: auto minmax(80px, 1fr) 96px minmax(128px, 208px) 96px;
-  align-items: center;
-  gap: 10px;
-  min-height: 92px;
-  padding: 28px 18px 10px;
+  overflow: visible;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  padding: 28px 14px 10px;
   background: linear-gradient(to top, rgba(0, 0, 0, .72), rgba(0, 0, 0, .32), transparent);
   color: #fff;
   line-height: 1;
   opacity: 1;
   transform: translateY(0);
   transition: opacity .18s ease, transform .18s ease;
+}
+
+.player-controls-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 72px;
+}
+
+.player-controls-end {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  margin-left: auto;
+  min-width: 0;
 }
 
 .center-controls {
@@ -2033,8 +2060,93 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
   opacity: 1;
 }
 
+.caption-control {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.caption-control[hidden],
+.caption-track-menu[hidden] {
+  display: none;
+}
+
+.caption-button.is-off {
+  opacity: .55;
+}
+
+.caption-track-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 30;
+  pointer-events: auto;
+  min-width: 188px;
+  max-height: min(280px, 46vh);
+  overflow: auto;
+  padding: 6px;
+  border-radius: 10px;
+  background: rgba(10, 12, 16, .94);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .45);
+}
+
+.caption-track-option {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.3;
+  text-align: left;
+  cursor: pointer;
+}
+
+.caption-track-option:hover,
+.caption-track-option:focus-visible {
+  background: rgba(255, 255, 255, .12);
+}
+
+.caption-track-option[aria-selected="true"] {
+  background: rgba(255, 255, 255, .18);
+  font-weight: 650;
+}
+
+@media (max-width: 560px) {
+  .caption-track-menu {
+    min-width: 160px;
+  }
+}
+
 .video-control-button::before {
   display: block;
+}
+
+.caption-button::before {
+  content: "CC";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.1em;
+  padding: 0.18em 0.28em 0.12em;
+  border: 2px solid currentColor;
+  border-radius: 0.28em;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+
+@media (max-width: 560px) {
+  .caption-button::before {
+    font-size: 12px;
+    border-width: 1.5px;
+  }
 }
 
 .previous-button::before,
@@ -2074,25 +2186,46 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
   background: linear-gradient(to right, currentColor 0 35%, transparent 35% 65%, currentColor 65% 100%);
 }
 
-.volume-button::before {
-  content: "\1F50A";
+.volume-button .volume-icon {
+  width: 40px;
+  height: 40px;
+  fill: currentColor;
 }
 
-.volume-button.is-muted::before {
-  content: "\1F507";
+.volume-button .volume-off {
+  display: none;
+}
+
+.volume-button.is-muted .volume-on {
+  display: none;
+}
+
+.volume-button.is-muted .volume-off {
+  display: block;
 }
 
 .fullscreen-button .fullscreen-icon {
-  width: 48px;
-  height: 48px;
+  width: 40px;
+  height: 40px;
+  fill: currentColor;
 }
 
 .player-time {
-  min-width: 152px;
-  font-size: 20px;
+  min-width: 132px;
+  font-size: 18px;
   font-weight: 700;
   white-space: nowrap;
   color: rgba(255, 255, 255, .9);
+}
+
+.player-seek {
+  width: 100%;
+  flex: 0 0 auto;
+}
+
+.player-volume {
+  width: clamp(88px, 14vw, 168px);
+  flex: 0 0 auto;
 }
 
 .player-seek,
@@ -2100,9 +2233,8 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
   --range-progress: 0%;
   appearance: none;
   -webkit-appearance: none;
-  width: 100%;
   min-width: 0;
-  height: 32px;
+  height: 28px;
   background: transparent;
   cursor: pointer;
   border: 0;
@@ -2165,22 +2297,27 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
 
 @media (max-width: 560px) {
   .video-controls {
-    grid-template-columns: minmax(70px, 1fr) 68px 68px;
-    gap: 4px;
+    gap: 0;
     padding-left: 8px;
     padding-right: 8px;
   }
 
-  .video-controls .video-control-button {
-    width: 68px;
-    height: 64px;
-    min-width: 68px;
-    font-size: 23px;
+  .player-controls-row {
+    min-height: 56px;
+    gap: 4px;
   }
 
-  .video-controls .fullscreen-icon {
-    width: 34px;
-    height: 34px;
+  .video-controls .video-control-button {
+    width: 56px;
+    height: 52px;
+    min-width: 56px;
+    font-size: 22px;
+  }
+
+  .video-controls .fullscreen-icon,
+  .video-controls .volume-icon {
+    width: 28px;
+    height: 28px;
   }
 
   .center-controls {

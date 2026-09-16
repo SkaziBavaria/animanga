@@ -6,6 +6,25 @@ export function isHlsPlaybackUrl(value) {
   return /\.m3u8(?:\b|$)/i.test(String(value || ''));
 }
 
+export function browserHlsOptions() {
+  return {
+    enableWorker: true,
+    renderTextTracksNatively: false,
+    subtitleDisplay: false,
+    enableWebVTT: false,
+    enableIMSC1: false,
+    enableCEA708Captions: false,
+  };
+}
+
+export function disableNativeVideoTextTracks(video) {
+  const tracks = video?.textTracks;
+  if (!tracks) return;
+  for (let index = 0; index < tracks.length; index += 1) {
+    tracks[index].mode = 'disabled';
+  }
+}
+
 export function nativeHlsSupported(video) {
   if (!video?.canPlayType) return false;
   return Boolean(
