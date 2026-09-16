@@ -1,11 +1,55 @@
 'use strict';
 
+export const CAPTION_TRACK_OFF = 'off';
+
 export function sidecarSubtitleSrc(playback) {
   const proxied = String(playback?.subtitleProxyUrl || '').trim();
   if (proxied.startsWith('/')) return proxied;
   const local = String(playback?.subtitle || '').trim();
   if (local.startsWith('/')) return local;
   return '';
+}
+
+function captionTrackFromPlayback(playback, fallbackId) {
+  const src = sidecarSubtitleSrc(playback);
+  if (!src) return null;
+  return {
+    id: fallbackId || 'c0',
+    lang: String(playback?.subtitleLang || '').trim().slice(0, 16),
+    label: String(playback?.subtitleLabel || 'Captions').trim().slice(0, 64) || 'Captions',
+    default: true,
+    subtitleProxyUrl: src,
+  };
+}
+
+export function playbackCaptionTracks(playback) {
+  const listed = Array.isArray(playback?.subtitleTracks) ? playback.subtitleTracks : [];
+  const tracks = listed
+    .map((track, index) => {
+      const src = String(track?.subtitleProxyUrl || '').trim();
+      if (!src.startsWith('/')) return null;
+      return {
+        id: String(track.id || `c${index}`),
+        lang: String(track.lang || '').trim().slice(0, 16),
+        label: String(track.label || 'Captions').trim().slice(0, 64) || 'Captions',
+        default: Boolean(track.default),
+        subtitleProxyUrl: src,
+      };
+    })
+    .filter(Boolean);
+  if (tracks.length) return tracks;
+  const fallback = captionTrackFromPlayback(playback);
+  return fallback ? [fallback] : [];
+}
+
+export function selectedCaptionTrackId(tracks) {
+  const list = Array.isArray(tracks) ? tracks : [];
+  return list.find((track) => track.default)?.id || list[0]?.id || CAPTION_TRACK_OFF;
+}
+
+export function captionTrackById(tracks, id) {
+  if (id === CAPTION_TRACK_OFF) return null;
+  return (Array.isArray(tracks) ? tracks : []).find((track) => track.id === id) || null;
 }
 
 export function sidecarTrackProps(playback) {

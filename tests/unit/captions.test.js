@@ -31,6 +31,41 @@ test('sidecar captions use the signed proxy path, not a remote subtitle URL', as
   assert.equal(sidecarTrackProps({}), null);
 });
 
+test('playback caption tracks use the catalog default and keep a signed list', async () => {
+  const { playbackCaptionTracks, selectedCaptionTrackId, captionTrackById, CAPTION_TRACK_OFF } = await loadCaptions();
+  const tracks = playbackCaptionTracks({
+    subtitleTracks: [
+      {
+        id: 'c0',
+        lang: 'es',
+        label: 'Spanish',
+        subtitleProxyUrl: '/api/proxy?url=https%3A%2F%2Fcdn.example%2Fes.vtt',
+      },
+      {
+        id: 'c1',
+        lang: 'en',
+        label: 'English',
+        default: true,
+        subtitleProxyUrl: '/api/proxy?url=https%3A%2F%2Fcdn.example%2Fen.vtt',
+      },
+    ],
+  });
+  assert.equal(selectedCaptionTrackId(tracks), 'c1');
+  assert.equal(captionTrackById(tracks, 'c0').label, 'Spanish');
+  assert.equal(captionTrackById(tracks, CAPTION_TRACK_OFF), null);
+  assert.deepEqual(playbackCaptionTracks({
+    subtitleProxyUrl: '/api/proxy?url=https%3A%2F%2Fcdn.example%2Fen.vtt',
+    subtitleLang: 'en',
+    subtitleLabel: 'English',
+  }), [{
+    id: 'c0',
+    lang: 'en',
+    label: 'English',
+    default: true,
+    subtitleProxyUrl: '/api/proxy?url=https%3A%2F%2Fcdn.example%2Fen.vtt',
+  }]);
+});
+
 test('WebVTT parser reads minute-second cues and strips markup', async () => {
   const { parseWebVtt, activeCueText } = await loadCaptions();
   const cues = parseWebVtt('WEBVTT\r\n\r\n00:03.950 --> 00:05.500\r\n<b>Hello there</b>\r\n\r\n00:06.830 --> 00:10.160\r\nNext line\r\n');

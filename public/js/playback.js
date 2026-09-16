@@ -16,9 +16,15 @@ import {
   hlsPlaybackStrategy,
   loadHlsConstructor,
   nativeHlsSupported,
+  browserHlsOptions,
+  disableNativeVideoTextTracks,
 } from './hls-player.js';
 import {
+  CAPTION_TRACK_OFF,
   sidecarSubtitleSrc,
+  playbackCaptionTracks,
+  selectedCaptionTrackId,
+  captionTrackById,
   parseWebVtt,
   activeCueText,
   captionOverlayLayout,
@@ -32,6 +38,8 @@ let lastMediaTime = 0;
 let lastMediaDuration = 0;
 let captionCues = [];
 let captionLoadId = 0;
+let captionTracks = [];
+let activeCaptionTrackId = CAPTION_TRACK_OFF;
 let currentSkip = { op: null, ed: null };
 let introSkipped = false;
 let finishedMarked = false;
@@ -336,7 +344,14 @@ async function togglePlayerFullscreen() {
 
 function shouldHideVideoControls() {
   const video = els.playerVideo;
-  return Boolean(currentContext && video && !video.paused && !playerSeeking && !controlsState.hover);
+  return Boolean(
+    currentContext
+    && video
+    && !video.paused
+    && !playerSeeking
+    && !controlsState.hover
+    && els.captionTrackMenu?.hidden,
+  );
 }
 
 function setVideoControlsVisible(visible) {
@@ -576,11 +591,42 @@ function updateCaptionOverlay() {
   applyCaptionOverlayLayout(overlay, text ? captionLayoutFromPlayer() : null);
 }
 
-function enableSidecarCaptions(playback) {
+function setCaptionMenuOpen(open) {
+  const expanded = Boolean(open && captionTracks.length);
+  if (els.captionTrackMenu) els.captionTrackMenu.hidden = !expanded;
+  els.captionTrackBtn?.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+  els.playerStage?.classList.toggle('caption-menu-open', expanded);
+}
+
+function renderCaptionControls() {
+  if (!els.captionControl || !els.captionTrackMenu || !els.captionTrackBtn) return;
+  els.captionControl.hidden = !captionTracks.length;
+  els.captionTrackBtn.classList.toggle('is-off', activeCaptionTrackId === CAPTION_TRACK_OFF);
+  els.captionTrackMenu.replaceChildren();
+  const options = [
+    ...captionTracks,
+    { id: CAPTION_TRACK_OFF, label: 'Off', lang: '' },
+  ];
+  for (const track of options) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'caption-track-option';
+    button.dataset.captionTrackId = track.id;
+    button.setAttribute('role', 'option');
+    button.setAttribute('aria-selected', track.id === activeCaptionTrackId ? 'true' : 'false');
+    button.textContent = track.lang && track.lang.toLowerCase() !== track.label.toLowerCase()
+      ? `${track.label} (${track.lang})`
+      : track.label;
+    els.captionTrackMenu.append(button);
+  }
+  if (!captionTracks.length) setCaptionMenuOpen(false);
+}
+
+function enableSidecarCaptions(track) {
   detachCaptions?.();
   captionCues = [];
   updateCaptionOverlay();
-  const src = sidecarSubtitleSrc(playback);
+  const src = sidecarSubtitleSrc(track);
   if (!src) return;
   const loadId = ++captionLoadId;
   const controller = new AbortController();
@@ -595,10 +641,26 @@ function enableSidecarCaptions(playback) {
     const text = await response.text();
     if (loadId !== captionLoadId) return;
     captionCues = parseWebVtt(text);
+    if (captionCues.length) disableNativeVideoTextTracks(els.playerVideo);
     updateCaptionOverlay();
   }).catch((error) => {
     if (error?.name === 'AbortError') return;
   });
+}
+
+function selectCaptionTrack(id) {
+  const track = captionTrackById(captionTracks, id);
+  activeCaptionTrackId = track?.id || CAPTION_TRACK_OFF;
+  renderCaptionControls();
+  enableSidecarCaptions(track);
+  setCaptionMenuOpen(false);
+}
+
+function configureCaptionTracks(playback) {
+  captionTracks = playbackCaptionTracks(playback);
+  activeCaptionTrackId = selectedCaptionTrackId(captionTracks);
+  renderCaptionControls();
+  enableSidecarCaptions(captionTrackById(captionTracks, activeCaptionTrackId));
 }
 
 function resetVideoElement() {
@@ -680,14 +742,13 @@ async function attachHlsPlayback(video, playback, { generation, failPlayback, re
     toast('No playable stream format for this device');
     return;
   }
-  const hls = new HlsCtor({
-    enableWorker: true,
-    renderTextTracksNatively: false,
-    subtitleDisplay: false,
-  });
+  const hls = new HlsCtor(browserHlsOptions());
   activeHls = hls;
   hls.on(HlsCtor.Events.MANIFEST_PARSED, () => {
     if (generation !== playbackGeneration) return;
+    hls.subtitleDisplay = false;
+    hls.subtitleTrack = -1;
+    if (captionCues.length) disableNativeVideoTextTracks(video);
     const resume = Number(resumeSeconds);
     const duration = Number(video.duration);
     if (resume >= 5 && Number.isFinite(duration) && resume < duration - 5) {
@@ -728,7 +789,7 @@ function openBrowserPlayback(show, episode, playback) {
   video.onerror = null;
   attachResume(resume);
   attachSkipTimes(show, episode);
-  enableSidecarCaptions(playback);
+  configureCaptionTracks(playback);
 
   const failPlayback = () => {
     if (generation !== playbackGeneration) return;
@@ -795,6 +856,7 @@ export async function resolveMpvPlayback(show, episode) {
     subtitleProxyUrl: data.playback.subtitleProxyUrl,
     subtitleLang: data.playback.subtitleLang,
     subtitleLabel: data.playback.subtitleLabel,
+    subtitleTracks: data.playback.subtitleTracks,
     provider: data.playback.provider,
     quality: data.playback.quality,
   };
@@ -825,6 +887,9 @@ export function bindPlayerDialog() {
     else persistProgress();
     refreshAnimeCards();
     resetVideoElement();
+    captionTracks = [];
+    activeCaptionTrackId = CAPTION_TRACK_OFF;
+    renderCaptionControls();
     hideSkipButton();
     detachSkipTimes?.();
     detachSkipTimes = null;
@@ -864,6 +929,20 @@ export function bindPlayerDialog() {
     if (shouldIgnoreControlClick(event)) return;
     event.stopPropagation();
     toggleMute();
+    showVideoControlsTemporarily();
+  });
+  els.captionTrackBtn?.addEventListener('click', (event) => {
+    if (shouldIgnoreControlClick(event)) return;
+    event.stopPropagation();
+    setCaptionMenuOpen(els.captionTrackMenu?.hidden);
+    setVideoControlsVisible(true);
+    clearTimeout(controlsState.hideTimer);
+  });
+  els.captionTrackMenu?.addEventListener('click', (event) => {
+    const option = event.target.closest('[data-caption-track-id]');
+    if (!option) return;
+    event.stopPropagation();
+    selectCaptionTrack(option.dataset.captionTrackId);
     showVideoControlsTemporarily();
   });
   els.playerFullscreenBtn?.addEventListener('click', (event) => {
@@ -1016,7 +1095,10 @@ export function bindPlayerDialog() {
   els.playerVideo.addEventListener('seeked', updateCaptionOverlay);
   els.playerVideo.addEventListener('playing', updateCaptionOverlay);
   els.playerVideo.addEventListener('loadeddata', updateCaptionOverlay);
-  els.playerVideo.addEventListener('loadedmetadata', updateCaptionOverlay);
+  els.playerVideo.addEventListener('loadedmetadata', () => {
+    if (captionCues.length) disableNativeVideoTextTracks(els.playerVideo);
+    updateCaptionOverlay();
+  });
   els.playerVideo.addEventListener('resize', updateCaptionOverlay);
   window.addEventListener('resize', schedulePlayerLayoutRefresh);
   window.addEventListener('orientationchange', schedulePlayerLayoutRefresh);

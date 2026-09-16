@@ -172,6 +172,62 @@ test.describe('Shell & navigation', () => {
     })).toBe('Caption probe');
   });
 
+  test('switches between every listed subtitle track from the CC menu', async ({ page }) => {
+    await installApiMocks(page, {
+      playback: {
+        url: '/e2e-blank.mp4',
+        subtitleProxyUrl: '/e2e-default.vtt',
+        subtitleLang: 'es',
+        subtitleLabel: 'Spanish',
+        subtitleTracks: [
+          {
+            id: 'c0',
+            lang: 'es',
+            label: 'Spanish',
+            default: true,
+            subtitleProxyUrl: '/e2e-default.vtt',
+          },
+          {
+            id: 'c1',
+            lang: 'en',
+            label: 'English',
+            default: false,
+            subtitleProxyUrl: '/e2e-english.vtt',
+          },
+        ],
+      },
+    });
+    await page.route('**/e2e-default.vtt', (route) => route.fulfill({
+      status: 200,
+      contentType: 'text/vtt',
+      body: 'WEBVTT\n\n00:00:00.000 --> 00:00:04.000\nTexto predeterminado\n',
+    }));
+    await page.route('**/e2e-english.vtt', (route) => route.fulfill({
+      status: 200,
+      contentType: 'text/vtt',
+      body: 'WEBVTT\n\n00:00:00.000 --> 00:00:04.000\nEnglish selection\n',
+    }));
+    await page.goto('/');
+    await page.click('#libraryList .show-card button[data-action="play"]');
+    await expect(page.locator('#captionControl')).toBeVisible();
+    await page.evaluate(() => {
+      const video = document.querySelector('#playerVideo');
+      Object.defineProperty(video, 'currentTime', { value: 1, configurable: true, writable: true });
+      video.dispatchEvent(new Event('timeupdate'));
+    });
+    await expect(page.locator('#playerCaptions')).toHaveText('Texto predeterminado');
+
+    await page.click('#captionTrackBtn');
+    await expect(page.locator('#captionTrackMenu')).toBeVisible();
+    await page.locator('[data-caption-track-id="c1"]').click({ force: true });
+    await expect(page.locator('#playerCaptions')).toHaveText('English selection');
+
+    await page.click('#captionTrackBtn');
+    await page.locator('[data-caption-track-id="off"]').click({ force: true });
+    await expect(page.locator('#playerCaptions')).toBeHidden();
+    await expect(page.locator('#captionTrackBtn')).toHaveClass(/is-off/);
+  });
+
   test('shows sidecar captions after a resume seek without waiting for timeupdate', async ({ page }) => {
     await installApiMocks(page, {
       playback: {
