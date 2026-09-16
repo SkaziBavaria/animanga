@@ -6,6 +6,7 @@ ENV CURL_IMPERSONATE_VERSION=v1.5.6
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
     ca-certificates curl ffmpeg \
+  && apt-get upgrade -y --no-install-recommends \
   && case "$TARGETARCH" in \
        amd64) CI_ARCH=x86_64 ;; \
        arm64) CI_ARCH=aarch64 ;; \

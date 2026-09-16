@@ -10,6 +10,7 @@ const root = path.join(__dirname, '..', '..');
 test('Docker image provides ffmpeg downloads via the built-in runtime', () => {
   const dockerfile = fs.readFileSync(path.join(root, 'Dockerfile'), 'utf8');
   assert.match(dockerfile, /ca-certificates curl ffmpeg/);
+  assert.match(dockerfile, /apt-get upgrade -y --no-install-recommends/);
   assert.match(dockerfile, /curl-impersonate/);
   assert.match(dockerfile, /curl_chrome136/);
   assert.match(dockerfile, /FROM node:24-bookworm-slim/);
