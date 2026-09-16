@@ -1893,14 +1893,14 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
 .skip-button {
   position: absolute;
   right: 14px;
-  bottom: 98px;
+  bottom: 72px;
   z-index: 4;
-  padding: 10px 16px;
+  padding: 8px 12px;
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, .3);
   background: rgba(20, 20, 20, .82);
   color: #fff;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   cursor: pointer;
   transition: background .12s ease, transform .12s ease;
@@ -1919,11 +1919,10 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
 #playerDialog.player-fullscreen .skip-button,
 .player-stage:-webkit-full-screen .skip-button {
   right: max(14px, env(safe-area-inset-right));
-  bottom: max(110px, calc(env(safe-area-inset-bottom) + 110px));
+  bottom: max(80px, calc(env(safe-area-inset-bottom) + 80px));
 }
 
 .video-controls {
-  --player-control-scale: 2;
   position: absolute;
   left: 0;
   right: 0;
@@ -1934,7 +1933,7 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
   flex-direction: column;
   gap: 2px;
   min-height: 0;
-  padding: 28px 14px 10px;
+  padding: 20px 12px 8px;
   background: linear-gradient(to top, rgba(0, 0, 0, .72), rgba(0, 0, 0, .32), transparent);
   color: #fff;
   line-height: 1;
@@ -1946,8 +1945,8 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
 .player-controls-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-height: 72px;
+  gap: 6px;
+  min-height: 44px;
 }
 
 .player-controls-end {
@@ -1965,20 +1964,20 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
   left: 50%;
   z-index: 6;
   display: grid;
-  grid-template-columns: 104px auto 104px;
+  grid-template-columns: 56px auto 56px;
   align-items: center;
   justify-items: center;
-  gap: clamp(28px, 8vw, 72px);
+  gap: clamp(18px, 5vw, 40px);
   transform: translate(-50%, -50%);
   opacity: 1;
   transition: opacity .18s ease, transform .18s ease;
 }
 
 .center-controls .video-control-button {
-  width: 104px;
-  height: 104px;
-  min-width: 104px;
-  font-size: 48px;
+  width: 56px;
+  height: 56px;
+  min-width: 56px;
+  font-size: 22px;
   background: rgba(0, 0, 0, .34);
   backdrop-filter: blur(2px);
 }
@@ -1993,11 +1992,11 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
 }
 
 .center-controls .play-center-button {
-  width: 140px;
-  height: 140px;
-  min-width: 140px;
-  flex: 0 0 140px;
-  font-size: 60px;
+  width: 72px;
+  height: 72px;
+  min-width: 72px;
+  flex: 0 0 72px;
+  font-size: 28px;
   grid-column: 2;
 }
 
@@ -2039,15 +2038,15 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 96px;
-  height: 88px;
-  min-width: 96px;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
   padding: 0;
   border: 0;
   border-radius: 50%;
   background: transparent;
   color: #fff;
-  font-size: 32px;
+  font-size: 18px;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-weight: 600;
   line-height: 1;
@@ -2153,33 +2152,33 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
 .next-button::before {
   content: "";
   box-sizing: border-box;
-  width: 26px;
-  height: 26px;
-  border-top: 6px solid currentColor;
-  border-right: 6px solid currentColor;
+  width: 14px;
+  height: 14px;
+  border-top: 3px solid currentColor;
+  border-right: 3px solid currentColor;
 }
 
 .previous-button::before {
-  transform: translateX(2px) rotate(-135deg);
+  transform: translateX(1px) rotate(-135deg);
 }
 
 .next-button::before {
-  transform: translateX(-2px) rotate(45deg);
+  transform: translateX(-1px) rotate(45deg);
 }
 
 .play-center-button::before {
   content: "";
-  width: 44px;
-  height: 48px;
+  width: 22px;
+  height: 24px;
   margin: 0 auto;
-  transform: translateX(2px);
+  transform: translateX(1px);
   background: currentColor;
   clip-path: polygon(18% 8%, 18% 92%, 88% 50%);
 }
 
 .play-center-button.is-playing::before {
-  width: 36px;
-  height: 44px;
+  width: 18px;
+  height: 22px;
   margin: 0 auto;
   transform: none;
   clip-path: none;
@@ -2187,8 +2186,8 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
 }
 
 .volume-button .volume-icon {
-  width: 40px;
-  height: 40px;
+  width: 22px;
+  height: 22px;
   fill: currentColor;
 }
 
@@ -2205,15 +2204,15 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
 }
 
 .fullscreen-button .fullscreen-icon {
-  width: 40px;
-  height: 40px;
+  width: 22px;
+  height: 22px;
   fill: currentColor;
 }
 
 .player-time {
-  min-width: 132px;
-  font-size: 18px;
-  font-weight: 700;
+  min-width: 108px;
+  font-size: 13px;
+  font-weight: 650;
   white-space: nowrap;
   color: rgba(255, 255, 255, .9);
 }
@@ -2234,7 +2233,7 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
   appearance: none;
   -webkit-appearance: none;
   min-width: 0;
-  height: 28px;
+  height: 22px;
   background: transparent;
   cursor: pointer;
   border: 0;
@@ -2252,7 +2251,7 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
 
 .player-seek::-webkit-slider-runnable-track,
 .player-volume::-webkit-slider-runnable-track {
-  height: 8px;
+  height: 4px;
   border: 0;
   border-radius: 999px;
   background: linear-gradient(to right, #fff 0 var(--range-progress), rgba(255, 255, 255, .34) var(--range-progress) 100%);
@@ -2261,9 +2260,9 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
 .player-seek::-webkit-slider-thumb,
 .player-volume::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 28px;
-  height: 28px;
-  margin-top: -10px;
+  width: 16px;
+  height: 16px;
+  margin-top: -6px;
   border: 0;
   border-radius: 50%;
   background: #fff;
@@ -2272,7 +2271,7 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
 
 .player-seek::-moz-range-track,
 .player-volume::-moz-range-track {
-  height: 8px;
+  height: 4px;
   border: 0;
   border-radius: 999px;
   background: rgba(255, 255, 255, .34);
@@ -2280,67 +2279,91 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
 
 .player-seek::-moz-range-progress,
 .player-volume::-moz-range-progress {
-  height: 8px;
+  height: 4px;
   border-radius: 999px;
   background: #fff;
 }
 
 .player-seek::-moz-range-thumb,
 .player-volume::-moz-range-thumb {
-  width: 28px;
-  height: 28px;
+  width: 16px;
+  height: 16px;
   border: 0;
   border-radius: 50%;
   background: #fff;
   box-shadow: 0 1px 4px rgba(0, 0, 0, .35);
 }
 
-@media (max-width: 560px) {
+/* Phones in landscape often exceed 560px width; include coarse pointers too. */
+@media (max-width: 900px), (hover: none) and (pointer: coarse) {
   .video-controls {
     gap: 0;
-    padding-left: 8px;
-    padding-right: 8px;
+    padding: 16px 8px 6px;
   }
 
   .player-controls-row {
-    min-height: 56px;
-    gap: 4px;
+    min-height: 40px;
+    gap: 2px;
   }
 
   .video-controls .video-control-button {
-    width: 56px;
-    height: 52px;
-    min-width: 56px;
-    font-size: 22px;
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    font-size: 16px;
   }
 
   .video-controls .fullscreen-icon,
   .video-controls .volume-icon {
-    width: 28px;
-    height: 28px;
+    width: 20px;
+    height: 20px;
   }
 
   .center-controls {
-    gap: clamp(14px, 5vw, 28px);
-    grid-template-columns: 72px auto 72px;
+    gap: clamp(12px, 4vw, 24px);
+    grid-template-columns: 48px auto 48px;
   }
 
   .center-controls .video-control-button {
-    width: 72px;
-    height: 72px;
-    min-width: 72px;
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
   }
 
   .center-controls .play-center-button {
-    width: 96px;
-    height: 96px;
-    min-width: 96px;
-    flex-basis: 96px;
+    width: 60px;
+    height: 60px;
+    min-width: 60px;
+    flex-basis: 60px;
+  }
+
+  .center-controls .previous-button::before,
+  .center-controls .next-button::before {
+    width: 12px;
+    height: 12px;
+    border-top-width: 2.5px;
+    border-right-width: 2.5px;
+  }
+
+  .center-controls .play-center-button::before {
+    width: 18px;
+    height: 20px;
+  }
+
+  .center-controls .play-center-button.is-playing::before {
+    width: 15px;
+    height: 18px;
   }
 
   .player-time,
   .player-volume {
     display: none;
+  }
+
+  .skip-button {
+    bottom: 72px;
+    padding: 8px 12px;
+    font-size: 13px;
   }
 }
 

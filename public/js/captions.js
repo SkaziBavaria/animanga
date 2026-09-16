@@ -155,7 +155,7 @@ export function captionOverlayLayout({
   const contentLeft = Number(videoLeft || 0) + content.left;
   const contentBottom = Number(videoTop || 0) + content.top + content.height;
   const letterboxBottom = Math.max(0, Number(stageHeight || 0) - contentBottom);
-  const minClearance = controlsVisible ? 72 : 16;
+  const minClearance = controlsVisible ? 56 : 16;
   const sidePad = Math.max(12, content.width * 0.06);
   return {
     bottom: Math.max(letterboxBottom + 12, minClearance),

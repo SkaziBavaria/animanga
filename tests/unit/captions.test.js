@@ -108,7 +108,7 @@ test('caption overlay sits on the picture in portrait letterbox instead of the b
     mediaHeight: 1080,
     controlsVisible: true,
   });
-  assert.equal(landscape.bottom, 72);
+  assert.equal(landscape.bottom, 56);
   const portraitPicture = 390 / (1920 / 1080);
   const landscapePicture = 390;
   assert.equal(portrait.fontSize, Math.round(Math.min(40, Math.max(16, portraitPicture * 0.05))));
