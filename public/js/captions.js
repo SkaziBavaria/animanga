@@ -135,8 +135,9 @@ export function containedMediaBox(elementWidth, elementHeight, mediaWidth, media
 
 export function captionFontSizeFromPicture(pictureHeight) {
   const height = Number(pictureHeight);
-  if (!Number.isFinite(height) || height <= 0) return 24;
-  return Math.round(Math.min(56, Math.max(22, height * 0.11)));
+  if (!Number.isFinite(height) || height <= 0) return 18;
+  // ~5% of picture height matches typical player "standard" subtitle size.
+  return Math.round(Math.min(40, Math.max(16, height * 0.05)));
 }
 
 export function captionOverlayLayout({

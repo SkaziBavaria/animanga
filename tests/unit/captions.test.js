@@ -111,10 +111,20 @@ test('caption overlay sits on the picture in portrait letterbox instead of the b
   assert.equal(landscape.bottom, 72);
   const portraitPicture = 390 / (1920 / 1080);
   const landscapePicture = 390;
-  assert.equal(portrait.fontSize, Math.round(portraitPicture * 0.11));
-  assert.equal(landscape.fontSize, Math.round(landscapePicture * 0.11));
-  assert.ok(Math.abs(portrait.fontSize / portraitPicture - landscape.fontSize / landscapePicture) < 0.005);
+  assert.equal(portrait.fontSize, Math.round(Math.min(40, Math.max(16, portraitPicture * 0.05))));
+  assert.equal(landscape.fontSize, Math.round(Math.min(40, Math.max(16, landscapePicture * 0.05))));
+  assert.equal(captionOverlayLayout({
+    stageWidth: 1280,
+    stageHeight: 720,
+    videoLeft: 0,
+    videoTop: 0,
+    videoWidth: 1280,
+    videoHeight: 720,
+    mediaWidth: 1920,
+    mediaHeight: 1080,
+    controlsVisible: true,
+  }).fontSize, Math.round(720 * 0.05));
   const { captionFontSizeFromPicture } = await loadCaptions();
-  assert.equal(captionFontSizeFromPicture(540), 56);
-  assert.equal(captionFontSizeFromPicture(1080), 56);
+  assert.equal(captionFontSizeFromPicture(540), 27);
+  assert.equal(captionFontSizeFromPicture(1080), 40);
 });
