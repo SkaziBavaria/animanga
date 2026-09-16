@@ -1796,7 +1796,7 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
 
 #playerVideo::cue {
   color: #fff;
-  font-size: 1.45em;
+  font-size: 1em;
   line-height: 1.35;
   text-shadow: 0 1px 2px #000, 0 0 8px #000;
   background: transparent;
@@ -1812,7 +1812,7 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
   pointer-events: none;
   color: #fff;
   text-align: center;
-  font-size: clamp(1.35rem, 5.2vmin, 2.5rem);
+  font-size: clamp(1rem, 2.5vmin, 1.5rem);
   line-height: 1.35;
   text-shadow: 0 1px 2px #000, 0 0 10px #000;
   white-space: pre-line;
