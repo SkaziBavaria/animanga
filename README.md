@@ -90,5 +90,3 @@ npm run test:smoke:npm
 npm run test:smoke:docker
 RUN_CONTRACT=1 npm run test:contract   # live providers; slower
 ```
-
-Contributor architecture and provider rules live in [`AGENTS.md`](AGENTS.md).
