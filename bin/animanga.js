@@ -19,6 +19,32 @@ Options:
   --data-dir <path>      Persistent data directory
   -h, --help             Show this help
   -v, --version          Show the installed version
+
+Environment:
+  ANIMANGA_HOST / ANIMANGA_PORT
+  ANIMANGA_DATA_DIR / ANIMANGA_DOWNLOAD_DIR
+  ANIMANGA_ACCESS_TOKEN / ANIMANGA_ACCESS_USERNAME
+      HTTP Basic auth (default username: animanga)
+  ANIMANGA_PUBLIC_URL
+      External origin for OAuth callbacks / reverse proxies
+  ANIMANGA_TRUST_PROXY=1
+      Trust forwarded headers (requires ANIMANGA_PUBLIC_URL)
+  ANIMANGA_PROXY_SECRET
+      Optional HMAC secret for signed media proxy URLs
+  ANIMANGA_CURL_IMPERSONATE
+      curl binary for Cloudflare-challenged providers
+  ANIMANGA_DOWNLOAD_CONCURRENCY
+      Episode download parallelism for new installs (1-8)
+  ANIMANGA_CLIENT_PLAYBACK=0
+      Seed Android MPV playback for new installs
+  ANIMANGA_COMICK_API / ANIMANGA_MANGADEX_API
+      Override provider API origins
+
+Docker Compose (host-side):
+  ANIMANGA_BIND_ADDRESS / ANIMANGA_PUBLISH_PORT
+  ANIMANGA_DATA_VOLUME
+  ANIMANGA_ACCESS_TOKEN / ANIMANGA_ACCESS_USERNAME
+  ANIMANGA_PUBLIC_URL / ANIMANGA_TRUST_PROXY
 `;
 }
 
@@ -146,6 +172,10 @@ async function main(argv) {
 
   const command = args[0] && !args[0].startsWith('-') ? args.shift() : 'start';
   if (command === 'doctor') {
+    if (args[0] === '-h' || args[0] === '--help') {
+      process.stdout.write(usage());
+      return;
+    }
     if (args.length) throw new Error(`Unknown doctor option: ${args[0]}`);
     await doctor();
     return;
