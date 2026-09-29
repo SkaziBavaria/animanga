@@ -20,6 +20,10 @@ const DOWNLOADS = {
     showName: 'Downloaded Show',
     status: 'running',
     updatedAt: new Date().toISOString(),
+    progressInfo: {
+      phase: 'downloading', elapsedSeconds: 74, idleSeconds: 0,
+      outTimeUs: 58000000, totalBytes: 7340032, speed: 0.88,
+    },
   },
 };
 
@@ -40,6 +44,9 @@ test.describe('Downloads panel', () => {
   test('disables delete for an in-progress download', async ({ page }) => {
     const running = page.locator('.download-card[data-episode="2"] button[data-action="delete-download"]');
     await expect(running).toBeDisabled();
+    await expect(page.locator('.download-card[data-episode="2"]')).toContainText('Video 00:00:58');
+    await expect(page.locator('.download-card[data-episode="2"]')).toContainText('0.88×');
+    await expect(page.locator('.download-card[data-episode="2"] [role="progressbar"]')).toBeVisible();
   });
 
   test('deletes a completed download', async ({ page }) => {
@@ -73,18 +80,25 @@ test.describe('Downloads panel', () => {
     await expect(page.locator('#downloadsList .download-card')).toHaveCount(2);
   });
 
-  test('does not present failed attempts as stored downloads', async ({ page }) => {
+  test('shows failed downloads with a retry action and safe explanation', async ({ page }) => {
     await installApiMocks(page, {
       downloads: {
         ...DOWNLOADS,
-        'lib1:3': { key: 'lib1:3', showId: 'lib1', episode: '3', showName: 'Failed Show', status: 'failed' },
+        'lib1:3': {
+          key: 'lib1:3', showId: 'lib1', episode: '3', showName: 'Failed Show', status: 'failed',
+          failure: 'The video source timed out. You can retry this episode.',
+        },
       },
     });
     await page.reload();
     await page.click('.tab[data-view="settingsView"]');
     await page.click('.advanced-panel summary');
-    await expect(page.locator('#downloadsList')).not.toContainText('Failed Show');
-    await expect(page.locator('#downloadsList .download-card')).toHaveCount(2);
+    const failed = page.locator('.download-card[data-episode="3"]');
+    await expect(failed).toContainText('Failed Show');
+    await expect(failed).toContainText('The video source timed out');
+    const retry = page.waitForRequest((req) => req.url().endsWith('/api/download') && req.method() === 'POST');
+    await failed.locator('[data-action="retry-download"]').click();
+    await retry;
   });
 
   test('deletes all stored downloads from Advanced settings', async ({ page }) => {

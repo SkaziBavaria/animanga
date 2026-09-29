@@ -126,6 +126,41 @@ test.describe('Shell & navigation', () => {
     await expect(page.locator('#libraryList .show-card button[data-action="play"]')).toHaveText('Resume ep 2');
   });
 
+  test('selects an available HLS quality and can return to Auto', async ({ page }) => {
+    await page.evaluate(() => {
+      class HlsMock {
+        static Events = { MANIFEST_PARSED: 'manifest', ERROR: 'error' };
+        static isSupported() { return true; }
+        constructor() {
+          this.levels = [{ height: 1080, bitrate: 3000 }, { height: 720, bitrate: 1800 }, { height: 480, bitrate: 800 }];
+          this.handlers = {};
+          this.currentLevel = -1;
+          window.__testHls = this;
+        }
+        on(event, handler) { this.handlers[event] = handler; }
+        loadSource() { setTimeout(() => this.handlers.manifest?.(), 0); }
+        attachMedia() {}
+        destroy() {}
+      }
+      window.Hls = HlsMock;
+    });
+    await page.route('**/api/play', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ job: { status: 'done' }, playback: { url: '/e2e/master.m3u8', title: 'Quality fixture' } }),
+    }));
+    await page.click('#libraryList .show-card button[data-action="play"]');
+    await expect(page.locator('#qualityControl')).toBeVisible();
+    await page.click('#qualityBtn');
+    await expect(page.locator('#qualityMenu')).toBeVisible();
+    await page.locator('[data-quality-id="1"]').click();
+    await expect(page.locator('#qualityBtn')).toHaveAttribute('aria-label', 'Video quality: 720p');
+    expect(await page.evaluate(() => window.__testHls.currentLevel)).toBe(1);
+    await page.click('#qualityBtn');
+    await page.locator('[data-quality-id="auto"]').dispatchEvent('click');
+    expect(await page.evaluate(() => window.__testHls.currentLevel)).toBe(-1);
+  });
+
   test('saves mid-episode progress when closing the player', async ({ page }) => {
     const progressPosts = [];
     page.on('request', (request) => {
@@ -217,13 +252,17 @@ test.describe('Shell & navigation', () => {
     });
     await expect(page.locator('#playerCaptions')).toHaveText('Texto predeterminado');
 
+    await page.locator('#skipButton').evaluate(button => {
+      button.textContent = 'Skip Intro';
+      button.hidden = false;
+    });
     await page.click('#captionTrackBtn');
     await expect(page.locator('#captionTrackMenu')).toBeVisible();
-    await page.locator('[data-caption-track-id="c1"]').click({ force: true });
+    await page.locator('[data-caption-track-id="c1"]').click();
     await expect(page.locator('#playerCaptions')).toHaveText('English selection');
 
     await page.click('#captionTrackBtn');
-    await page.locator('[data-caption-track-id="off"]').click({ force: true });
+    await page.locator('[data-caption-track-id="off"]').click();
     await expect(page.locator('#playerCaptions')).toBeHidden();
     await expect(page.locator('#captionTrackBtn')).toHaveClass(/is-off/);
   });

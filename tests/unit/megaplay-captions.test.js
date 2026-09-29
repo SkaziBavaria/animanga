@@ -6,7 +6,7 @@ const {
   parseMegaplayPlayerId,
   mapMegaplayCaptionTracks,
   fetchMegaplayCaptionConfig,
-} = require('../../lib/megaplay-captions');
+} = require('../../lib/megaplay');
 
 test('MegaPlay player id is read from the player node only', () => {
   assert.equal(parseMegaplayPlayerId('<div data-id="wrong"></div><div id="megaplay-player" data-id="abc123"></div>'), 'abc123');

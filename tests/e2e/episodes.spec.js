@@ -4,7 +4,7 @@ const { test, expect } = require('@playwright/test');
 const { installApiMocks } = require('./fixtures');
 
 test.describe('Episodes dialog', () => {
-  test('mobile skip buttons stay above seeking controls and receive taps', async ({ page }) => {
+  test('skip buttons follow the seek bar on desktop, mobile and fullscreen', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await installApiMocks(page, { skipTimes: { op: { start: 10, end: 40 }, ed: { start: 70, end: 90 } } });
     await page.goto('/');
@@ -18,8 +18,8 @@ test.describe('Episodes dialog', () => {
       Object.defineProperty(video, 'currentTime', { value: 20, writable: true, configurable: true });
       video.dispatchEvent(new Event('loadedmetadata'));
     });
-    for (const fullscreen of [false, true]) {
-      await page.setViewportSize(fullscreen ? { width: 844, height: 390 } : { width: 390, height: 844 });
+    for (const [width, height, fullscreen] of [[1280, 900, false], [390, 844, false], [844, 390, true], [1280, 900, true]]) {
+      await page.setViewportSize({ width, height });
       await page.evaluate((enabled) => {
         document.querySelector('#playerDialog').classList.toggle('player-fullscreen', enabled);
       }, fullscreen);
@@ -32,12 +32,34 @@ test.describe('Episodes dialog', () => {
         }, position)).toContain(label);
         const button = page.locator('#skipButton');
         const bounds = await button.boundingBox();
-        const controls = await page.locator('#videoControls').boundingBox();
-        expect(bounds.y + bounds.height + 8).toBeLessThanOrEqual(controls.y);
+        const seek = await page.locator('#playerSeek').boundingBox();
+        const gap = seek.y - (bounds.y + bounds.height);
+        expect(gap).toBeGreaterThanOrEqual(8);
+        expect(gap).toBeLessThanOrEqual(12);
         await button.click({ position: { x: bounds.width / 2, y: bounds.height - 4 } });
         expect(await page.locator('#playerVideo').evaluate((video) => video.currentTime)).toBe(end);
       }
     }
+    await page.mouse.move(0, 0);
+    await page.evaluate(() => {
+      const video = document.querySelector('#playerVideo');
+      video.currentTime = 20;
+      video.dispatchEvent(new Event('timeupdate'));
+    });
+    const button = page.locator('#skipButton');
+    const original = await button.boundingBox();
+    await page.locator('.player-controls-row').evaluate(row => { row.style.minHeight = '84px'; });
+    const resized = await button.boundingBox();
+    const seek = await page.locator('#playerSeek').boundingBox();
+    expect(resized.y).toBeLessThan(original.y);
+    expect(seek.y - (resized.y + resized.height)).toBeGreaterThanOrEqual(8);
+    expect(seek.y - (resized.y + resized.height)).toBeLessThanOrEqual(12);
+    await page.locator('#playerStage').evaluate(stage => stage.classList.add('controls-hidden'));
+    await expect(page.locator('#videoControls')).toHaveCSS('opacity', '0');
+    await expect(button).toBeVisible();
+    expect((await button.boundingBox()).y).toBeCloseTo(resized.y, 0);
+    await button.click();
+    expect(await page.locator('#playerVideo').evaluate(video => video.currentTime)).toBe(40);
   });
 
   test('opens the dialog and lists episodes with watched state', async ({ page }) => {
@@ -78,6 +100,23 @@ test.describe('Episodes dialog', () => {
     await expect(progress).toBeVisible();
     await expect(progress).toHaveClass(/complete/);
     await expect(progress).toHaveAttribute('aria-valuenow', '100');
+  });
+
+  test('shows download activity beside the episode that is downloading', async ({ page }) => {
+    await installApiMocks(page, {
+      downloads: {
+        'lib1:2': {
+          key: 'lib1:2', showId: 'lib1', episode: '2', showName: 'Library Test Show', status: 'running',
+          progressInfo: { phase: 'downloading', elapsedSeconds: 65, idleSeconds: 24, outTimeUs: 0, totalBytes: 0 },
+        },
+      },
+    });
+    await page.goto('/');
+    await page.click('#libraryList .show-card button[data-action="episodes"]');
+
+    const row = page.locator('#episodeGrid .episode-row-wrap[data-episode="2"]');
+    await expect(row).toContainText('No video data · reconnecting (0:24)');
+    await expect(row.locator('[role="progressbar"][aria-label="Download activity"]')).toBeVisible();
   });
 
   test('downloads a single episode', async ({ page }) => {

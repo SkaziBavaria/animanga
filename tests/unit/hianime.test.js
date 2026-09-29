@@ -168,6 +168,7 @@ test('HiAnime m3u8 parser resolves relative variants and quality', () => {
   const links = parseM3u8('#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1,RESOLUTION=640x360\n360.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=2,RESOLUTION=1920x1080\n1080.m3u8', 'https://cdn.test/path/master.m3u8', 'https://hianime.at/');
   assert.equal(links[0].quality, 1080);
   assert.equal(links[0].url, 'https://cdn.test/path/1080.m3u8');
+  assert.equal(links[0].masterUrl, 'https://cdn.test/path/master.m3u8');
 });
 
 test('HiAnime migration rejects ambiguous title matches', () => {
@@ -191,13 +192,13 @@ test('server parsing never crosses language or unsupported player boundaries', (
   assert.deepEqual(parseSupportedServers(html, 'dub').map((item) => item.hash), ['b']);
 });
 
-test('MegaPlay caption servers stay off the Zoko video decoder list', () => {
+test('Vidstream-2 follows Zoko while caption-only servers stay off the video list', () => {
   const html = '<div class="server-item" data-type="sub" data-server-name="ZokoAnime" data-hash="zoko"></div>'
     + '<div class="server-item" data-type="sub" data-server-name="HD-2" data-hash="hd2"></div>'
     + '<div class="server-item" data-type="sub" data-server-name="Vidstream-2" data-hash="vid2"></div>'
     + '<div class="server-item" data-type="sub" data-server-name="VidPlay-1" data-hash="vidplay"></div>'
     + '<div class="server-item" data-type="dub" data-server-name="HD-2" data-hash="dubhd"></div>';
-  assert.deepEqual(parseSupportedServers(html, 'sub').map((item) => item.hash), ['zoko']);
+  assert.deepEqual(parseSupportedServers(html, 'sub').map((item) => item.hash), ['zoko', 'vid2']);
   assert.deepEqual(parseMegaplayCaptionServers(html, 'sub').map((item) => [item.name, item.hash]), [
     ['HD-2', 'hd2'],
     ['Vidstream-2', 'vid2'],

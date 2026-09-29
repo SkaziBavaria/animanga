@@ -22,6 +22,9 @@ test('ffmpeg arguments preserve the provider headers and remux into mp4', () => 
     '-extension_picky', '0',
   ]);
   assert.ok(args.indexOf('-extension_picky') < args.indexOf('-i'));
+  assert.deepEqual(args.slice(args.indexOf('-rw_timeout'), args.indexOf('-rw_timeout') + 2), ['-rw_timeout', '20000000']);
+  assert.ok(args.includes('-reconnect_on_network_error'));
+  assert.ok(args.includes('408,429,5xx'));
   assert.ok(args.includes('copy'));
   assert.equal(args.at(-1), '/tmp/episode.part.mp4');
 });
@@ -78,4 +81,34 @@ test('episode task removes partial files after a failed ffmpeg run', async () =>
   await assert.rejects(() => task({ status: 'running', logFile }), /network failed/);
   assert.equal(fs.existsSync(outputPath), false);
   assert.equal(fs.existsSync(`${outputPath}.part.mp4`), false);
+});
+
+test('episode task resolves a fresh source once after a failed ffmpeg attempt', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'animanga-episode-retry-'));
+  const outputPath = path.join(dir, 'Show Episode 3.mp4');
+  const logFile = path.join(dir, 'job.log');
+  fs.writeFileSync(logFile, '');
+  let resolves = 0;
+  let attempts = 0;
+  const task = createEpisodeDownloadTask({
+    showId: 'show-id', episode: '3', mode: 'sub', quality: 'best', outputPath,
+  }, {
+    resolvePlayback: async () => ({ url: `https://cdn.example/video-${++resolves}.mp4`, referrer: '' }),
+    runProcess: async (job, command, args) => {
+      attempts += 1;
+      if (attempts === 1) {
+        fs.writeFileSync(args.at(-1), 'partial');
+        throw new Error('network failed');
+      }
+      fs.writeFileSync(args.at(-1), 'complete video');
+    },
+  });
+
+  const job = { status: 'running', logFile, output: '' };
+  await task(job);
+
+  assert.equal(resolves, 2);
+  assert.equal(attempts, 2);
+  assert.equal(fs.readFileSync(outputPath, 'utf8'), 'complete video');
+  assert.match(fs.readFileSync(logFile, 'utf8'), /resolving a fresh source for one retry/);
 });

@@ -21,6 +21,16 @@ test('playback proxies both the stream and sidecar subtitle with the same referr
   assert.ok(captions.get('sig'));
 });
 
+test('browser playback proxies the HLS master playlist when variants are available', () => {
+  const playback = withPlaybackProxies({
+    url: 'https://cdn.example/1080.m3u8',
+    masterUrl: 'https://cdn.example/master.m3u8',
+    referrer: 'https://player.example/',
+  });
+  const stream = new URL(playback.proxyUrl, 'http://local.invalid').searchParams;
+  assert.equal(stream.get('url'), 'https://cdn.example/master.m3u8');
+});
+
 test('playback proxies sidecar captions with a dedicated subtitle referrer', () => {
   const playback = withPlaybackProxies({
     url: 'https://cdn.example/1080.m3u8',

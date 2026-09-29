@@ -47,6 +47,8 @@ let playerSeeking = false;
 let detachSkipTimes = null;
 let playbackGeneration = 0;
 let activeHls = null;
+let qualityLevels = [];
+let activeQuality = 'auto';
 let awaitingHls = false;
 let detachCaptions = null;
 const controlsState = {
@@ -350,7 +352,8 @@ function shouldHideVideoControls() {
     && !video.paused
     && !playerSeeking
     && !controlsState.hover
-    && els.captionTrackMenu?.hidden,
+    && els.captionTrackMenu?.hidden
+    && els.qualityMenu?.hidden,
   );
 }
 
@@ -557,9 +560,58 @@ function videoErrorMessage(video) {
 
 function detachHls() {
   awaitingHls = false;
+  qualityLevels = [];
+  activeQuality = 'auto';
+  renderQualityControls();
   if (!activeHls) return;
   try { activeHls.destroy(); } catch {}
   activeHls = null;
+}
+
+function setQualityMenuOpen(open) {
+  const expanded = Boolean(open && qualityLevels.length > 1);
+  if (els.qualityMenu) els.qualityMenu.hidden = !expanded;
+  els.qualityBtn?.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+  els.playerStage?.classList.toggle('quality-menu-open', expanded);
+}
+
+function renderQualityControls() {
+  if (!els.qualityControl || !els.qualityMenu || !els.qualityBtn) return;
+  const available = qualityLevels.length > 1;
+  els.qualityControl.hidden = !available;
+  const selected = qualityLevels.find((item) => item.id === activeQuality);
+  els.qualityBtn.textContent = selected?.label || 'HD';
+  els.qualityBtn.title = `Video quality: ${selected?.label || 'Auto'}`;
+  els.qualityBtn.setAttribute('aria-label', `Video quality: ${selected?.label || 'Auto'}`);
+  els.qualityMenu.replaceChildren();
+  for (const option of qualityLevels) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'caption-track-option';
+    button.dataset.qualityId = option.id;
+    button.setAttribute('role', 'option');
+    button.setAttribute('aria-selected', option.id === activeQuality ? 'true' : 'false');
+    button.textContent = option.label;
+    els.qualityMenu.append(button);
+  }
+  if (!available) setQualityMenuOpen(false);
+}
+
+function setHlsQualityLevels(hls) {
+  const levels = Array.isArray(hls?.levels) ? hls.levels : [];
+  const byHeight = new Map();
+  levels.forEach((level, index) => {
+    const height = Number(level?.height);
+    if (!Number.isFinite(height) || height <= 0) return;
+    const previous = byHeight.get(height);
+    if (!previous || Number(level.bitrate) > Number(previous.bitrate)) {
+      byHeight.set(height, { id: String(index), label: `${height}p`, index, bitrate: Number(level.bitrate) || 0 });
+    }
+  });
+  const resolutions = [...byHeight.values()].sort((a, b) => Number(b.label.slice(0, -1)) - Number(a.label.slice(0, -1)));
+  qualityLevels = resolutions.length > 1 ? [{ id: 'auto', label: 'Auto' }, ...resolutions] : [];
+  activeQuality = 'auto';
+  renderQualityControls();
 }
 
 function captionLayoutFromPlayer() {
@@ -746,6 +798,7 @@ async function attachHlsPlayback(video, playback, { generation, failPlayback, re
   activeHls = hls;
   hls.on(HlsCtor.Events.MANIFEST_PARSED, () => {
     if (generation !== playbackGeneration) return;
+    setHlsQualityLevels(hls);
     hls.subtitleDisplay = false;
     hls.subtitleTrack = -1;
     if (captionCues.length) disableNativeVideoTextTracks(video);
@@ -943,6 +996,25 @@ export function bindPlayerDialog() {
     if (!option) return;
     event.stopPropagation();
     selectCaptionTrack(option.dataset.captionTrackId);
+    showVideoControlsTemporarily();
+  });
+  els.qualityBtn?.addEventListener('click', (event) => {
+    if (shouldIgnoreControlClick(event)) return;
+    event.stopPropagation();
+    setQualityMenuOpen(els.qualityMenu?.hidden);
+    setVideoControlsVisible(true);
+    clearTimeout(controlsState.hideTimer);
+  });
+  els.qualityMenu?.addEventListener('click', (event) => {
+    const option = event.target.closest('[data-quality-id]');
+    if (!option || !activeHls) return;
+    event.stopPropagation();
+    const selected = qualityLevels.find((item) => item.id === option.dataset.qualityId);
+    if (!selected) return;
+    activeHls.currentLevel = selected.id === 'auto' ? -1 : selected.index;
+    activeQuality = selected.id;
+    renderQualityControls();
+    setQualityMenuOpen(false);
     showVideoControlsTemporarily();
   });
   els.playerFullscreenBtn?.addEventListener('click', (event) => {
