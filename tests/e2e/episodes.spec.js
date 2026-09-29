@@ -4,6 +4,42 @@ const { test, expect } = require('@playwright/test');
 const { installApiMocks } = require('./fixtures');
 
 test.describe('Episodes dialog', () => {
+  test('mobile skip buttons stay above seeking controls and receive taps', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await installApiMocks(page, { skipTimes: { op: { start: 10, end: 40 }, ed: { start: 70, end: 90 } } });
+    await page.goto('/');
+    await page.click('#libraryList .show-card button[data-action="episodes"]');
+    await page.click('#episodeGrid .episode-play[data-episode="2"]');
+    await page.evaluate(() => {
+      const video = document.querySelector('#playerVideo');
+      video.onerror = null;
+      video.style.aspectRatio = '16 / 9';
+      Object.defineProperty(video, 'duration', { value: 100, configurable: true });
+      Object.defineProperty(video, 'currentTime', { value: 20, writable: true, configurable: true });
+      video.dispatchEvent(new Event('loadedmetadata'));
+    });
+    for (const fullscreen of [false, true]) {
+      await page.setViewportSize(fullscreen ? { width: 844, height: 390 } : { width: 390, height: 844 });
+      await page.evaluate((enabled) => {
+        document.querySelector('#playerDialog').classList.toggle('player-fullscreen', enabled);
+      }, fullscreen);
+      for (const [position, label, end] of [[20, 'Skip Intro', 40], [75, 'Skip Outro', 90]]) {
+        await expect.poll(() => page.evaluate((time) => {
+          const video = document.querySelector('#playerVideo');
+          video.currentTime = time;
+          video.dispatchEvent(new Event('timeupdate'));
+          return document.querySelector('#skipButton').textContent;
+        }, position)).toContain(label);
+        const button = page.locator('#skipButton');
+        const bounds = await button.boundingBox();
+        const controls = await page.locator('#videoControls').boundingBox();
+        expect(bounds.y + bounds.height + 8).toBeLessThanOrEqual(controls.y);
+        await button.click({ position: { x: bounds.width / 2, y: bounds.height - 4 } });
+        expect(await page.locator('#playerVideo').evaluate((video) => video.currentTime)).toBe(end);
+      }
+    }
+  });
+
   test('opens the dialog and lists episodes with watched state', async ({ page }) => {
     await installApiMocks(page);
     await page.goto('/');

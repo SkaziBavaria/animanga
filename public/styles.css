@@ -2373,9 +2373,18 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
   }
 
   .skip-button {
-    bottom: 72px;
+    top: 12px;
+    bottom: auto;
+    min-height: 44px;
     padding: 8px 12px;
     font-size: 13px;
+  }
+
+  .player-stage:fullscreen .skip-button,
+  #playerDialog.player-fullscreen .skip-button,
+  .player-stage:-webkit-full-screen .skip-button {
+    top: max(12px, env(safe-area-inset-top));
+    bottom: auto;
   }
 }
 
