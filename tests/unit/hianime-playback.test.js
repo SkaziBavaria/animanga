@@ -65,6 +65,23 @@ test('Vidstream-2 plays when Zoko is absent, preserving quality and captions', a
   assert.equal(requests.filter(url => url.includes('/stream/getSources')).length, 1);
 });
 
+test('resolved playback keeps the default separate audio rendition beside its selected quality', async () => {
+  fixtures({ playlist: [
+    '#EXTM3U',
+    '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="Japanese",LANGUAGE="ja",DEFAULT=YES,URI="audio/ja/index.m3u8"',
+    '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="English",LANGUAGE="en",DEFAULT=NO,URI="audio/en/index.m3u8"',
+    '#EXT-X-STREAM-INF:BANDWIDTH=1000000,RESOLUTION=640x360,AUDIO="audio"',
+    '360/index.m3u8',
+    '#EXT-X-STREAM-INF:BANDWIDTH=3000000,RESOLUTION=1280x720,AUDIO="audio"',
+    '720/index.m3u8',
+  ].join('\n') });
+  const result = await resolveEpisodePlayback({ showId: 'example-1', episode: '1', mode: 'sub', quality: '720' });
+
+  assert.equal(result.url, 'https://video.example/720/index.m3u8');
+  assert.equal(result.audioUrl, 'https://video.example/audio/ja/index.m3u8');
+  assert.equal(result.audioLang, 'ja');
+});
+
 test('Zoko stays first even when Vidstream-2 is listed first', async () => {
   const requests = fixtures({ servers: server('Vidstream-2') + server('ZokoAnime', 'sub', 'zoko.example') });
   const result = await play();

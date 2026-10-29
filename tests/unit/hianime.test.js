@@ -171,6 +171,29 @@ test('HiAnime m3u8 parser resolves relative variants and quality', () => {
   assert.equal(links[0].masterUrl, 'https://cdn.test/path/master.m3u8');
 });
 
+test('HiAnime m3u8 parser attaches the default audio rendition for each variant audio group', () => {
+  const playlist = [
+    '#EXTM3U',
+    '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aud",NAME="Japanese",LANGUAGE="ja",DEFAULT=YES,AUTOSELECT=YES,URI="audio/ja/index.m3u8"',
+    '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aud",NAME="English",LANGUAGE="en",DEFAULT=NO,AUTOSELECT=YES,URI="audio/en/index.m3u8"',
+    '#EXT-X-STREAM-INF:BANDWIDTH=1000000,RESOLUTION=640x360,AUDIO="aud"',
+    '360/index.m3u8',
+    '#EXT-X-STREAM-INF:BANDWIDTH=3000000,RESOLUTION=1280x720,AUDIO="aud"',
+    '720/index.m3u8',
+  ].join('\n');
+  const links = parseM3u8(playlist, 'https://cdn.test/path/master.m3u8', 'https://hianime.at/');
+
+  assert.equal(links[0].url, 'https://cdn.test/path/720/index.m3u8');
+  assert.equal(links[0].audioUrl, 'https://cdn.test/path/audio/ja/index.m3u8');
+  assert.equal(links[0].audioLang, 'ja');
+  assert.equal(links[1].audioUrl, links[0].audioUrl);
+});
+
+test('HiAnime m3u8 parser leaves muxed-audio variants without an external rendition', () => {
+  const links = parseM3u8('#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1,RESOLUTION=640x360\n360.m3u8', 'https://cdn.test/master.m3u8', 'https://hianime.at/');
+  assert.equal(links[0].audioUrl, undefined);
+});
+
 test('HiAnime migration rejects ambiguous title matches', () => {
   assert.equal(pickMatch({ name: 'Example' }, [{ id: 'example-1', name: 'Example' }, { id: 'example-2', name: 'Example' }]), null);
 });

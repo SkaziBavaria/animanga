@@ -29,6 +29,23 @@ test('ffmpeg arguments preserve the provider headers and remux into mp4', () => 
   assert.equal(args.at(-1), '/tmp/episode.part.mp4');
 });
 
+test('ffmpeg downloads separate HLS audio with the matching referrer and maps it with video', () => {
+  const args = ffmpegDownloadArgs({
+    url: 'https://cdn.example/video/720/index.m3u8',
+    audioUrl: 'https://cdn.example/audio/ja/index.m3u8',
+    referrer: 'https://player.example/',
+  }, '/tmp/episode.part.mp4');
+  const inputs = args.reduce((items, value, index) => value === '-i' ? [...items, args[index + 1]] : items, []);
+
+  assert.deepEqual(inputs, [
+    'https://cdn.example/video/720/index.m3u8',
+    'https://cdn.example/audio/ja/index.m3u8',
+  ]);
+  assert.equal(args.filter((value) => value === '-headers').length, 2);
+  assert.ok(args.includes('1:a:0?'));
+  assert.ok(!args.includes('0:a:0?'));
+});
+
 test('episode task resolves, downloads, and atomically publishes the final file', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'animanga-episode-'));
   const outputPath = path.join(dir, 'Show Episode 1.mp4');
