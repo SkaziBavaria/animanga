@@ -69,6 +69,13 @@ test('readFfmpegProgress reads the latest progress block without requiring perce
   assert.deepEqual(readFfmpegProgress(file), { outTimeUs: 58000000, totalBytes: 7340032, speed: 0.88 });
 });
 
+test('readFfmpegProgress ignores progress from an earlier ffmpeg attempt', () => {
+  const file = path.join(os.tmpdir(), `animanga-ffmpeg-progress-retry-${process.pid}.log`);
+  const previous = 'frame=100\nout_time_us=58000000\ntotal_size=7340032\nprogress=end\n';
+  require('node:fs').writeFileSync(file, `${previous}frame=1\nout_time_us=1000000\ntotal_size=120000\nprogress=continue\n`);
+  assert.deepEqual(readFfmpegProgress(file, Buffer.byteLength(previous)), { outTimeUs: 1000000, totalBytes: 120000 });
+});
+
 test('ffmpeg process watchdog stops a process when media progress stays idle', async () => {
   const file = path.join(os.tmpdir(), `animanga-ffmpeg-idle-${process.pid}.log`);
   require('node:fs').writeFileSync(file, '');
