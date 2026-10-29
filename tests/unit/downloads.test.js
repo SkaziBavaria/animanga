@@ -15,6 +15,7 @@ const {
   downloadKey,
   downloadStatus,
   isDownloadBusy,
+  publicDownloadFailure,
   reconcileDownloads,
   removeDownloadFiles,
   resolveDownloadPath,
@@ -48,6 +49,12 @@ test('isDownloadBusy reflects active states', () => {
   assert.equal(isDownloadBusy('running'), true);
   assert.equal(isDownloadBusy('done'), false);
   assert.equal(isDownloadBusy('deleted'), false);
+});
+
+test('publicDownloadFailure gives a safe actionable message without exposing source details', () => {
+  const result = publicDownloadFailure('ffmpeg failed for https://private.example/token=secret', 'DOWNLOAD_STALLED');
+  assert.match(result, /3 minutes/);
+  assert.doesNotMatch(result, /private\.example|secret/);
 });
 
 test('resolveDownloadPath reads completed paths with spaces from logs', () => {

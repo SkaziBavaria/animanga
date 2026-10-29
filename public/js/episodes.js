@@ -107,6 +107,29 @@ export function renderEpisodeGrid(show) {
         : `Resume ${formatClock(resume.position)}`);
     } else if (epText === String(next)) stateLabels.push('Up next');
     if (status === 'done') stateLabels.push('Downloaded');
+    if (busy) {
+      const progress = download.progressInfo || {};
+      const elapsed = Number(progress.elapsedSeconds) > 0 ? formatClock(progress.elapsedSeconds) : '';
+      if (progress.phase === 'queued') {
+        stateLabels.push(`Queued${progress.position ? ` · position ${progress.position}` : ''}`);
+      } else if (progress.phase === 'resolving') {
+        stateLabels.push(`Finding video source${elapsed ? ` · ${elapsed}` : ''}`);
+      } else if (progress.phase === 'retrying') {
+        stateLabels.push(`Retrying with a fresh source${elapsed ? ` · ${elapsed}` : ''}`);
+      } else if (progress.phase === 'downloading') {
+        const videoTime = Number(progress.outTimeUs) > 0 ? formatClock(Number(progress.outTimeUs) / 1_000_000) : '';
+        const speed = Number.isFinite(Number(progress.speed)) ? `${Number(progress.speed).toFixed(2)}×` : '';
+        const bytes = Number(progress.totalBytes || download.downloadedBytes || 0);
+        const data = bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : bytes >= 1024 ? `${Math.round(bytes / 1024)} KB` : '';
+        if (videoTime) stateLabels.push(['Downloading', videoTime, speed, data].filter(Boolean).join(' · '));
+        else if (Number(progress.idleSeconds) >= 15) stateLabels.push(`No video data · reconnecting (${formatClock(progress.idleSeconds)})`);
+        else stateLabels.push(`Connecting to video${elapsed ? ` · ${elapsed}` : ''}`);
+      }
+    } else if (status === 'failed') {
+      stateLabels.push(download.failure || 'Download failed · Retry available');
+    } else if (status === 'cancelled') {
+      stateLabels.push('Cancelled · Retry available');
+    }
     const episodeState = stateLabels.join(' · ') || episodeStatusText(show, epText, watched, next);
     const releaseLabel = episodeReleaseLabel(show, epText);
     const downloadLabel = downloadButtonText(status);
@@ -134,7 +157,7 @@ export function renderEpisodeGrid(show) {
             <span style="width:${watchedPercent}%"></span>
         </div>
         ${busy ? `
-          <div class="episode-progress" aria-hidden="true">
+          <div class="episode-progress" role="progressbar" aria-label="Download activity" aria-valuetext="${escapeHtml(episodeState)}">
             <span></span>
           </div>
         ` : ''}

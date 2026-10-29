@@ -24,7 +24,7 @@ export async function downloadEpisode(show, episode) {
       quality: state.settings.quality,
     }),
   });
-  toast('Download started. Check Settings > Logs.');
+  toast('Download started. Status appears beside the episode.');
   await loadDownloads();
   pokeJobsSoon();
 }
@@ -71,18 +71,49 @@ export async function deleteDownload(showId, episode) {
 
 export function renderDownloads() {
   const downloads = Object.values(state.downloads || {})
-    .filter((item) => isDownloadBusy(item.status) || (item.status === 'done' && item.file))
+    .filter((item) => isDownloadBusy(item.status)
+      || ['failed', 'cancelled'].includes(item.status)
+      || (item.status === 'done' && item.file))
     .sort((a, b) => String(b.updatedAt || b.startedAt || '').localeCompare(String(a.updatedAt || a.startedAt || '')));
   const animeCards = downloads.map((item) => {
     const size = item.file?.size ? `${Math.round(item.file.size / 1024 / 1024)} MB` : '';
+    const detail = item.progressInfo || {};
+    const seconds = (value) => {
+      if (!Number.isFinite(Number(value))) return '';
+      const total = Math.max(0, Math.floor(Number(value)));
+      const hours = String(Math.floor(total / 3600)).padStart(2, '0');
+      const minutes = String(Math.floor((total % 3600) / 60)).padStart(2, '0');
+      return `${hours}:${minutes}:${String(total % 60).padStart(2, '0')}`;
+    };
+    const bytes = Number(detail.totalBytes || item.downloadedBytes || 0);
+    const bytesLabel = bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB`
+      : bytes >= 1024 ? `${Math.round(bytes / 1024)} KB` : '';
+    let activity = '';
+    if (detail.phase === 'queued') activity = `Queued${detail.position ? ` · position ${detail.position}` : ''}`;
+    else if (detail.phase === 'resolving') activity = `Finding video source${detail.elapsedSeconds ? ` · ${seconds(detail.elapsedSeconds)}` : ''}`;
+    else if (detail.phase === 'retrying') activity = `Retrying source${detail.elapsedSeconds ? ` · ${seconds(detail.elapsedSeconds)}` : ''}`;
+    else if (item.status === 'running' && detail.phase === 'downloading') {
+      const videoTime = detail.outTimeUs > 0 ? seconds(detail.outTimeUs / 1_000_000) : '';
+      const speed = Number.isFinite(Number(detail.speed)) ? `${Number(detail.speed).toFixed(2)}×` : '';
+      const waiting = !videoTime && detail.elapsedSeconds ? `Connecting · ${seconds(detail.elapsedSeconds)}` : '';
+      activity = [videoTime && `Video ${videoTime}`, speed, bytesLabel, waiting].filter(Boolean).join(' · ')
+        || 'Connecting to video source';
+      if (detail.idleSeconds >= 15) activity += ` · no new data for ${seconds(detail.idleSeconds)}`;
+    } else if (item.status === 'failed') activity = item.failure || 'Download failed';
+    else if (item.status === 'cancelled') activity = 'Cancelled before completion · retry available';
     const meta = [item.status, `Episode ${item.episode}`, size, item.file?.filename].filter(Boolean).join(' · ');
+    const action = item.status === 'failed' || item.status === 'cancelled'
+      ? `<div class="download-actions"><button class="small-button" data-action="retry-download" type="button">Retry</button><button class="small-button danger" data-action="delete-download" type="button">Delete</button></div>`
+      : `<button class="small-button danger" data-action="delete-download" type="button" ${isDownloadBusy(item.status) ? 'disabled' : ''}>Delete</button>`;
     return `
       <article class="download-card ${escapeHtml(downloadClass(item.status))}" data-show-id="${escapeHtml(item.showId)}" data-episode="${escapeHtml(item.episode)}">
         <div>
           <strong>${escapeHtml(item.showName || 'Download')}</strong>
           <span>${escapeHtml(meta)}</span>
+          ${activity ? `<span class="download-activity">${escapeHtml(activity)}</span>` : ''}
+          ${isDownloadBusy(item.status) ? '<div class="download-progress" role="progressbar" aria-label="Download activity"><span></span></div>' : ''}
         </div>
-        <button class="small-button danger" data-action="delete-download" type="button" ${isDownloadBusy(item.status) ? 'disabled' : ''}>Delete</button>
+        ${action}
       </article>
     `;
   });
@@ -153,7 +184,7 @@ export function bindDownloadControls() {
     withBusy(els.deleteAllDownloadsBtn, 'Deleting...', () => deleteAllEpisodeDownloads(state.activeShow)).catch((err) => toast(err.message));
   });
   els.downloadsList.addEventListener('click', async (event) => {
-    const button = event.target.closest('button[data-action="delete-download"]');
+    const button = event.target.closest('button[data-action="delete-download"], button[data-action="retry-download"]');
     if (!button) return;
     const card = button.closest('.download-card');
     if (!card) return;
@@ -164,6 +195,12 @@ export function bindDownloadControls() {
         await withBusy(button, 'Deleting...', () => api(`/api/manga/${encodeURIComponent(card.dataset.mangaId)}/chapters/${encodeURIComponent(card.dataset.chapter)}/download`, { method: 'DELETE' }));
         toast('Downloaded chapter deleted');
         await loadDownloads();
+        return;
+      }
+      if (button.dataset.action === 'retry-download') {
+        const item = state.downloads?.[`${card.dataset.showId}:${card.dataset.episode}`];
+        if (!item) return;
+        await withBusy(button, 'Retrying...', () => downloadEpisode({ id: item.showId, name: item.showName, mode: item.mode }, item.episode));
         return;
       }
       await withBusy(button, 'Deleting...', () => deleteDownload(card.dataset.showId, card.dataset.episode));

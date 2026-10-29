@@ -38,7 +38,7 @@ export function downloadButtonText(status) {
 export function downloadClass(status) {
   if (isDownloadBusy(status)) return 'downloading';
   if (status === 'done') return 'downloaded';
-  if (status === 'failed' || status === 'unknown') return 'failed';
+  if (status === 'failed' || status === 'unknown' || status === 'cancelled') return 'failed';
   return '';
 }
 

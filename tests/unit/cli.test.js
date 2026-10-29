@@ -17,7 +17,27 @@ test.afterEach(() => {
 test('global CLI exposes the expected commands', () => {
   assert.match(usage(), /animanga \[start\]/);
   assert.match(usage(), /animanga doctor/);
+  assert.match(usage(), /Environment:/);
+  assert.match(usage(), /ANIMANGA_ACCESS_TOKEN/);
+  assert.match(usage(), /ANIMANGA_BIND_ADDRESS/);
   assert.doesNotMatch(usage(), /\bani-cli\b/);
+});
+
+test('doctor --help prints the same usage text', async () => {
+  const { main } = require('../../bin/animanga');
+  let output = '';
+  const write = process.stdout.write.bind(process.stdout);
+  process.stdout.write = (chunk) => {
+    output += String(chunk);
+    return true;
+  };
+  try {
+    await main(['doctor', '--help']);
+  } finally {
+    process.stdout.write = write;
+  }
+  assert.match(output, /Environment:/);
+  assert.match(output, /ANIMANGA_PUBLIC_URL/);
 });
 
 test('start options configure the server before it is loaded', () => {

@@ -23,6 +23,25 @@ test('parseSearchResults decodes entities only once', () => {
   assert.equal(results[0].name, 'Fish & Chips &quot;Special&quot;');
 });
 
+test('title searches replace punctuation with spaces while preserving the original title for matching', async () => {
+  const title = 'Fish & Chips: The Tale, Vol. 2!';
+  let searchText = '';
+  setTextFetcherForTests(async (url, options) => {
+    if (url.includes('/search/simple')) {
+      searchText = options.form.text;
+      return '<a href="https://weebcentral.com/series/ABC/fish-chips"><img alt="Fish &amp; Chips The Tale Vol. 2 cover"></a>';
+    }
+    if (url.includes('/full-chapter-list')) return '<a href="/chapters/CH1"><span>Chapter 1</span></a>';
+    return '<img src="https://cdn.example/page-1.jpg">';
+  });
+
+  const result = await getChapterPagesByTitle([title], '1');
+
+  assert.equal(searchText, 'Fish & Chips The Tale Vol. 2');
+  assert.equal(result.resolvedTitle, 'Fish & Chips The Tale Vol. 2');
+  assert.equal(result.pages.length, 1);
+});
+
 test('title scoring rejects a short generic suffix but accepts safe variations', () => {
   assert.equal(resolverTitleScore('The Otherworldly Family Man', 'Family Man'), 0);
   assert.equal(resolverTitleScore('Fish & Chips!', 'fish and chips'), 100);

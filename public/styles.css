@@ -1022,6 +1022,35 @@ label span {
   font-size: 12px;
 }
 
+.download-activity {
+  line-height: 1.4;
+}
+
+.download-progress {
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--line);
+}
+
+.download-progress span {
+  display: block;
+  width: 35%;
+  height: 100%;
+  background: var(--accent);
+  animation: download-progress-slide 1.5s ease-in-out infinite alternate;
+}
+
+.download-actions {
+  display: flex;
+  gap: 8px;
+}
+
+@keyframes download-progress-slide {
+  from { transform: translateX(-30%); }
+  to { transform: translateX(210%); }
+}
+
 .download-card.downloaded {
   border-color: color-mix(in srgb, var(--accent) 44%, var(--line));
 }
@@ -1890,11 +1919,24 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
   font-size: 13px;
 }
 
-.skip-button {
+.player-bottom-controls {
   position: absolute;
-  right: 14px;
-  bottom: 72px;
-  z-index: 4;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.skip-button {
+  position: relative;
+  align-self: flex-end;
+  margin-right: max(14px, env(safe-area-inset-right));
+  z-index: 7;
+  min-height: 44px;
+  pointer-events: auto;
   padding: 8px 12px;
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, .3);
@@ -1915,31 +1957,27 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
   display: none;
 }
 
-.player-stage:fullscreen .skip-button,
-#playerDialog.player-fullscreen .skip-button,
-.player-stage:-webkit-full-screen .skip-button {
-  right: max(14px, env(safe-area-inset-right));
-  bottom: max(80px, calc(env(safe-area-inset-bottom) + 80px));
-}
-
 .video-controls {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  position: relative;
   z-index: 4;
+  pointer-events: auto;
   overflow: visible;
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-height: 0;
-  padding: 20px 14px 8px;
+  padding: 0 14px 8px;
   background: linear-gradient(to top, rgba(0, 0, 0, .72), rgba(0, 0, 0, .32), transparent);
   color: #fff;
   line-height: 1;
   opacity: 1;
   transform: translateY(0);
   transition: opacity .18s ease, transform .18s ease;
+}
+
+.player-stage.caption-menu-open .video-controls,
+.player-stage.quality-menu-open .video-controls {
+  z-index: 8;
 }
 
 .player-controls-row {
@@ -2068,6 +2106,29 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
+}
+
+.quality-control {
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+}
+
+.quality-control[hidden] {
+  display: none;
+}
+
+.quality-button {
+  min-width: 42px;
+  padding: 0 4px;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.quality-menu {
+  right: 0;
 }
 
 .caption-control[hidden],
@@ -2306,7 +2367,7 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
 @media (max-width: 900px), (hover: none) and (pointer: coarse) {
   .video-controls {
     gap: 0;
-    padding: 16px 12px max(8px, env(safe-area-inset-bottom));
+    padding: 0 12px max(8px, env(safe-area-inset-bottom));
   }
 
   .player-controls-row {
@@ -2370,12 +2431,6 @@ html:-webkit-full-screen #playerDialog.player-fullscreen {
   .player-time,
   .player-volume {
     display: none;
-  }
-
-  .skip-button {
-    bottom: 72px;
-    padding: 8px 12px;
-    font-size: 13px;
   }
 }
 
