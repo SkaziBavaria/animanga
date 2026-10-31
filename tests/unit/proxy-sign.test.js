@@ -54,3 +54,19 @@ test('proxiedThumbnail leaves local paths alone', () => {
   assert.equal(proxiedThumbnail('/api/manga/x/pages/1'), '/api/manga/x/pages/1');
   assert.match(proxiedThumbnail('https://cdn.example/cover.jpg'), /^\/api\/proxy\?/);
 });
+
+test('MangaDex pages use signed refreshable proxy routes', () => {
+  const { proxyRemotePages, assertMangaDexProxySignature } = loadProxySign();
+  const result = proxyRemotePages({
+    sourceName: 'MangaDex',
+    mangaDexChapterId: '12345678-1234-4234-8234-123456789abc',
+    pages: [{ number: 1, url: 'https://uploads.example/data/stable-hash/page-1.jpg' }],
+  });
+  assert.match(result.pages[0].url, /^\/api\/mangadex-proxy\?/);
+  const params = new URL(result.pages[0].url, 'http://local.invalid').searchParams;
+  assert.equal(params.get('chapter'), '12345678-1234-4234-8234-123456789abc');
+  assert.equal(params.get('path'), '/data/page-1.jpg');
+  assert.doesNotThrow(() => assertMangaDexProxySignature(params));
+  params.set('path', '/data/other.jpg');
+  assert.throws(() => assertMangaDexProxySignature(params), /Invalid proxy signature/);
+});

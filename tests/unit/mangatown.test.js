@@ -3,7 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
-  parseSearchResults, parseChapterRows, parseReaderPagePaths, parseViewerImage, getChapterPagesByTitle,
+  parseSearchResults, parseChapterRows, parseReaderPagePaths, parseViewerImages, parseViewerImage, getChapterPagesByTitle,
 } = require('../../lib/mangatown');
 const { setTextFetcherForTests } = require('../../lib/web-fetch');
 
@@ -40,6 +40,20 @@ test('parses MangaTown search, decimal chapters and paged readers', () => {
     '/manga/demo_story/c011.5/1.html', '/manga/demo_story/c011.5/2.html',
   ]);
   assert.equal(parseViewerImage('<div id="viewer"><img src="//cdn.example/page-1.jpg"></div>'), 'https://cdn.example/page-1.jpg');
+});
+
+test('parses every image rendered directly inside the MangaTown viewer', () => {
+  assert.deepEqual(parseViewerImages(`
+    <div id="viewer">
+      <img src="//cdn.example/1.jpg">
+      <div id="overlay"><img src="https://cdn.example/2.jpg"></div>
+      <img data-src="https://cdn.example/3.jpg">
+      <img src="https://cdn.example/3.jpg">
+    </div>`), [
+    'https://cdn.example/1.jpg',
+    'https://cdn.example/2.jpg',
+    'https://cdn.example/3.jpg',
+  ]);
 });
 
 test('resolves MangaTown pages with a safe title match and bounded page URLs', async () => {
