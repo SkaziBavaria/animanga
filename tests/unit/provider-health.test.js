@@ -42,6 +42,10 @@ test('transport and response failures have distinct machine-readable codes', () 
 test('provider health classifies upstreams without exposing request URLs', () => {
   assert.equal(providerForUrl('https://hianime.at/watch/example?token=secret'), 'hianime');
   assert.equal(providerForUrl('https://api.comick.dev/v1.0/search'), 'comick');
+  assert.equal(providerForUrl('https://api.qimanga.com/api/v1/series/search'), 'qiscans');
+  const qiFailure = new Error('HTTP 503');
+  recordProviderFailure('qiscans', qiFailure);
+  assert.equal(qiFailure.publicFailure.error, 'Qi Scans unavailable (HTTP 503)');
   recordProviderFailure('hianime', new Error('upstream curl failed: HTTP 503 https://secret.example/path'));
   assert.equal(visibleProviderHealth().hianime.ok, false);
   const health = providerHealth().hianime;
