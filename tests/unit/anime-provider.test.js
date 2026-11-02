@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const { createAnimeProvider, normalizeDetails, providerIdentity, bindCatalogToLibrary } = require('../../lib/anime-provider');
 const { touchShow } = require('../../lib/routes/shared');
 const { pickMatch } = require('../../lib/hianime-migrate');
+const { setRawFetcher } = require('../../lib/mal-episode-titles');
 
 test('provider details preserve library identity and normalize episode objects', async () => {
   const state = { settings: {}, shows: { 'legacy-1': { id: 'legacy-1', hianimeId: 'new-2', archived: true, watchedEpisodes: ['1'] } } };
@@ -16,6 +17,22 @@ test('provider details preserve library identity and normalize episode objects',
   assert.deepEqual(Object.keys(state.shows), ['legacy-1']);
   assert.deepEqual(state.shows['legacy-1'].watchedEpisodes, ['1']);
   assert.equal(state.shows['legacy-1'].archived, true);
+});
+
+test('episode title enrichment is opt-in so the episode list can load first', async () => {
+  let lookups = 0;
+  setRawFetcher(async () => {
+    lookups += 1;
+    throw new Error('unexpected title lookup');
+  });
+  try {
+    const service = createAnimeProvider({ hianime: { getShowDetails: async (id) => ({ id, name: 'Example', episodes: ['1'] }) } });
+    const details = await service.details({}, 'show-1');
+    assert.deepEqual(details.episodes, ['1']);
+    assert.equal(lookups, 0);
+  } finally {
+    setRawFetcher();
+  }
 });
 
 test('stored provider mapping wins over client hints and slug shapes are not identities', () => {

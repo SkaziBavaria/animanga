@@ -74,6 +74,25 @@ export async function openEpisodes(show) {
   syncAnimeShow(presentAnimeCard(show));
   refreshAnimeCards();
   renderEpisodeGrid(show);
+  if (show.episodes.some((episode) => {
+    const title = String(show.episodeTitles[episode] || '').trim();
+    return !title || /^episode\s*\d+(?:\.\d+)?$/i.test(title);
+  })) loadEpisodeTitles(show, mode);
+}
+
+function loadEpisodeTitles(show, mode) {
+  const params = new URLSearchParams({ mode, provider: show.provider || '', titles: '1' });
+  api(`/api/shows/${encodeURIComponent(show.id)}/episodes?${params}`, { background: true }).then((data) => {
+    if (state.activeShow !== show || !els.dialog.open) return;
+    const episodeTitles = { ...show.episodeTitles, ...(data.episodeTitles || {}) };
+    const changed = Object.entries(data.episodeTitles || {}).some(([episode, title]) => title && title !== show.episodeTitles?.[episode]);
+    if (!changed) return;
+    show.episodeTitles = episodeTitles;
+    show.malId = data.malId || show.malId;
+    syncAnimeShow(presentAnimeCard(show));
+    refreshAnimeCards();
+    renderEpisodeGrid(show);
+  }).catch(() => {});
 }
 
 export function renderEpisodeGrid(show) {
