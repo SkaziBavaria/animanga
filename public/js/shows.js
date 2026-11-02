@@ -4,6 +4,7 @@ import {
 } from './download-helpers.js';
 import { latestPositionForShow } from './progress.js';
 import {
+  anilistAiredYearRange,
   escapeHtml,
   hasNewEpisodeToContinue,
   hasStarted,
@@ -62,12 +63,14 @@ function modeSelector(show) {
 function nextSeasonPill(show) {
   if (!show.hasNextSeason && !show.nextSeason) return '';
   const next = show.nextSeason || {};
-  const status = String(next.status || '').toLowerCase();
-  const episodeCount = Number(next.episodeCount || next.latestEpisode || 0);
-  if (status.includes('not yet') || status.includes('upcoming')) {
+  const status = String(next.anilistStatus || '').toUpperCase();
+  const episodeCount = Number(next.anilistEpisodeCount || 0);
+  if (status === 'NOT_YET_RELEASED') {
     return '<span class="pill sequel upcoming" title="A sequel has been announced">Sequel announced</span>';
   }
-  if (episodeCount > 0 || status.includes('finished') || status.includes('releasing') || status.includes('ongoing')) {
+  if (status === 'CANCELLED') return '<span class="pill sequel cancelled" title="AniList marks this sequel as cancelled">Sequel cancelled</span>';
+  if (status === 'HIATUS') return '<span class="pill sequel" title="AniList marks this sequel as on hiatus">Sequel on hiatus</span>';
+  if (episodeCount > 0 || status === 'FINISHED' || status === 'RELEASING') {
     return '<span class="pill sequel released" title="A sequel is available now">Sequel available</span>';
   }
   return '<span class="pill sequel" title="This title has a sequel">Has sequel</span>';
@@ -92,8 +95,7 @@ export function showCard(show, source) {
   const downloadedCount = downloadedEpisodeCount(show.id);
   const isTracked = source !== 'library' && state.library.some((item) => item.id === show.id);
   const schedulePills = releasePills(show);
-  const showStatus = String(show.status || '').toLowerCase();
-  const isUpcoming = showStatus.includes('not yet') || showStatus.includes('upcoming');
+  const isUpcoming = String(show.anilistStatus || '').toUpperCase() === 'NOT_YET_RELEASED';
   const extraActions = source === 'library'
     ? `${show.archived
       ? '<button class="secondary" data-action="unarchive">Unarchive</button>'
@@ -184,45 +186,44 @@ function relationSortValue(item) {
   }[String(item.relation || '').toLowerCase()] ?? 9;
 }
 
-function relationYearLabel(item) {
-  const start = Number(item?.airedStart?.year || item?.season?.year || item?.year) || null;
-  const end = Number(item?.airedEnd?.year) || null;
-  if (!start) return '';
-  return end && end !== start ? `${start}–${end}` : String(start);
-}
-
 export function relatedSeasonSection(relations = []) {
   const items = [...relations].sort((a, b) => relationSortValue(a) - relationSortValue(b));
   if (!items.length) return '';
+  const seasonItems = items.filter((item) => ['sequel', 'prequel'].includes(String(item.relation).toLowerCase()));
+  const relatedItems = items.filter((item) => !['sequel', 'prequel'].includes(String(item.relation).toLowerCase()));
+  const renderItems = (group) => `
+    <div class="related-list">
+      ${group.map((item) => {
+        const tracked = state.library.some((show) => show.id === item.id);
+        const thumb = thumbnailUrl(item);
+        const episodes = item.anilistEpisodeCount ? `${item.anilistEpisodeCount} episodes` : 'No episodes listed';
+        const year = anilistAiredYearRange(item);
+        return `
+          <article class="related-item" data-related-id="${escapeHtml(item.id)}">
+            ${thumb
+              ? `<img class="related-thumb" src="${escapeHtml(thumb)}" alt="" loading="lazy" decoding="async">`
+              : `<div class="related-thumb placeholder" aria-hidden="true">${escapeHtml(showInitials(item))}</div>`}
+            <div class="related-main">
+              <span class="pill hot">${escapeHtml(relationLabel(item.relation))}</span>
+              <strong>${escapeHtml(item.name || item.title || item.id)}</strong>
+              <span>${escapeHtml([year, episodes, ({ FINISHED: 'Finished', RELEASING: 'Ongoing', NOT_YET_RELEASED: 'Announced', CANCELLED: 'Cancelled', HIATUS: 'Hiatus' })[item.anilistStatus]].filter(Boolean).join(' · '))}</span>
+            </div>
+            <div class="related-actions">
+              ${item.playable
+                ? `<button class="secondary small-button" data-action="related-details" type="button">About</button>
+                  ${tracked
+                    ? '<button class="tracked small-button" data-action="related-tracked" type="button" disabled>Tracked</button>'
+                    : '<button class="secondary small-button" data-action="related-track" type="button">Track</button>'}`
+                : '<span class="related-unavailable">Not available on HiAnime</span>'}
+            </div>
+          </article>
+        `;
+      }).join('')}
+    </div>`;
   return `
-    <section class="related-section" aria-label="Related seasons">
-      <h3>Related seasons</h3>
-      <div class="related-list">
-        ${items.map((item) => {
-          const tracked = state.library.some((show) => show.id === item.id);
-          const thumb = thumbnailUrl(item);
-          const episodes = item.episodeCount ? `${item.episodeCount} episodes` : 'No episodes yet';
-          const year = relationYearLabel(item);
-          return `
-            <article class="related-item" data-related-id="${escapeHtml(item.id)}">
-              ${thumb
-                ? `<img class="related-thumb" src="${escapeHtml(thumb)}" alt="" loading="lazy" decoding="async">`
-                : `<div class="related-thumb placeholder" aria-hidden="true">${escapeHtml(showInitials(item))}</div>`}
-              <div class="related-main">
-                <span class="pill hot">${escapeHtml(relationLabel(item.relation))}</span>
-                <strong>${escapeHtml(item.name || item.title || item.id)}</strong>
-                <span>${escapeHtml([year, episodes, item.status].filter(Boolean).join(' · '))}</span>
-              </div>
-              <div class="related-actions">
-                <button class="secondary small-button" data-action="related-details" type="button">About</button>
-                ${tracked
-                  ? '<button class="tracked small-button" data-action="related-tracked" type="button" disabled>Tracked</button>'
-                  : '<button class="secondary small-button" data-action="related-track" type="button">Track</button>'}
-              </div>
-            </article>
-          `;
-        }).join('')}
-      </div>
+    <section class="related-section" aria-label="Season order and related anime">
+      ${seasonItems.length ? `<h3>Next and previous seasons</h3>${renderItems(seasonItems)}` : ''}
+      ${relatedItems.length ? `<h3>Related anime</h3>${renderItems(relatedItems)}` : ''}
     </section>
   `;
 }

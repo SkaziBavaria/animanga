@@ -103,6 +103,7 @@ test('presentShow lets sequel data override a stale false flag', () => {
   const show = presentShow({
     id: 'bleach-conflict',
     name: 'BLEACH: Thousand-Year Blood War - The Conflict',
+    anilistRelationsVerified: true,
     hasNextSeason: false,
     relatedShows: [{ relation: 'sequel', showId: 'bleach-calamity' }],
     nextSeason: { id: 'bleach-calamity', status: 'Not Yet Released' },
@@ -110,6 +111,19 @@ test('presentShow lets sequel data override a stale false flag', () => {
   });
   assert.equal(show.hasNextSeason, true);
   assert.equal(show.nextSeason.status, 'Not Yet Released');
+});
+
+test('presentShow hides stored season links until AniList confirms them', () => {
+  const show = presentShow({
+    id: 'legacy-show',
+    relatedShows: [{ relation: 'sequel', showId: 'legacy-sequel' }],
+    nextSeason: { id: 'legacy-sequel' },
+    hasNextSeason: true,
+    watchedEpisodes: [],
+  });
+  assert.equal(show.hasNextSeason, false);
+  assert.equal(show.nextSeason, null);
+  assert.deepEqual(show.relatedShows, []);
 });
 
 test('release watches reject loose search hits and accept exact titles or subtitles', () => {

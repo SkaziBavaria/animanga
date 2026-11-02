@@ -110,7 +110,7 @@ function persistProgress() {
     duration: lastMediaDuration,
   });
   if (!resolved) return;
-  saveProgress(currentContext.showId, currentContext.episode, resolved.position, resolved.duration);
+  saveProgress(currentContext.showId, currentContext.episode, resolved.position, resolved.duration, currentContext.providerId);
 }
 
 function attachResume(resumeSeconds) {
@@ -180,7 +180,7 @@ function markEpisodeFinished() {
   finishedMarked = true;
   const { showId, episode } = currentContext;
   const duration = els.playerVideo.duration;
-  if (Number.isFinite(duration) && duration > 0) saveProgress(showId, episode, duration, duration);
+  if (Number.isFinite(duration) && duration > 0) saveProgress(showId, episode, duration, duration, currentContext?.providerId);
   if (state.settings.autoTrackPlayed === false) return;
   postBeacon('/api/mark', { id: showId, episode, watched: true });
   const now = new Date().toISOString();
@@ -822,7 +822,7 @@ async function attachHlsPlayback(video, playback, { generation, failPlayback, re
 
 function openBrowserPlayback(show, episode, playback) {
   const generation = ++playbackGeneration;
-  currentContext = { showId: show.id, episode: String(episode) };
+  currentContext = { showId: show.id, episode: String(episode), providerId: String(show.providerId || show.hianimeId || show.id) };
   currentShow = show;
   lastSavedAt = 0;
   lastMediaTime = 0;
@@ -837,7 +837,7 @@ function openBrowserPlayback(show, episode, playback) {
   resetVideoElement();
   updateVideoControls();
 
-  const resume = positionFor(show.id, episode)?.position || 0;
+  const resume = positionFor(show.id, episode, show.providerId || show.hianimeId || show.id)?.position || 0;
   const video = els.playerVideo;
   video.onerror = null;
   attachResume(resume);

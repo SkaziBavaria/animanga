@@ -111,7 +111,7 @@ export function renderEpisodeGrid(show) {
     if (watched.has(epText)) classes.push('watched');
     if (epText === String(next)) classes.push('next');
     const canDelete = status === 'done' || status === 'failed' || status === 'unknown';
-    const resume = positionFor(show.id, epText);
+    const resume = positionFor(show.id, epText, show.providerId || show.hianimeId || show.id);
     const validResume = resume && Number(resume.position) >= 5;
     const resumePercent = validResume && Number(resume.duration) > 0
       ? Math.max(1, Math.min(99, Math.round((resume.position / resume.duration) * 100)))

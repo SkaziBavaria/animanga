@@ -13,8 +13,9 @@ const {
 
 test('stores a mid-episode position', () => {
   const state = {};
-  const result = setPosition(state, { id: 'show', episode: '2', position: 300, duration: 1400 });
+  const result = setPosition(state, { id: 'show', episode: '2', position: 300, duration: 1400, providerId: 'hianime-42' });
   assert.equal(result.position.position, 300);
+  assert.equal(result.position.providerId, 'hianime-42');
   assert.equal(state.positions['show:2'].duration, 1400);
 });
 

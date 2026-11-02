@@ -26,7 +26,7 @@ function sequelIdForShow(show) {
 }
 
 async function hydrateSequelPills(results, emptyHtml, leadingHtml = '') {
-  const needing = (results || []).filter((show) => show?.hasNextSeason && !show?.nextSeason?.status);
+  const needing = (results || []).filter((show) => show?.hasNextSeason && !show?.nextSeason?.anilistStatus && !Number(show?.nextSeason?.anilistEpisodeCount));
   if (!needing.length) return;
   const ids = [...new Set(needing.map(sequelIdForShow).filter(Boolean))];
   if (!ids.length) return;
@@ -58,7 +58,7 @@ async function hydrateSequelPills(results, emptyHtml, leadingHtml = '') {
       current = current.map((show) => {
         const sequelId = sequelIdForShow(show);
         const next = sequelId ? sequels[sequelId] : null;
-        if (!next?.status && !Number(next?.episodeCount)) return show;
+        if (!next?.anilistStatus && !Number(next?.anilistEpisodeCount)) return show;
         changed = true;
         return {
           ...show,
@@ -73,7 +73,7 @@ async function hydrateSequelPills(results, emptyHtml, leadingHtml = '') {
       if (changed && !paint()) return;
       if (offset + chunkSize < ids.length) {
         // Upstream rate-limits dense sequel lookups; wait longer when a chunk under-fills.
-        const got = chunk.filter((id) => sequels[id]?.status || Number(sequels[id]?.episodeCount) > 0).length;
+        const got = chunk.filter((id) => sequels[id]?.anilistStatus || Number(sequels[id]?.anilistEpisodeCount) > 0).length;
         await new Promise((resolve) => setTimeout(resolve, got < chunk.length ? 10_000 : 1_200));
       }
     } catch {
