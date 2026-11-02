@@ -4,6 +4,7 @@ import { state } from './state.js';
 import {
   downloadClass,
   isDownloadBusy,
+  isDownloadListed,
 } from './download-helpers.js';
 import { escapeHtml } from './util.js';
 
@@ -71,9 +72,7 @@ export async function deleteDownload(showId, episode) {
 
 export function renderDownloads() {
   const downloads = Object.values(state.downloads || {})
-    .filter((item) => isDownloadBusy(item.status)
-      || ['failed', 'cancelled'].includes(item.status)
-      || (item.status === 'done' && item.file))
+    .filter(isDownloadListed)
     .sort((a, b) => String(b.updatedAt || b.startedAt || '').localeCompare(String(a.updatedAt || a.startedAt || '')));
   const animeCards = downloads.map((item) => {
     const size = item.file?.size ? `${Math.round(item.file.size / 1024 / 1024)} MB` : '';
@@ -159,7 +158,7 @@ export async function loadDownloads() {
 
 async function deleteAllStoredDownloads() {
   const animeCount = Object.values(state.downloads || {})
-    .filter((item) => isDownloadBusy(item.status) || (item.status === 'done' && item.file)).length;
+    .filter(isDownloadListed).length;
   const mangaCount = (state.offlineMangaDownloads || []).length;
   const total = animeCount + mangaCount;
   if (!total) {
