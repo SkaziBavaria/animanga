@@ -76,6 +76,32 @@ test.describe('Episodes dialog', () => {
     await expect(page.locator('#showDialog')).toBeHidden();
   });
 
+  test('shows the episode list while optional episode titles load in the background', async ({ page }) => {
+    await installApiMocks(page);
+    await page.route('**/api/shows/*/episodes*', async (route) => {
+      const url = new URL(route.request().url());
+      if (url.searchParams.get('titles') === '1') {
+        await new Promise((resolve) => setTimeout(resolve, 1200));
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ episodes: ['1', '2', '3'], episodeTitles: { 1: 'Pilot Title' } }),
+        });
+      }
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ episodes: ['1', '2', '3'], episodeTitles: {} }),
+      });
+    });
+    await page.goto('/');
+    await page.click('#libraryList .show-card button[data-action="episodes"]');
+
+    await expect(page.locator('#episodeGrid .episode-play')).toHaveCount(3);
+    await expect(page.locator('#episodeGrid .episode-name').first()).toHaveText('Episode 1');
+    await expect(page.locator('#episodeGrid .episode-name').first()).toHaveText('Pilot Title', { timeout: 3000 });
+  });
+
   test('shows a resume indicator for a partially watched episode', async ({ page }) => {
     await installApiMocks(page, {
       positions: { 'lib1:2': { showId: 'lib1', episode: '2', position: 120, duration: 1440 } },
