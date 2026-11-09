@@ -22,3 +22,21 @@ export async function clearJobs() {
   els.jobsList.innerHTML = '<div class="empty">No jobs.</div>';
   toast('Jobs cleared');
 }
+
+export async function loadLogs() {
+  const data = await api('/api/logs');
+  const logs = data.logs || [];
+  els.appLogsList.innerHTML = logs.length ? logs.map((log) => `
+    <article class="job-card">
+      <strong>${escapeHtml(log.level)} · ${escapeHtml(log.timestamp)}</strong>
+      <pre>${escapeHtml(log.message)}</pre>
+    </article>
+  `).join('') : '<div class="empty">No application logs.</div>';
+}
+
+export async function clearLogs() {
+  if (!window.confirm('Clear application logs?')) return;
+  await api('/api/logs', { method: 'DELETE' });
+  els.appLogsList.innerHTML = '<div class="empty">No application logs.</div>';
+  toast('Application logs cleared');
+}
