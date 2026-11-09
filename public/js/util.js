@@ -286,13 +286,14 @@ export function releasePills(show) {
   const pills = [];
   const status = String(show.status || '').toLowerCase();
   const startDate = dateFromAllAnimeDate(show.airedStart);
+  const startsInFuture = Boolean(startDate && startDate.getTime() > Date.now());
   const endDate = dateFromAllAnimeDate(show.airedEnd)
     || dateFromUnixSeconds(show.lastEpisodeTimestamp)
     || dateFromAllAnimeDate(show.lastEpisodeDate);
   const startYear = startDate?.getFullYear() || Number(show.season?.year) || null;
   const endYear = endDate?.getFullYear() || null;
   const finished = /\bfinished\b|\bcompleted\b/.test(status);
-  const upcoming = status.includes('not yet') || status.includes('upcoming');
+  const upcoming = status.includes('not yet') || status.includes('upcoming') || startsInFuture;
   const releasing = !finished && !upcoming && (
     status.includes('releasing')
     || status.includes('ongoing')

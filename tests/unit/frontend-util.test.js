@@ -139,6 +139,14 @@ test('releasePills labels finished, ongoing, cancelled, and announced clearly', 
   }), [`2013${dash}2014 ${dot} Finished`]);
 });
 
+test('a future start date takes precedence over a stale finished status', async () => {
+  const { releasePills } = await loadUtil();
+  assert.deepEqual(releasePills({
+    status: 'Finished Airing',
+    airedStart: { year: new Date().getFullYear() + 1, month: 0, date: 1 },
+  }), ['Announced · ' + (new Date().getFullYear() + 1)]);
+});
+
 test('compareNewestActivity keeps the latest activity at the front', async () => {
   const { compareNewestActivity } = await loadUtil();
   const none = () => [];

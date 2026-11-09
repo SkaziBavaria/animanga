@@ -93,7 +93,8 @@ export function showCard(show, source) {
   const isTracked = source !== 'library' && state.library.some((item) => item.id === show.id);
   const schedulePills = releasePills(show);
   const showStatus = String(show.status || '').toLowerCase();
-  const isUpcoming = showStatus.includes('not yet') || showStatus.includes('upcoming');
+  const isUpcoming = showStatus.includes('not yet') || showStatus.includes('upcoming')
+    || schedulePills[0]?.startsWith('Announced');
   const extraActions = source === 'library'
     ? `${show.archived
       ? '<button class="secondary" data-action="unarchive">Unarchive</button>'

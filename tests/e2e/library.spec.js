@@ -129,6 +129,22 @@ test.describe('Library filtering & sorting', () => {
     await expect(schedule).toHaveClass(/upcoming/);
   });
 
+  test('treats a future start date as announced when the catalog status says finished', async ({ page }) => {
+    const year = new Date().getFullYear() + 1;
+    await installApiMocks(page, {
+      library: [makeShow({
+        id: 'future-finished',
+        name: 'Future title',
+        status: 'Finished Airing',
+        airedStart: { year, month: 0, date: 1 },
+      })],
+    });
+    await page.goto('/');
+    const schedule = page.locator('.show-card[data-id="future-finished"] .pill.schedule');
+    await expect(schedule).toHaveText(`Announced · ${year}`);
+    await expect(schedule).toHaveClass(/upcoming/);
+  });
+
   test('filters to caught-up shows', async ({ page }) => {
     await page.selectOption('#libraryFilter', 'caughtup');
     await expect(page.locator('#libraryList .show-card')).toHaveCount(1);
@@ -249,6 +265,17 @@ test.describe('Library filtering & sorting', () => {
           dismissedNextSeasonId: 'sequel-c',
           nextSeason: { id: 'sequel-c', name: 'Sequel C' },
         }),
+        makeShow({
+          id: 'local-season-record',
+          providerId: 'sequel-d',
+          hianimeId: 'sequel-d',
+          name: 'Already tracked season',
+        }),
+        makeShow({
+          id: 'source-with-tracked-sequel',
+          name: 'Source with tracked sequel',
+          nextSeason: { id: 'sequel-d', name: 'Already tracked season' },
+        }),
       ],
     });
     await page.goto('/');
@@ -258,6 +285,7 @@ test.describe('Library filtering & sorting', () => {
     await expect(page.locator('#libraryList .sequel-alert')).toHaveCount(2);
     await expect(page.locator('#libraryList')).toContainText('After Archived source');
     await expect(page.locator('#libraryList')).not.toContainText('Sequel C');
+    await expect(page.locator('#libraryList')).not.toContainText('Already tracked season');
   });
 
   test('can dismiss a sequel from the sequel filter', async ({ page }) => {
