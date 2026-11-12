@@ -12,7 +12,7 @@ function isShowTracked(show) {
 
 function renderDetailsActions(show) {
   if (!els.detailsActions) return;
-  if (!show?.id) {
+  if (!show?.id || show.playable === false || String(show.id).startsWith('anilist:')) {
     els.detailsActions.hidden = true;
     els.detailsActions.innerHTML = '';
     return;
@@ -34,7 +34,10 @@ export async function openDetails(show) {
   if (!els.detailsDialog.open) els.detailsDialog.showModal();
 
   const mode = show.mode || state.settings.mode;
-  const data = await api(`/api/shows/${encodeURIComponent(show.id)}/details?mode=${encodeURIComponent(mode)}&provider=${encodeURIComponent(show.provider || '')}`);
+  const anilistOnly = show.playable === false || String(show.id).startsWith('anilist:');
+  const data = anilistOnly
+    ? { show }
+    : await api(['/api/shows/', encodeURIComponent(show.id), '/details?mode=', encodeURIComponent(mode), '&provider=', encodeURIComponent(show.provider || '')].join(''));
   const item = { ...show, ...(data.show || {}) };
   state.activeDetailsShow = item;
   state.detailsRelations = item.relations || [];

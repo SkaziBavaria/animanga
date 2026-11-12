@@ -155,7 +155,9 @@ export function sequelAlertCard(alert) {
         </div>
       </div>
       <div class="card-actions three">
-        <button class="primary" data-action="track-sequel">Track sequel</button>
+        ${show.playable
+          ? '<button class="primary" data-action="track-sequel">Track sequel</button>'
+          : '<button class="secondary" type="button" disabled title="This title is not available on HiAnime">Not available</button>'}
         <button class="secondary" data-action="details">About</button>
         <button class="secondary" data-action="dismiss-sequel" data-source-id="${escapeHtml(alert.source.id)}">Dismiss</button>
         <button class="secondary subtle" data-action="mute-sequels" data-source-id="${escapeHtml(alert.source.id)}">Stop sequel alerts</button>
