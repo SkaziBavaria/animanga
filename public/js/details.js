@@ -4,7 +4,7 @@ import { trackShow, removeShow, renderLibrary } from './library.js';
 import { refreshSearchResults } from './discover.js';
 import { state } from './state.js';
 import { relatedSeasonSection } from './shows.js';
-import { cacheStatusLabel, escapeHtml, showInitials, stripDescription, thumbnailUrl } from './util.js';
+import { anilistAiredYearRange, cacheStatusLabel, escapeHtml, showInitials, stripDescription, thumbnailUrl } from './util.js';
 
 function isShowTracked(show) {
   return Boolean(show?.id) && state.library.some((item) => item.id === show.id);
@@ -46,9 +46,11 @@ export async function openDetails(show) {
   apply(state.searchResults);
   renderLibrary();
   refreshSearchResults();
-  const thumb = thumbnailUrl(item);
-  const description = stripDescription(item.description) || 'No description available.';
-  const meta = [item.type, item.rating, item.sourceQuality, item.status, item.score ? `Score ${item.score}` : '', cacheStatusLabel(data)]
+  const thumb = thumbnailUrl({ ...item, thumbnail: item.anilistCoverImage || item.thumbnail });
+  const description = stripDescription(item.anilistDescription ?? item.description) || 'No description available.';
+  const airedYears = anilistAiredYearRange(item);
+  const anilistStatusLabel = ({ FINISHED: 'Finished', RELEASING: 'Ongoing', NOT_YET_RELEASED: 'Announced', CANCELLED: 'Cancelled', HIATUS: 'Hiatus' })[item.anilistStatus] || '';
+  const meta = [item.anilistFormat || item.type, airedYears ? `Aired ${airedYears}` : '', item.rating, item.sourceQuality, anilistStatusLabel, item.score ? `Score ${item.score}` : '', cacheStatusLabel(data)]
     .filter(Boolean)
     .join(' · ');
   els.detailsTitle.textContent = item.name || item.title || 'About';
@@ -61,7 +63,7 @@ export async function openDetails(show) {
       <div class="details-copy">
         <p>${escapeHtml(description)}</p>
         <div class="details-pills">
-          ${(item.genres || []).map((genre) => `<span class="pill">${escapeHtml(genre)}</span>`).join('')}
+          ${(item.anilistGenres ?? item.genres ?? []).map((genre) => `<span class="pill">${escapeHtml(genre)}</span>`).join('')}
         </div>
       </div>
     </div>

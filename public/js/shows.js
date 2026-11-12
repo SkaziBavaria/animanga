@@ -40,7 +40,8 @@ function progressLabel(show, source) {
 }
 
 function infoPills(show) {
-  return show.score ? [`Score ${show.score}`] : [];
+  const year = Number(show.airedStart?.year || show.season?.year || show.year) || null;
+  return [year ? String(year) : '', show.score ? `Score ${show.score}` : '', show.rating || '', show.type || ''].filter(Boolean);
 }
 
 function modeSelector(show) {
@@ -94,7 +95,8 @@ export function showCard(show, source) {
   const schedulePills = releasePills(show);
   const showStatus = String(show.status || '').toLowerCase();
   const isUpcoming = showStatus.includes('not yet') || showStatus.includes('upcoming')
-    || schedulePills[0]?.startsWith('Announced');
+    || schedulePills[0]?.startsWith('Announced')
+    || String(show.anilistStatus || '').toUpperCase() === 'NOT_YET_RELEASED';
   const extraActions = source === 'library'
     ? `${show.archived
       ? '<button class="secondary" data-action="unarchive">Unarchive</button>'

@@ -1059,6 +1059,18 @@ label span {
   border-color: color-mix(in srgb, var(--accent) 44%, var(--line));
 }
 
+.watch-match-title {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
 .watch-card .watch-actions {
   display: flex;
   justify-content: end;

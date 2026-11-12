@@ -1,4 +1,5 @@
 import { state } from './state.js';
+export { isDownloadListed } from './download-records.js';
 
 export function downloadKey(showId, episode) {
   return `${showId}:${String(episode || '').trim()}`;

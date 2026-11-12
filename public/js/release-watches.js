@@ -59,7 +59,11 @@ export function renderReleaseWatches() {
       <article class="watch-card ${found ? 'found' : ''}" data-watch-id="${escapeHtml(watch.id)}">
         <div>
           <strong>${escapeHtml(watch.query)}</strong>
-          <span>${escapeHtml(found ? `Found: ${title}` : `Watching · ${watch.mode}`)}</span>
+          ${found
+            ? `<span>Found: ${watch.matchedShow?.id
+              ? `<button class="watch-match-title" data-action="watch-details" type="button" title="View matched title details">${escapeHtml(title || 'View title')}</button>`
+              : escapeHtml(title)}</span>`
+            : `<span>${escapeHtml(`Watching · ${watch.mode}`)}</span>`}
           <span>${escapeHtml(`Last check: ${checked}`)}</span>
         </div>
         <div class="watch-actions">

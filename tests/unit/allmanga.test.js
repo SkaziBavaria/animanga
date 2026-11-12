@@ -14,7 +14,7 @@ test.afterEach(() => {
 });
 
 test('uses the maintained manga resolver fallback order', () => {
-  assert.deepEqual(DEFAULT_PAGE_RESOLVER_NAMES, ['Weeb Central', 'MangaPill', 'MangaDex', 'MangaTown']);
+  assert.deepEqual(DEFAULT_PAGE_RESOLVER_NAMES, ['Weeb Central', 'MangaPill', 'MangaDex', 'MangaTown', 'Qi Scans']);
 });
 
 test('searchManga maps ComicK results', async () => {

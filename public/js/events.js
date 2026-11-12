@@ -154,6 +154,10 @@ function bindReleaseWatches() {
     const card = button.closest('.watch-card');
     const watch = state.releaseWatches.find((item) => item.id === card?.dataset.watchId);
     if (!watch) return;
+    if (button.dataset.action === 'watch-details' && watch.matchedShow) {
+      await runAction(button, 'Fetching...', () => openDetails(watch.matchedShow));
+      return;
+    }
     if (button.dataset.action === 'delete-watch') {
       await runAction(button, 'Removing...', () => deleteReleaseWatch(watch.id));
     }
