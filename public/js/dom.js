@@ -6,6 +6,7 @@ export const els = {
   providerBanner: $('#providerBanner'),
   mediaSwitchBtn: $('#mediaSwitchBtn'),
   mediaModeLabel: $('#mediaModeLabel'),
+  mediaModeTarget: $('#mediaModeTarget'),
   refreshBtn: $('#refreshBtn'),
   libraryList: $('#libraryList'),
   libraryCount: $('#libraryCount'),

@@ -4,6 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
   parseSearchResults,
+  buildFilterPath,
   parseEpisodes,
   decodeEmbedBlob,
   listSubtitleTracks,
@@ -314,4 +315,9 @@ test('HiAnime details ignore recommended titles outside related sections', () =>
   const details = parseShowDetails(html, 'solo-1');
   assert.deepEqual(details.relations, []);
   assert.equal(details.nextSeason, undefined);
+});
+
+test('HiAnime filter paths encode search, genre, and release year', () => {
+  assert.equal(buildFilterPath({ query: 'Naruto', genre: 'Slice of Life', year: 2024 }), '/filter?keyword=Naruto&genre=slice-of-life&sy=2024&ey=2024');
+  assert.equal(buildFilterPath({ genre: 'Action & Adventure' }), '/filter?genre=action-and-adventure');
 });

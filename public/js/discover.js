@@ -190,8 +190,9 @@ export function switchMediaMode(mode = state.mediaMode === 'anime' ? 'manga' : '
   state.mediaMode = mode === 'manga' ? 'manga' : 'anime';
   localStorage.setItem('animanga-media-mode', state.mediaMode);
   window.dispatchEvent(new Event('animanga:media-mode'));
-  els.mediaModeLabel.textContent = state.mediaMode === 'manga' ? 'Manga' : 'Anime';
   const nextMode = state.mediaMode === 'manga' ? 'anime' : 'manga';
+  els.mediaModeLabel.textContent = state.mediaMode === 'manga' ? 'Manga' : 'Anime';
+  els.mediaModeTarget.textContent = nextMode === 'manga' ? 'Manga' : 'Anime';
   els.mediaSwitchBtn.title = `Switch to ${nextMode}`;
   els.mediaSwitchBtn.setAttribute('aria-label', `Currently showing ${state.mediaMode}. Switch to ${nextMode}`);
   els.refreshBtn.title = `Refresh ${state.mediaMode} library`;
