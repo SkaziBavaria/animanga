@@ -5,6 +5,7 @@ const { createAnimeProvider, normalizeDetails, providerIdentity, bindCatalogToLi
 const { touchShow } = require('../../lib/routes/shared');
 const { pickMatch } = require('../../lib/hianime-migrate');
 const { setRawFetcher } = require('../../lib/mal-episode-titles');
+const { setAniListFetcherForTests } = require('../../lib/anilist');
 
 test('provider details preserve library identity and normalize episode objects', async () => {
   const state = { settings: {}, shows: { 'legacy-1': { id: 'legacy-1', hianimeId: 'new-2', archived: true, watchedEpisodes: ['1'] } } };
@@ -67,6 +68,197 @@ test('Discover reuses an archived library identity instead of creating a duplica
   const [result] = bindCatalogToLibrary(state, [{ id: 'new', hianimeId: 'new', name: 'Example' }]);
   assert.equal(result.id, 'old');
   assert.equal(result.hianimeId, 'new');
+});
+
+test('AniList relation lookup prefers the library season title over generic provider metadata', async () => {
+  let queryTitle = '';
+  setAniListFetcherForTests(async (_url, options) => {
+    queryTitle = JSON.parse(options.body).variables.search;
+    return {
+      ok: true,
+      json: async () => ({ data: { Page: { media: [{
+        id: 303, type: 'ANIME', format: 'TV',
+        title: { romaji: 'Example Show Part 3', english: 'Example Show Part 3', native: null },
+        synonyms: [], status: 'FINISHED', episodes: 12, description: '', genres: [], coverImage: {},
+        relations: { edges: [
+          { relationType: 'PREQUEL', node: {
+            id: 302, type: 'ANIME', format: 'TV',
+            title: { romaji: 'Example Show Part 2', english: 'Example Show Part 2', native: null },
+            synonyms: [], status: 'FINISHED', episodes: 12, startDate: { year: 2025, month: 1, day: 1 }, endDate: null,
+            coverImage: {},
+          } },
+        ] },
+      }] } } }),
+    };
+  });
+  try {
+    const service = createAnimeProvider({ hianime: {
+      getShowDetails: async (id) => ({ id, name: 'Example Show', episodes: ['1'] }),
+    } });
+    const state = { settings: {}, shows: {
+      'library-id': { id: 'library-id', name: 'Example Show Part 3', sourceName: 'Example Show', provider: 'hianime', providerId: 'provider-id' },
+    } };
+    const details = await service.details(state, 'library-id');
+    assert.equal(queryTitle, 'Example Show Part 3');
+    assert.equal(details.anilistId, 303);
+    assert.equal(details.previousSeason?.anilistId, 302);
+    assert.equal(details.nextSeason, undefined);
+  } finally {
+    setAniListFetcherForTests();
+  }
+});
+
+test('AniList matcher picks the matching season and rejects a neighboring season', async () => {
+  setAniListFetcherForTests(async () => ({
+    ok: true,
+    json: async () => ({ data: { Page: { media: [{
+      id: 500, type: 'ANIME', format: 'TV',
+      title: { romaji: 'Main Show', english: 'Main Show', native: null },
+      synonyms: [], status: 'FINISHED', episodes: 12, description: '', genres: [], coverImage: {},
+      relations: { edges: [{
+        relationType: 'SEQUEL',
+        node: {
+          id: 502, type: 'ANIME', format: 'TV',
+          title: { romaji: 'Example Show Season 2', english: 'Example Show Season 2', native: null },
+          synonyms: ['Example Show 2nd Season'], status: 'FINISHED', episodes: 12,
+          startDate: { year: 2024, month: 1, day: 1 }, endDate: null, coverImage: {},
+        },
+      }] },
+    }] } } }),
+  }));
+  try {
+    const catalog = {
+      getShowDetails: async (id) => ({ id, name: 'Main Show', episodes: ['1'] }),
+      searchAnime: async () => [
+        { id: 'wrong-season-3', name: 'Example Show Season 3' },
+        { id: 'right-season-2', name: 'Example Show 2nd Season' },
+      ],
+    };
+    const service = createAnimeProvider({ hianime: catalog });
+    const state = { settings: {}, shows: {
+      main: { id: 'main', name: 'Main Show', provider: 'hianime', providerId: 'main' },
+    } };
+    const details = await service.details(state, 'main');
+    assert.equal(details.nextSeason.providerId, 'right-season-2');
+    assert.equal(details.nextSeason.name, 'Example Show Season 2');
+    assert.equal(details.nextSeason.playable, true);
+  } finally {
+    setAniListFetcherForTests();
+  }
+});
+
+test('AniList supplies season links and air dates without HiAnime status fallback', async () => {
+  const summaries = [];
+  const season = (id, relation, name) => ({
+    id, provider: 'hianime', providerId: id, hianimeId: id, relation, name,
+  });
+  const adapter = {
+    searchAnime: async (query) => [{ id: query.includes('Season 1') ? 'pre-1' : 'seq-2', name: query }],
+    getShowDetails: async (id) => ({
+      id, name: 'Current Show', episodes: ['1'],
+      previousSeason: season('pre-1', 'prequel', 'Current Show Season 1'),
+      nextSeason: season('seq-2', 'sequel', 'Current Show Season 3'),
+      relations: [
+        season('pre-1', 'prequel', 'Current Show Season 1'),
+        season('seq-2', 'sequel', 'Current Show Season 3'),
+      ],
+    }),
+    getShowSummary: async (id) => { summaries.push(id); return { status: 'Finished' }; },
+  };
+  setAniListFetcherForTests(async () => ({
+    ok: true,
+    json: async () => ({ data: { Page: { media: [{
+      id: 777, type: 'ANIME', format: 'TV',
+      title: { romaji: 'Current Show', english: 'Canonical Show', native: null },
+      description: 'AniList synopsis', genres: ['Action'], coverImage: { large: 'https://img.example/cover.jpg' },
+      streamingEpisodes: [{ title: 'Episode 1 - AniList episode name' }],
+      synonyms: [],
+      status: 'RELEASING',
+      startDate: { year: 2022, month: 1, day: 1 },
+      endDate: { year: 2024, month: 1, day: 1 },
+      relations: { edges: [
+        { relationType: 'PREQUEL', node: {
+          id: 101, type: 'ANIME', title: { romaji: 'Current Show Season 1', english: null, native: null }, synonyms: [],
+          status: 'FINISHED', episodes: 12, startDate: { year: 2020, month: 1, day: 1 }, endDate: { year: 2021, month: 1, day: 1 },
+        } },
+        { relationType: 'SEQUEL', node: {
+          id: 103, type: 'ANIME', title: { romaji: 'Current Show Season 3', english: null, native: null }, synonyms: [],
+          status: 'NOT_YET_RELEASED', episodes: null, startDate: { year: 2025, month: 1, day: 1 }, endDate: null,
+        } },
+      ] },
+    }] } } }),
+  }));
+  try {
+    const service = createAnimeProvider({ hianime: adapter });
+    const details = await service.details({}, { id: 'current-2', provider: 'hianime' }, 'sub', { includeRelations: true });
+    assert.equal(details.anilistStatus, 'RELEASING');
+    assert.equal(details.anilistId, 777);
+    assert.equal(details.providerId, 'current-2');
+    assert.equal(details.name, 'Canonical Show');
+    assert.equal(details.description, 'AniList synopsis');
+    assert.deepEqual(details.genres, ['Action']);
+    assert.equal(details.thumbnail, 'https://img.example/cover.jpg');
+    assert.equal(details.episodeTitles['1'], 'AniList episode name');
+    assert.equal(details.anilistAiredStart.year, 2022);
+    assert.equal(details.previousSeason.anilistStatus, 'FINISHED');
+    assert.equal(details.nextSeason.anilistStatus, 'NOT_YET_RELEASED');
+    assert.equal(details.relations.find((item) => item.relation === 'prequel').anilistAiredEnd.year, 2021);
+    assert.equal(details.previousSeason.playable, true);
+    assert.equal(details.nextSeason.id, 'seq-2');
+    assert.deepEqual(summaries, []);
+  } finally {
+    setAniListFetcherForTests(null);
+  }
+});
+
+test('AniList relation type can clear a HiAnime next season label', async () => {
+  setAniListFetcherForTests(async () => ({
+    ok: true,
+    json: async () => ({
+      data: {
+        Page: {
+          media: [{
+            title: { romaji: 'Example', english: null, native: null },
+            synonyms: ['Example Show'],
+            relations: {
+              edges: [{
+                relationType: 'SIDE_STORY',
+                node: {
+                  id: 404,
+                  type: 'ANIME',
+                  title: { romaji: 'Example Side Story', english: null, native: null },
+                  synonyms: ['Example Show OVA'],
+                  startDate: { year: 2022, month: 4, day: 1 },
+                  endDate: { year: 2022, month: 4, day: 1 },
+                },
+              }],
+            },
+          }],
+        },
+      },
+    }),
+  }));
+  try {
+    const next = { id: 'ova', provider: 'hianime', providerId: 'ova', name: 'Example Show OVA', relation: 'sequel' };
+    const service = createAnimeProvider({
+      hianime: {
+        getShowDetails: async (id) => ({
+          id,
+          name: 'Example Show',
+          episodes: ['1'],
+          nextSeason: next,
+          hasNextSeason: true,
+          relations: [next],
+        }),
+      },
+    });
+    const details = await service.details({}, { id: 'example', provider: 'hianime' }, 'sub', { includeRelations: true });
+    assert.equal(details.relations[0].relation, 'related');
+    assert.equal(details.nextSeason, undefined);
+    assert.equal(details.hasNextSeason, false);
+  } finally {
+    setAniListFetcherForTests(null);
+  }
 });
 
 test('details persist a generic catalog mapping beside the library id', async () => {

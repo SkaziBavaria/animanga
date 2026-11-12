@@ -15,6 +15,7 @@ const { syncNow, waitForActiveSync } = require('./lib/sync');
 const { requireAuthentication } = require('./lib/auth');
 const { shutdownJobs } = require('./lib/jobs');
 const { startLibraryRefreshSchedule, stopLibraryRefreshSchedule } = require('./lib/library-refresh');
+const { appLog } = require('./lib/app-log');
 
 ensureDataDir();
 startBackupSchedule();
@@ -22,15 +23,15 @@ startLibraryRefreshSchedule();
 
 // Best-effort provider ID migrations (non-blocking).
 const migrationTimer = setTimeout(() => {
-  migrateLibraries().catch(() => console.warn('[migration] Library migration failed; retry after restart'));
+  migrateLibraries().catch(() => appLog('warn', '[migration] Library migration failed; retry after restart'));
 }, 2_500);
 migrationTimer.unref();
 
 process.on('unhandledRejection', (reason) => {
-  console.error('Unhandled promise rejection:', reason);
+  appLog('error', 'Unhandled promise rejection:', reason);
 });
 process.on('uncaughtException', (error) => {
-  console.error('Uncaught exception:', error);
+  appLog('error', 'Uncaught exception:', error);
   process.exit(1);
 });
 
@@ -60,6 +61,7 @@ function lanAddresses() {
 
 server.listen(PORT, HOST, () => {
   const availableHost = ['0.0.0.0', '::', '127.0.0.1', '::1'].includes(HOST) ? 'localhost' : HOST;
+  appLog('info', `AniManga started on ${HOST}:${PORT}`);
   console.log(`AniManga available at http://${availableHost}:${PORT}`);
   if (HOST === '0.0.0.0' || HOST === '::') {
     if (!fs.existsSync('/.dockerenv')) {
@@ -84,7 +86,7 @@ async function shutdown(signal) {
     process.exit(1);
   }
   shuttingDown = true;
-  console.log(`Received ${signal}; shutting down`);
+  appLog('info', `Received ${signal}; shutting down`);
   clearTimeout(initialSyncTimer);
   clearTimeout(migrationTimer);
   clearInterval(syncTimer);
@@ -102,7 +104,7 @@ async function shutdown(signal) {
   ]);
   clearTimeout(connectionDeadline);
   await closeState();
-  console.log('AniManga stopped cleanly');
+  appLog('info', 'AniManga stopped cleanly');
 }
 
 process.on('SIGTERM', () => shutdown('SIGTERM').catch((error) => {

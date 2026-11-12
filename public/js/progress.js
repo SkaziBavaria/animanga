@@ -1,12 +1,15 @@
 import { api, postBeacon } from './api.js';
 import { state } from './state.js';
+import { positionBelongsToShow } from './util.js';
 
 export function positionKey(showId, episode) {
   return `${showId}:${String(episode || '').trim()}`;
 }
 
-export function positionFor(showId, episode) {
-  return state.positions[positionKey(showId, episode)] || null;
+export function positionFor(showId, episode, providerId = '') {
+  const position = state.positions[positionKey(showId, episode)] || null;
+  if (position && providerId && position.providerId && String(position.providerId) !== String(providerId)) return null;
+  return position;
 }
 
 export function latestPositionForShow(show) {
@@ -16,7 +19,9 @@ export function latestPositionForShow(show) {
     : [];
   const watched = new Set(watchedEpisodes.map(String));
   const entries = Object.values(state.positions || {}).filter((entry) => (
-    entry.showId === showId && !watched.has(String(entry.episode))
+    entry.showId === showId
+    && !watched.has(String(entry.episode))
+    && (typeof show !== 'object' || !show || positionBelongsToShow(show, entry))
   ));
   if (!entries.length) return null;
   return entries.sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0))[0];
@@ -28,7 +33,7 @@ export async function loadProgress() {
   state.mangaPositions = data.mangaPositions || {};
 }
 
-export function saveProgress(showId, episode, position, duration) {
+export function saveProgress(showId, episode, position, duration, providerId = '') {
   if (!showId || !episode) return;
   const key = positionKey(showId, episode);
   const pos = Number(position);
@@ -41,6 +46,7 @@ export function saveProgress(showId, episode, position, duration) {
     const updatedAt = new Date().toISOString();
     state.positions[key] = {
       showId,
+      ...(providerId ? { providerId: String(providerId) } : {}),
       episode: String(episode).trim(),
       position: pos,
       duration: Number.isFinite(dur) && dur > 0 ? dur : null,
@@ -50,7 +56,7 @@ export function saveProgress(showId, episode, position, duration) {
     if (show) show.lastActivityAt = updatedAt;
   }
 
-  postBeacon('/api/progress', { id: showId, episode, position: pos, duration: dur });
+  postBeacon('/api/progress', { id: showId, episode, position: pos, duration: dur, ...(providerId ? { providerId } : {}) });
 }
 
 export function mangaPositionKey(mangaId, chapter) {

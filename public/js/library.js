@@ -20,7 +20,10 @@ function isArchived(show) {
 }
 
 function sequelAlerts(shows) {
-  const tracked = new Set(shows.filter((show) => show.tracked !== false).map((show) => String(show.id)));
+  const tracked = new Set(shows.filter((show) => show.tracked !== false)
+    .flatMap((show) => [show.id, show.providerId, show.hianimeId])
+    .filter(Boolean)
+    .map(String));
   const seen = new Set();
   return shows.flatMap((source) => {
     if (source.sequelAlertsMuted) return [];

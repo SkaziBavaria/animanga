@@ -4,6 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
   parseSearchResults,
+  buildFilterPath,
   parseEpisodes,
   decodeEmbedBlob,
   listSubtitleTracks,
@@ -292,6 +293,20 @@ test('HiAnime details map More Seasons around the current title', () => {
   assert.ok(!details.relations.some((item) => item.id === 'current-cour-2'));
 });
 
+test('HiAnime seasons expose only the immediate previous and next entries', () => {
+  const seasons = ['one-1', 'two-2', 'three-3', 'four-4', 'five-5']
+    .map((slug, index) => `<a href="https://hianime.at/${slug}" class="os-item" title="Season ${index + 1}"><div class="title">Season ${index + 1}</div></a>`)
+    .join('');
+  const html = '<h2 class="film-name">Season Three</h2><div class="film-description"><div class="text">Desc.</div></div>'
+    + `<section><h2>More Seasons</h2><div>${seasons}</div></section>`;
+  const details = parseShowDetails(html, 'three-3');
+  assert.equal(details.previousSeason.id, 'two-2');
+  assert.equal(details.nextSeason.id, 'four-4');
+  assert.deepEqual(details.relations.map((item) => item.id), ['two-2', 'four-4']);
+  assert.deepEqual(details.relations.map((item) => item.relation), ['prequel', 'sequel']);
+  assert.deepEqual(details.relatedShows.map((item) => item.showId), ['two-2', 'four-4']);
+});
+
 test('HiAnime details ignore recommended titles outside related sections', () => {
   const html = '<h2 class="film-name">Solo</h2><div class="film-description"><div class="text">Desc.</div></div>'
     + '<section><h2 class="cat-heading">Recommended</h2><ul><li>'
@@ -300,4 +315,9 @@ test('HiAnime details ignore recommended titles outside related sections', () =>
   const details = parseShowDetails(html, 'solo-1');
   assert.deepEqual(details.relations, []);
   assert.equal(details.nextSeason, undefined);
+});
+
+test('HiAnime filter paths encode search, genre, and release year', () => {
+  assert.equal(buildFilterPath({ query: 'Naruto', genre: 'Slice of Life', year: 2024 }), '/filter?keyword=Naruto&genre=slice-of-life&sy=2024&ey=2024');
+  assert.equal(buildFilterPath({ genre: 'Action & Adventure' }), '/filter?genre=action-and-adventure');
 });

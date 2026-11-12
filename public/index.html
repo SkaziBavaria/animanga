@@ -15,7 +15,7 @@
         <div class="topbar-brand">
           <button id="mediaSwitchBtn" class="brand-switch" type="button" title="Switch to manga" aria-label="Currently showing anime. Switch to manga">
             <img class="brand-logo" src="/animanga-logo.png" alt="AniManga" width="600" height="240">
-            <span id="mediaModeLabel">Anime</span>
+            <span class="media-mode-control" aria-hidden="true"><span id="mediaModeLabel" class="media-mode-current">Anime</span><span class="media-mode-arrow">⇄</span><span id="mediaModeTarget" class="media-mode-target">Manga</span></span>
           </button>
           <p class="brand-status">
             <span id="statusText">Starting...</span>
@@ -84,6 +84,27 @@
                 <label><input type="checkbox" value="Drama">Drama</label>
                 <label><input type="checkbox" value="Fantasy">Fantasy</label>
                 <label><input type="checkbox" value="Horror">Horror</label>
+                <label><input type="checkbox" value="Isekai">Isekai</label>
+                <label><input type="checkbox" value="Mecha">Mecha</label>
+                <label><input type="checkbox" value="School">School</label>
+                <label><input type="checkbox" value="Game">Game</label>
+                <label><input type="checkbox" value="Historical">Historical</label>
+                <label><input type="checkbox" value="Harem">Harem</label>
+                <label><input type="checkbox" value="Military">Military</label>
+                <label><input type="checkbox" value="Music">Music</label>
+                <label><input type="checkbox" value="Reincarnation">Reincarnation</label>
+                <label><input type="checkbox" value="Samurai">Samurai</label>
+                <label><input type="checkbox" value="Time Travel">Time Travel</label>
+                <label><input type="checkbox" value="Vampire">Vampire</label>
+                <label><input type="checkbox" value="Workplace">Workplace</label>
+                <label><input type="checkbox" value="Video Game">Video Game</label>
+                <label><input type="checkbox" value="Martial Arts">Martial Arts</label>
+                <label><input type="checkbox" value="Super Power">Super Power</label>
+                <label><input type="checkbox" value="Demons">Demons</label>
+                <label><input type="checkbox" value="Detective">Detective</label>
+                <label><input type="checkbox" value="Ecchi">Ecchi</label>
+                <label><input type="checkbox" value="Gore">Gore</label>
+                <label><input type="checkbox" value="Girls Love">Girls Love</label>
                 <label><input type="checkbox" value="Josei">Josei</label>
                 <label><input type="checkbox" value="Magic">Magic</label>
                 <label><input type="checkbox" value="Mystery">Mystery</label>
@@ -348,11 +369,19 @@
             <div class="section-head compact">
               <h2>Logs</h2>
               <div class="inline-actions">
-                <button id="jobsBtn" class="small-button" type="button">Fetch</button>
-                <button id="clearJobsBtn" class="small-button danger" type="button">Clear</button>
+                <button id="jobsBtn" class="small-button" type="button">Fetch jobs</button>
+                <button id="clearJobsBtn" class="small-button danger" type="button">Clear jobs</button>
               </div>
             </div>
             <div id="jobsList" class="jobs-list"></div>
+            <div class="section-head compact">
+              <h3>Application logs</h3>
+              <div class="inline-actions">
+                <button id="logsBtn" class="small-button" type="button">Fetch logs</button>
+                <button id="clearLogsBtn" class="small-button danger" type="button">Clear logs</button>
+              </div>
+            </div>
+            <div id="appLogsList" class="jobs-list"></div>
           </details>
         </section>
       </main>
@@ -529,6 +558,6 @@
     </dialog>
 
     <div id="toast" class="toast" role="status" aria-live="polite" popover="manual"></div>
-    <script type="module" src="/js/app.js?v=20260916-5"></script>
+    <script type="module" src="/js/app.js?v=20261109-1"></script>
   </body>
 </html>

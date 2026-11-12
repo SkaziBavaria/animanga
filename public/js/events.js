@@ -9,7 +9,7 @@ import {
   bindDownloadControls,
 } from './downloads.js';
 import { openEpisodes, playShow, bindEpisodeDialog, toggleEpisodeWatched } from './episodes.js';
-import { loadJobs, clearJobs } from './jobs.js';
+import { loadJobs, clearJobs, loadLogs, clearLogs } from './jobs.js';
 import { dismissSequel, loadLibrary, renderLibrary, restoreSequel, setSequelAlertsMuted, trackShow, removeShow, setShowArchived, updateShowMode, matchCatalogTitle } from './library.js';
 import { loadMangaLibrary } from './manga.js';
 import { bindPlayerDialog } from './playback.js';
@@ -154,6 +154,10 @@ function bindReleaseWatches() {
     const card = button.closest('.watch-card');
     const watch = state.releaseWatches.find((item) => item.id === card?.dataset.watchId);
     if (!watch) return;
+    if (button.dataset.action === 'watch-details' && watch.matchedShow) {
+      await runAction(button, 'Fetching...', () => openDetails(watch.matchedShow));
+      return;
+    }
     if (button.dataset.action === 'delete-watch') {
       await runAction(button, 'Removing...', () => deleteReleaseWatch(watch.id));
     }
@@ -240,6 +244,8 @@ function bindDiscoverControls() {
 function bindJobsControls() {
   els.jobsBtn.addEventListener('click', () => loadJobs().catch((err) => toast(err.message)));
   els.clearJobsBtn.addEventListener('click', () => clearJobs().catch((err) => toast(err.message)));
+  els.logsBtn.addEventListener('click', () => loadLogs().catch((err) => toast(err.message)));
+  els.clearLogsBtn.addEventListener('click', () => clearLogs().catch((err) => toast(err.message)));
 }
 
 function bindForms() {

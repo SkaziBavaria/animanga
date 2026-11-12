@@ -10,6 +10,14 @@ async function loadUtil() {
   return import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
 }
 
+test('airedYearRange formats start and end years and falls back to the start year', async () => {
+  const { airedYearRange } = await loadUtil();
+  assert.equal(airedYearRange({ airedStart: { year: 2021 }, airedEnd: { year: 2022 } }), '2021\u20132022');
+  assert.equal(airedYearRange({ airedStart: { year: 2026 } }), '2026');
+  assert.equal(airedYearRange({ season: { year: 2024 } }), '2024');
+  assert.equal(airedYearRange({}), '');
+});
+
 test('nextEpisode remaps leftover absolute watch history onto the current season', async () => {
   const { nextEpisode, presentAnimeCard } = await loadUtil();
   const show = {
@@ -22,6 +30,16 @@ test('nextEpisode remaps leftover absolute watch history onto the current season
   };
   assert.equal(nextEpisode(show), '18');
   assert.equal(presentAnimeCard(show).lastWatched, '17');
+});
+
+test('episodeExistsInShow rejects stale resume positions outside the current season', async () => {
+  const { episodeExistsInShow, positionBelongsToShow } = await loadUtil();
+  const show = { episodes: Array.from({ length: 11 }, (_, index) => String(index + 1)) };
+  assert.equal(episodeExistsInShow(show, '11'), true);
+  assert.equal(episodeExistsInShow(show, '16'), false);
+  assert.equal(episodeExistsInShow({}, '16'), true);
+  assert.equal(positionBelongsToShow({ providerId: 'hianime-new', episodes: ['1', '2'] }, { providerId: 'hianime-old', episode: '1' }), false);
+  assert.equal(positionBelongsToShow({ providerId: 'hianime-new', episodes: ['1', '2'] }, { providerId: 'hianime-new', episode: '2' }), true);
 });
 
 test('nextEpisode skips watched episodes and finds a later unwatched episode', async () => {
@@ -108,35 +126,44 @@ test('releasePills labels finished, ongoing, cancelled, and announced clearly', 
   const dash = '\u2013';
   const dot = '\u00b7';
   assert.deepEqual(releasePills({
-    status: 'Finished',
-    airedStart: { year: 2015, month: 6, date: 5 },
-    airedEnd: { year: 2018, month: 2, date: 25 },
+    anilistStatus: 'FINISHED',
+    anilistAiredStart: { year: 2015, month: 6, date: 5 },
+    anilistAiredEnd: { year: 2018, month: 2, date: 25 },
   }), [`2015${dash}2018 ${dot} Finished`]);
   assert.deepEqual(releasePills({
-    status: 'Releasing',
-    airedStart: { year: 2024, month: 0, date: 1 },
+    anilistStatus: 'RELEASING',
+    anilistAiredStart: { year: 2024, month: 0, date: 1 },
   }), ['Ongoing since 2024']);
   assert.deepEqual(releasePills({
-    status: 'Cancelled',
-    airedStart: { year: 2021, month: 0, date: 1 },
+    anilistStatus: 'CANCELLED',
+    anilistAiredStart: { year: 2021, month: 0, date: 1 },
   }), [`2021 ${dot} Cancelled`]);
   assert.deepEqual(releasePills({
-    status: 'Not Yet Released',
-    airedStart: { year: 2027, month: 0, date: 1 },
+    anilistStatus: 'NOT_YET_RELEASED',
+    anilistAiredStart: { year: 2027, month: 0, date: 1 },
   }), [`Announced ${dot} 2027`]);
   assert.deepEqual(releasePills({
-    status: 'Hiatus',
-    airedStart: { year: 2020, month: 0, date: 1 },
+    anilistStatus: 'HIATUS',
+    anilistAiredStart: { year: 2020, month: 0, date: 1 },
   }), [`Hiatus ${dot} since 2020`]);
   assert.deepEqual(releasePills({
-    status: 'Currently Airing',
-    airedStart: { year: 2026, month: 6, date: 25 },
+    anilistStatus: 'RELEASING',
+    anilistAiredStart: { year: 2026, month: 6, date: 25 },
   }), ['Ongoing since 2026']);
   assert.deepEqual(releasePills({
-    status: 'Finished Airing',
-    airedStart: { year: 2013, month: 3, date: 9 },
-    airedEnd: { year: 2014, month: 8, date: 14 },
+    anilistStatus: 'FINISHED',
+    anilistAiredStart: { year: 2013, month: 3, date: 9 },
+    anilistAiredEnd: { year: 2014, month: 8, date: 14 },
   }), [`2013${dash}2014 ${dot} Finished`]);
+  assert.deepEqual(releasePills({ status: 'Finished', airedStart: { year: 2001 }, airedEnd: { year: 2002 } }), [`2001${dash}2002 ${dot} Finished`]);
+});
+
+test('a future start date takes precedence over a stale finished status', async () => {
+  const { releasePills } = await loadUtil();
+  assert.deepEqual(releasePills({
+    status: 'Finished Airing',
+    airedStart: { year: new Date().getFullYear() + 1, month: 0, date: 1 },
+  }), ['Announced · ' + (new Date().getFullYear() + 1)]);
 });
 
 test('compareNewestActivity keeps the latest activity at the front', async () => {

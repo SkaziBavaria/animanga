@@ -40,7 +40,8 @@ function progressLabel(show, source) {
 }
 
 function infoPills(show) {
-  return show.score ? [`Score ${show.score}`] : [];
+  const year = Number(show.airedStart?.year || show.season?.year || show.year) || null;
+  return [year ? String(year) : '', show.score ? `Score ${show.score}` : '', show.rating || '', show.type || ''].filter(Boolean);
 }
 
 function modeSelector(show) {
@@ -93,7 +94,9 @@ export function showCard(show, source) {
   const isTracked = source !== 'library' && state.library.some((item) => item.id === show.id);
   const schedulePills = releasePills(show);
   const showStatus = String(show.status || '').toLowerCase();
-  const isUpcoming = showStatus.includes('not yet') || showStatus.includes('upcoming');
+  const isUpcoming = showStatus.includes('not yet') || showStatus.includes('upcoming')
+    || schedulePills[0]?.startsWith('Announced')
+    || String(show.anilistStatus || '').toUpperCase() === 'NOT_YET_RELEASED';
   const extraActions = source === 'library'
     ? `${show.archived
       ? '<button class="secondary" data-action="unarchive">Unarchive</button>'
@@ -152,7 +155,9 @@ export function sequelAlertCard(alert) {
         </div>
       </div>
       <div class="card-actions three">
-        <button class="primary" data-action="track-sequel">Track sequel</button>
+        ${show.playable
+          ? '<button class="primary" data-action="track-sequel">Track sequel</button>'
+          : '<button class="secondary" type="button" disabled title="This title is not available on HiAnime">Not available</button>'}
         <button class="secondary" data-action="details">About</button>
         <button class="secondary" data-action="dismiss-sequel" data-source-id="${escapeHtml(alert.source.id)}">Dismiss</button>
         <button class="secondary subtle" data-action="mute-sequels" data-source-id="${escapeHtml(alert.source.id)}">Stop sequel alerts</button>

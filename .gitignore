@@ -6,3 +6,5 @@ playwright-report/
 tests/.tmp-data/
 PATCHES.md
 AGENTS.md
+.env.npm
+/.npmrc

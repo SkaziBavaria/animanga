@@ -127,6 +127,16 @@ export function alignWatchedEpisodesToList(watched, episodes) {
   return [...new Set([...inside, ...remapped])].sort((left, right) => Number(left) - Number(right) || String(left).localeCompare(String(right)));
 }
 
+export function episodeExistsInShow(show, episode) {
+  const episodes = Array.isArray(show?.episodes) ? show.episodes.map(String) : [];
+  return !episodes.length || episodes.includes(String(episode));
+}
+
+export function positionBelongsToShow(show, position) {
+  if (show?.providerId && position?.providerId && String(show.providerId) !== String(position.providerId)) return false;
+  return episodeExistsInShow(show, position?.episode);
+}
+
 export function nextEpisode(show) {
   const list = episodeListForWatchAlignment(show);
   const watched = new Set(alignWatchedEpisodesToList(show.watchedEpisodes, list).map(String));
@@ -261,6 +271,20 @@ export function dateFromAllAnimeDate(value) {
   return new Date(year, month, date, hour, minute, second);
 }
 
+export function airedYearRange(show) {
+  const start = Number(show?.airedStart?.year || show?.season?.year || show?.year) || null;
+  const end = Number(show?.airedEnd?.year) || null;
+  if (!start) return '';
+  return end && end !== start ? `${start}\u2013${end}` : String(start);
+}
+
+export function anilistAiredYearRange(show) {
+  const start = Number(show?.anilistAiredStart?.year) || null;
+  const end = Number(show?.anilistAiredEnd?.year) || null;
+  if (!start) return '';
+  return end && end !== start ? `${start}\u2013${end}` : String(start);
+}
+
 export function dateFromUnixSeconds(value) {
   const seconds = Number(value);
   return Number.isFinite(seconds) && seconds > 0 ? new Date(seconds * 1000) : null;
@@ -284,45 +308,35 @@ export function dateFromIso(value) {
 
 export function releasePills(show) {
   const pills = [];
-  const status = String(show.status || '').toLowerCase();
+  const rawStatus = String(show.anilistStatus || show.status || '').toUpperCase();
+  const status = rawStatus.replace(/[ -]+/g, '_');
   const startDate = dateFromAllAnimeDate(show.airedStart);
   const endDate = dateFromAllAnimeDate(show.airedEnd)
     || dateFromUnixSeconds(show.lastEpisodeTimestamp)
     || dateFromAllAnimeDate(show.lastEpisodeDate);
-  const startYear = startDate?.getFullYear() || Number(show.season?.year) || null;
-  const endYear = endDate?.getFullYear() || null;
-  const finished = /\bfinished\b|\bcompleted\b/.test(status);
-  const upcoming = status.includes('not yet') || status.includes('upcoming');
-  const releasing = !finished && !upcoming && (
-    status.includes('releasing')
-    || status.includes('ongoing')
-    || status.includes('currently airing')
-  );
-  const hiatus = status.includes('hiatus');
-  const cancelled = status.includes('cancel') || status.includes('discontinu');
-
-  if (upcoming) {
-    pills.push(startYear ? `Announced · ${startYear}` : 'Announced');
-  } else if (cancelled) {
-    const years = startYear
-      ? `${startYear}${endYear && endYear !== startYear ? `–${endYear}` : ''} · `
-      : '';
+  const startYear = Number(show.anilistAiredStart?.year || show.airedStart?.year || show.season?.year) || startDate?.getFullYear() || null;
+  const endYear = Number(show.anilistAiredEnd?.year || show.airedEnd?.year) || endDate?.getFullYear() || null;
+  const startsInFuture = Number(show.airedStart?.year) > new Date().getFullYear()
+    || Number(show.season?.year) > new Date().getFullYear();
+  if (status === 'NOT_YET_RELEASED' || startsInFuture) {
+    pills.push(startYear ? `Announced \u00b7 ${startYear}` : 'Announced');
+  } else if (status === 'CANCELLED') {
+    const years = startYear ? `${startYear}${endYear && endYear !== startYear ? `\u2013${endYear}` : ''} \u00b7 ` : '';
     pills.push(`${years}Cancelled`);
-  } else if (hiatus) {
-    pills.push(startYear ? `Hiatus · since ${startYear}` : 'Hiatus');
-  } else if (finished || (!releasing && show.airedEnd)) {
-    if (startYear) pills.push(`${startYear}–${endYear || startYear} · Finished`);
+  } else if (status === 'HIATUS') {
+    pills.push(startYear ? `Hiatus \u00b7 since ${startYear}` : 'Hiatus');
+  } else if (status === 'FINISHED') {
+    if (startYear) pills.push(`${startYear}\u2013${endYear || startYear} \u00b7 Finished`);
     else pills.push('Finished');
-  } else if (releasing || startYear) {
+  } else if (status === 'RELEASING' || status === 'ONGOING' || status === 'CURRENTLY_AIRING') {
     pills.push(startYear ? `Ongoing since ${startYear}` : 'Ongoing');
   }
-
   const next = show.nextAiringEpisode;
   const nextDate = dateFromUnixSeconds(next?.airingAt || next?.airingAtUnix || next?.time);
   if (nextDate) {
     const ep = next?.episode ? `Ep ${next.episode}` : 'Next ep';
     pills.push(`${ep} ${formatShortDateTime(nextDate)}`);
-  } else if (releasing) {
+  } else if (status === 'RELEASING' || status === 'ONGOING' || status === 'CURRENTLY_AIRING') {
     const lastTimestamp = Number(show.lastEpisodeTimestamp);
     const rawInterval = Number(show.broadcastInterval);
     const intervalMs = rawInterval > 0 && rawInterval < 10_000_000 ? rawInterval * 1000 : rawInterval;
