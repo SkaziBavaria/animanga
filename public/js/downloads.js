@@ -150,9 +150,13 @@ async function refreshDownloadViews() {
 
 export async function loadDownloads() {
   const data = await api('/api/downloads');
-  state.downloads = data.downloads || {};
-  state.offlineMangaDownloads = data.mangaDownloads || [];
-  await refreshDownloadViews();
+  const downloads = data.downloads || {};
+  const mangaDownloads = data.mangaDownloads || [];
+  const changed = JSON.stringify(state.downloads || {}) !== JSON.stringify(downloads)
+    || JSON.stringify(state.offlineMangaDownloads || []) !== JSON.stringify(mangaDownloads);
+  state.downloads = downloads;
+  state.offlineMangaDownloads = mangaDownloads;
+  if (changed) await refreshDownloadViews();
   scheduleDownloadsPoll();
 }
 

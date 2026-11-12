@@ -155,7 +155,7 @@ test('releasePills labels finished, ongoing, cancelled, and announced clearly', 
     anilistAiredStart: { year: 2013, month: 3, date: 9 },
     anilistAiredEnd: { year: 2014, month: 8, date: 14 },
   }), [`2013${dash}2014 ${dot} Finished`]);
-  assert.deepEqual(releasePills({ status: 'Finished', airedStart: { year: 2001 }, airedEnd: { year: 2002 } }), []);
+  assert.deepEqual(releasePills({ status: 'Finished', airedStart: { year: 2001 }, airedEnd: { year: 2002 } }), [`2001${dash}2002 ${dot} Finished`]);
 });
 
 test('a future start date takes precedence over a stale finished status', async () => {

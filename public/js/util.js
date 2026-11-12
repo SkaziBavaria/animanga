@@ -308,9 +308,14 @@ export function dateFromIso(value) {
 
 export function releasePills(show) {
   const pills = [];
-  const status = String(show.anilistStatus || '').toUpperCase();
-  const startYear = Number(show.anilistAiredStart?.year || show.airedStart?.year || show.season?.year) || null;
-  const endYear = Number(show.anilistAiredEnd?.year || show.airedEnd?.year) || null;
+  const rawStatus = String(show.anilistStatus || show.status || '').toUpperCase();
+  const status = rawStatus.replace(/[ -]+/g, '_');
+  const startDate = dateFromAllAnimeDate(show.airedStart);
+  const endDate = dateFromAllAnimeDate(show.airedEnd)
+    || dateFromUnixSeconds(show.lastEpisodeTimestamp)
+    || dateFromAllAnimeDate(show.lastEpisodeDate);
+  const startYear = Number(show.anilistAiredStart?.year || show.airedStart?.year || show.season?.year) || startDate?.getFullYear() || null;
+  const endYear = Number(show.anilistAiredEnd?.year || show.airedEnd?.year) || endDate?.getFullYear() || null;
   const startsInFuture = Number(show.airedStart?.year) > new Date().getFullYear()
     || Number(show.season?.year) > new Date().getFullYear();
   if (status === 'NOT_YET_RELEASED' || startsInFuture) {
@@ -323,7 +328,7 @@ export function releasePills(show) {
   } else if (status === 'FINISHED') {
     if (startYear) pills.push(`${startYear}\u2013${endYear || startYear} \u00b7 Finished`);
     else pills.push('Finished');
-  } else if (status === 'RELEASING') {
+  } else if (status === 'RELEASING' || status === 'ONGOING' || status === 'CURRENTLY_AIRING') {
     pills.push(startYear ? `Ongoing since ${startYear}` : 'Ongoing');
   }
   const next = show.nextAiringEpisode;
@@ -331,6 +336,19 @@ export function releasePills(show) {
   if (nextDate) {
     const ep = next?.episode ? `Ep ${next.episode}` : 'Next ep';
     pills.push(`${ep} ${formatShortDateTime(nextDate)}`);
+  } else if (status === 'RELEASING' || status === 'ONGOING' || status === 'CURRENTLY_AIRING') {
+    const lastTimestamp = Number(show.lastEpisodeTimestamp);
+    const rawInterval = Number(show.broadcastInterval);
+    const intervalMs = rawInterval > 0 && rawInterval < 10_000_000 ? rawInterval * 1000 : rawInterval;
+    const expectedDate = Number.isFinite(lastTimestamp) && lastTimestamp > 0
+      && Number.isFinite(intervalMs) && intervalMs > 0
+      ? new Date((lastTimestamp * 1000) + intervalMs)
+      : null;
+    if (expectedDate && expectedDate.getTime() > Date.now()) {
+      const latestEpisode = Number(show.latestEpisode || show.episodeCount);
+      const episode = Number.isFinite(latestEpisode) && latestEpisode > 0 ? ` ep ${latestEpisode + 1}` : '';
+      pills.push(`Expected${episode} ${formatShortDateTime(expectedDate)}`);
+    }
   }
   return pills;
 }
